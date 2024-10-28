@@ -3,10 +3,11 @@
 
 #include "NESEmulator.h"
 
-using namespace std;
+using ::std::cout;
+using ::std::endl;
 
-int main()
-{
+int main() {
+
 	cout << "Hello CMake." << endl;
 	return 0;
 }
