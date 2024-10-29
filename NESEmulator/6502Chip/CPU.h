@@ -4,11 +4,9 @@
 #include <array>
 
 #include "../databus/databus.h"
+#include "../instructions/instructions.h"
 
 constexpr int numOfInstructions = 1;
-
-// A cycle operation is an operation an instruction performs per cycle.
-typedef void (*CycleOperation)(Registers& registers, DataBus* databus);
 
 struct Registers {
 	uint8_t accumulator;
@@ -18,29 +16,53 @@ struct Registers {
 	uint8_t Xindex;
 	uint8_t Yindex;
 
-	inline bool getStatus(const char* status) {
-		uint8_t statusMask = 0b0000000;
-		if (status == "negative") {
-			statusMask = 0b1;
-		}
-		else if (status == "overflow") {
-			statusMask = 0b10;
-		}
-		else if (status == "break") {
-			statusMask = 0b100;
-		}
-		else if (status == "interrupt disable") {
-			statusMask = 0b1000;
-		}
-		else if (status == "zero") {
-			statusMask = 0b10000;
-		}
-		else if (status == "carry") {
-			statusMask = 0b100000;
-		}
+	Registers() :
+		accumulator(0),
+		status(0),
+		programCounter(0),
+		stackPtr(0),
+		Xindex(0),
+		Yindex(0)
+	{};
 
+	inline bool getStatus(const char status) {
+		uint8_t statusMask = this->getStatusMask(status);
 		return (statusMask & this->status);
 	}
+
+	inline void setStatus(const char status, bool value) {
+		uint8_t statusMask = this->getStatusMask(status);
+		if (value) {
+			this->status |= statusMask;
+		} else {
+			this->status &= ~statusMask;
+		}
+	}
+
+private:
+	inline uint8_t getStatusMask(const char status) {
+		uint8_t statusMask = 0b0000000;
+		if (status == 'N') {
+			statusMask = 0b1;
+		}
+		else if (status == 'V') {
+			statusMask = 0b10;
+		}
+		else if (status == 'B') {
+			statusMask = 0b100;
+		}
+		else if (status == 'I') {
+			statusMask = 0b1000;
+		}
+		else if (status == 'Z') {
+			statusMask = 0b10000;
+		}
+		else if (status == 'C') {
+			statusMask = 0b100000;
+		}
+		return statusMask;
+	}
+	
 };
 
 enum AddressingModes {
@@ -59,28 +81,6 @@ enum AddressingModes {
 	INDIRECT_Y
 };
 
-// An opcode which fetches data every cycle or performs an operation.
-struct Instruction {
-	// Array of pointers to sub operations which it performs in order.
-	std::vector<CycleOperation> cycleOperations;
-
-	// Size of the instruction in bytes; instructions are made up of different bytes.
-	int instructionSize;
-	int numOfCycles;
-
-	AddressingModes addressingMode;
-
-	Instruction() {}
-	Instruction(std::vector<CycleOperation> cycleOperations, AddressingModes addressingMode, int instructionSize) {
-		this->cycleOperations = cycleOperations;
-		this->instructionSize = instructionSize;
-		this->numOfCycles = this->cycleOperations.size();
-		this->addressingMode = addressingMode;
-	}
-
-	~Instruction() {}
-};
-
 class _6502_CPU {
 public:
 	_6502_CPU();
@@ -90,11 +90,7 @@ public:
 
 private:
 
-	Instruction* decodeOpcode(uint8_t opcode);
-
-	std::array<Instruction, 1> instructions;	
-	Instruction* currentInstruction;
-
+	std::array<Instruction, numOfInstructions> instructionSet;
 	Registers registers;
 	DataBus* databus;
 
