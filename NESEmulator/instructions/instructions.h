@@ -29,8 +29,17 @@ struct Instruction {
 	~Instruction() {};
 };
 
+namespace flagOps {
+	bool isSignBitIncorrect(uint8_t aBefore, uint8_t sum, uint8_t data);
+	bool isBit7Set(uint8_t byte);
+	bool isOverflow(uint8_t a, uint8_t data, bool c);
+	bool isUnderflow(uint8_t a, uint8_t data, bool c);
+};
+
 namespace operations {
 	void ADC(Registers& registers, uint8_t data);
+	void AND(Registers& registers, uint8_t data);
+	void ASL(Registers& registers, uint8_t data);
 };
 
 namespace addressingOperations {
@@ -49,6 +58,7 @@ namespace addressingOperations {
 	uint8_t zeropage(DataBus& databus, Registers& registers);  // STX $32
 	uint8_t zeropageX(DataBus& databus, Registers& registers);  // STY $32,X
 	uint8_t zeropageY(DataBus& databus, Registers& registers);  // LDX $10,Y
+	uint8_t relative(DataBus& databus, Registers& registers);  // BNE *+4 
 	uint8_t absolute(DataBus& databus, Registers& registers);  // JMP $1234
 	uint8_t absoluteX(DataBus& databus, Registers& registers);  // STA $3000,X
 	uint8_t absoluteY(DataBus& databus, Registers& registers);  // AND $4000,Y

@@ -1,6 +1,40 @@
 #include "instructions.h"
 #include "../6502Chip/CPU.h"
 
+namespace flagOps {
+    // a = accumulatr; c = carry flag.
+    bool isSignBitIncorrect(uint8_t aBefore, uint8_t sum, uint8_t data) {
+        // While xor affects all bits, we only care about bit 7 (the signed bit).
+        // The inner parentheses check if the sign has changed (via xor-ing).
+        // The & between the two check if the sign has changed for both the accumulator and the data value.
+        // This also has the effect of checking if the accumulator and the data were of the same sign.
+        // The final & with 0b10000000 is to filter out all bits but the 7th.
+        return ((aBefore ^ sum) & (data ^ sum)) & 0b10000000;
+    }
+
+    bool isBit7Set(uint8_t byte) {
+        return 0b10000000 & byte;
+    }
+
+    bool isOverflow(uint8_t a, uint8_t data, bool c) {
+        // Note that overflow occurs when: a + data + c > 255; a > 255 - (data + c)
+        // Since attempting to add the two would result in an overflow
+        // Into a value under 255, we subtract instead to avoid that.
+        // There is a chance for data + c to overflow itself; catch this case and return
+        // the overflow.
+        const uint8_t MAX_UINT8 = 255;
+        return (data > MAX_UINT8 - c) || (a > MAX_UINT8 - (data + c));
+    }
+
+    bool isUnderflow(uint8_t a, uint8_t data, bool c) {
+        // a - data - (1 - c) < 0; a - 1 + c < data
+        // Again, we can't compare directly as an underflow will occur.
+        // So we rearrange the inequality.
+        // First, check for the edge case where a is less than 1 - c.
+        return (a < 1 - c) || (a - 1 + c < data);
+    }
+}
+
 namespace addressingOperations {
     uint8_t immediate(DataBus& databus, Registers& registers) {
         // The value after the opcode is treated as data and not an address.
@@ -31,6 +65,11 @@ namespace addressingOperations {
         // Indexes 0x00LL + Y; zeropage takes fewer cycles than other addressing modes.
         uint16_t address = static_cast<uint16_t>(databus.read(registers.PC + 1));
         return databus.read(address + registers.Y);
+    }
+    uint8_t relative(DataBus& databus, Registers& registers) {
+        // The offset is a signed byte
+        int8_t offset = databus.read(registers.PC + 1);
+        return databus.read(registers.PC + offset);
     }
     uint8_t absolute(DataBus& databus, Registers& registers) {
         // The NES is a little-endian machine, meaning the FIRST byte read takes up the LOWER 8 bits.
@@ -104,17 +143,19 @@ namespace addressingOperations {
     }
 }
 
-/* void ADC
-    Adds the given data to the accumulator.
+namespace operations {
+    /* void ADC
+    Adds the given data and the carry to the accumulator.
 
     Flags Affected:
      - C: if overflow in bit 7.
      - Z: if the accumulator = 0.
-     - V: if the sign bit is incorrect
+     - V: if the sign bit is incorrect;
+     i.e. if adding two unsigned numbers results in a negative number
      - N: if bit 7 is set.
 
     Addressing Modes:
-     - Immediate: 2 Bytes, 2 Cycles
+     - Immediate: $69, 2 Bytes, 2 Cycles
      - Zero Page: $65, 2 Bytes, 3 Cycles
      - Zero Page,X: $75, 2 Bytes, 4 Cycles
      - Absolute: $6D, 3 Bytes, 4 Cycles
@@ -122,25 +163,58 @@ namespace addressingOperations {
      - Absolute,Y: $79, 3 Bytes, 4 Cycles (+1 if page crossed)
      - (Indirect,X): $61, 2 Bytes, 6 Cycles
      - (Indirect),Y: $71, 2 Bytes, 5 Cycles (+1 if page crossed)
-
-    TODO:
-     Implement C and V flaggings.
-*/
-namespace operations {
+    */
     void ADC(Registers& registers, uint8_t data) {
-        registers.A += data;
-        if (0b10000000 & registers.A) {
-            registers.setStatus('N', true);
-        }
-        else {
-            registers.setStatus('N', false);
-        }
+        uint8_t accumulatorPreOp = registers.A;
+        registers.A += data + registers.getStatus('C');
 
-        if (registers.A == 0) {
-            registers.setStatus('Z', true);
-        }
-        else {
-            registers.setStatus('Z', false);
-        }
+        registers.setStatus('N', 0b10000000 & registers.A);
+        registers.setStatus('Z', registers.A == 0);
+        registers.setStatus('V', flagOps::isSignBitIncorrect(accumulatorPreOp, registers.A, data));
+        // This one checks if we overflowed the accumulator
+        registers.setStatus('C', flagOps::isOverflow(accumulatorPreOp, data, registers.getStatus('C')));
+    }
+    /* void AND
+    Performs bitwise AND on accumulator and data.
+
+    Flags Affected:
+     - Z: set if the accumulator = 0.
+     - N: set if bit 7 is set.
+
+    Addressing Modes:
+     - Immediate: $29, 2 Bytes, 2 Cycles
+     - Zero Page: $25, 2 Bytes, 3 Cycles
+     - Zero Page,X: $35, 2 Bytes, 4 Cycles
+     - Absolute: $2D, 3 Bytes, 4 Cycles
+     - Absolute,X: $3D, 3 Bytes, 4 Cycles (+1 if page crossed)
+     - Absolute,Y: $39, 3 Bytes, 4 Cycles (+1 if page crossed)
+     - (Indirect,X): $21, 2 Bytes, 6 Cycles
+     - (Indirect),Y: $31, 2 Bytes, 5 Cycles (+1 if page crossed)
+    */
+    void AND(Registers& registers, uint8_t data) {
+        registers.A &= data;
+        registers.setStatus('N', flagOps::isBit7Set(registers.A));
+        registers.setStatus('Z', registers.A == 0);
+    }
+    /* void ASL
+    Performs a shift left.
+    
+    Flags Affected:
+     - C: set to value of old bit 7
+     - Z: set if A = 0
+     - N: set to value of new bit 7
+
+    Addressing Modes:
+     - Accumulator: $0A, 1 Bytes, 2 Cycles
+     - Zero Page: $65, 2 Bytes, 5 Cycles
+     - Zero Page,X: $75, 2 Bytes, 6 Cycles
+     - Absolute: $6D, 3 Bytes, 6 Cycles
+     - Absolute,X: $7D, 3 Bytes, 7 Cycles
+    */
+    void ASL(Registers& registers, uint8_t data) {
+        registers.setStatus('C', flagOps::isBit7Set(registers.A));
+        registers.A = data << 1;
+        registers.setStatus('N', flagOps::isBit7Set(registers.A));
+        registers.setStatus('Z', registers.A == 0);
     }
 }

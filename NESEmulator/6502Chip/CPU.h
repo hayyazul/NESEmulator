@@ -11,6 +11,7 @@
 
 constexpr int numOfInstructions = 1;
 
+// NOTE: Might replace get/set status with bool values.
 struct Registers {
 	uint8_t A;  // Accumulator
 	uint8_t S;  // Status (NV1BDIZC; see getStatusMask for what these letters mean)

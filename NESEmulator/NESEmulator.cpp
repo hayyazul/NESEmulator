@@ -14,8 +14,11 @@ using ::std::endl;
 //  - Add the rest of the instructions.
 
 int main() {
-	_6502_CPU cpu;
-	cpu.executeCycle();
+	uint8_t a = 240;
+	int8_t b = a;
+	cout << "Value: " << (int)b << endl;
+	//_6502_CPU cpu;
+	//cpu.executeCycle();
 
 	return 0;
 }
