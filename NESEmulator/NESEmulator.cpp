@@ -7,10 +7,15 @@
 using ::std::cout;
 using ::std::endl;
 
+// TODO: 
+//  - Add a few other instructions.
+//  - Add RAM module.
+//  - Implement databus.
+//  - Add the rest of the instructions.
+
 int main() {
 	_6502_CPU cpu;
 	cpu.executeCycle();
 
-	cout << "Hello CMake." << endl;
 	return 0;
 }

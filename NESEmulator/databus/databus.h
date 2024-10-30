@@ -1,3 +1,5 @@
+// databus.h : A middleman between the CPU and memory. 
+// Provides an interface to read and write memory.
 #pragma once
 #include <cstdint>
 

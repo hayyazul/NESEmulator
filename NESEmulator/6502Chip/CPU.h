@@ -1,3 +1,6 @@
+// CPU.h : Emulates the Ricoh 6502 CPU at the instruction level
+// (the number of cycles is still taken into account during execution).
+
 #pragma once
 #include <cstdint>
 #include <vector>
@@ -9,55 +12,56 @@
 constexpr int numOfInstructions = 1;
 
 struct Registers {
-	uint8_t accumulator;
-	uint8_t status;
-	uint16_t programCounter;
-	uint8_t stackPtr;
-	uint8_t Xindex;
-	uint8_t Yindex;
+	uint8_t A;  // Accumulator
+	uint8_t S;  // Status (NV1BDIZC; see getStatusMask for what these letters mean)
+	uint16_t PC;  // Program Counter
+	uint8_t SP;  // Stack pointer
+	uint8_t X;  // X index 
+	uint8_t Y;
 
 	Registers() :
-		accumulator(0),
-		status(0),
-		programCounter(0),
-		stackPtr(0),
-		Xindex(0),
-		Yindex(0)
+		A(0),
+		S(0),
+		PC(0),
+		SP(0),
+		X(0),
+		Y(0)
 	{};
 
 	inline bool getStatus(const char status) {
 		uint8_t statusMask = this->getStatusMask(status);
-		return (statusMask & this->status);
+		return (statusMask & this->S);
 	}
 
 	inline void setStatus(const char status, bool value) {
 		uint8_t statusMask = this->getStatusMask(status);
 		if (value) {
-			this->status |= statusMask;
+			this->S |= statusMask;
 		} else {
-			this->status &= ~statusMask;
+			this->S &= ~statusMask;
 		}
 	}
 
 private:
 	inline uint8_t getStatusMask(const char status) {
+		// See NESdev for implementation details.
 		uint8_t statusMask = 0b0000000;
-		if (status == 'N') {
+		if (status == 'N') {  // Negative flag
 			statusMask = 0b1;
 		}
-		else if (status == 'V') {
+		else if (status == 'V') {  // oVerflow flag
 			statusMask = 0b10;
 		}
-		else if (status == 'B') {
+		else if (status == 'B') {  // B flag (see NESdev for more info)
 			statusMask = 0b100;
 		}
-		else if (status == 'I') {
+		else if (status == 'I') {  // Interrupt disable (see NESdev for more info)
 			statusMask = 0b1000;
 		}
-		else if (status == 'Z') {
+		else if (status == 'Z') {  // Zero flag
 			statusMask = 0b10000;
 		}
-		else if (status == 'C') {
+		else if (status == 'C') {  // Carry flag
 			statusMask = 0b100000;
 		}
 		return statusMask;
@@ -65,6 +69,7 @@ private:
 	
 };
 
+// TODO: Move this enum to a more appropriate header.
 enum AddressingModes {
 	IMPLICIT,
 	ACCUMULATOR,
