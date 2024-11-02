@@ -1,24 +1,14 @@
-﻿// NESEmulator.cpp : Defines the entry point for the application.
-//
+﻿#include "NESEmulator.h"
 
-#include "NESEmulator.h"
-#include "6502Chip/CPU.h"
+NES::NES() {
+	this->databus = DataBus(&this->memory);
+	this->CPU = _6502_CPU(&this->databus);
+}
 
-using ::std::cout;
-using ::std::endl;
+NES::~NES() {
+	this->memory.~Memory();  // This deletes the 65kb allocated for it.
+}
 
-// TODO: 
-//  - Add a few other instructions.
-//  - Add RAM module.
-//  - Implement databus.
-//  - Add the rest of the instructions.
-
-int main() {
-	uint8_t a = 240;
-	int8_t b = a;
-	cout << "Value: " << (int)b << endl;
-	//_6502_CPU cpu;
-	//cpu.executeCycle();
-
-	return 0;
+void NES::run() {
+	return;  // TODO
 }

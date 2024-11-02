@@ -35,7 +35,7 @@ namespace flagOps {
     }
 }
 
-namespace addressingOperations {
+namespace dataAddrOp {
     uint8_t immediate(DataBus& databus, Registers& registers) {
         // The value after the opcode is treated as data and not an address.
         return databus.read(registers.PC + 1);  
@@ -143,7 +143,8 @@ namespace addressingOperations {
     }
 }
 
-namespace operations {
+// TODO: move comments to header file.
+namespace ops {
     /* void ADC
     Adds the given data and the carry to the accumulator.
 
@@ -153,16 +154,6 @@ namespace operations {
      - V: if the sign bit is incorrect;
      i.e. if adding two unsigned numbers results in a negative number
      - N: if bit 7 is set.
-
-    Addressing Modes:
-     - Immediate: $69, 2 Bytes, 2 Cycles
-     - Zero Page: $65, 2 Bytes, 3 Cycles
-     - Zero Page,X: $75, 2 Bytes, 4 Cycles
-     - Absolute: $6D, 3 Bytes, 4 Cycles
-     - Absolute,X: $7D, 3 Bytes, 4 Cycles (+1 if page crossed)
-     - Absolute,Y: $79, 3 Bytes, 4 Cycles (+1 if page crossed)
-     - (Indirect,X): $61, 2 Bytes, 6 Cycles
-     - (Indirect),Y: $71, 2 Bytes, 5 Cycles (+1 if page crossed)
     */
     void ADC(Registers& registers, uint8_t data) {
         uint8_t accumulatorPreOp = registers.A;
@@ -180,16 +171,6 @@ namespace operations {
     Flags Affected:
      - Z: set if the accumulator = 0.
      - N: set if bit 7 is set.
-
-    Addressing Modes:
-     - Immediate: $29, 2 Bytes, 2 Cycles
-     - Zero Page: $25, 2 Bytes, 3 Cycles
-     - Zero Page,X: $35, 2 Bytes, 4 Cycles
-     - Absolute: $2D, 3 Bytes, 4 Cycles
-     - Absolute,X: $3D, 3 Bytes, 4 Cycles (+1 if page crossed)
-     - Absolute,Y: $39, 3 Bytes, 4 Cycles (+1 if page crossed)
-     - (Indirect,X): $21, 2 Bytes, 6 Cycles
-     - (Indirect),Y: $31, 2 Bytes, 5 Cycles (+1 if page crossed)
     */
     void AND(Registers& registers, uint8_t data) {
         registers.A &= data;
@@ -203,18 +184,89 @@ namespace operations {
      - C: set to value of old bit 7
      - Z: set if A = 0
      - N: set to value of new bit 7
-
-    Addressing Modes:
-     - Accumulator: $0A, 1 Bytes, 2 Cycles
-     - Zero Page: $65, 2 Bytes, 5 Cycles
-     - Zero Page,X: $75, 2 Bytes, 6 Cycles
-     - Absolute: $6D, 3 Bytes, 6 Cycles
-     - Absolute,X: $7D, 3 Bytes, 7 Cycles
-    */
+     */
     void ASL(Registers& registers, uint8_t data) {
         registers.setStatus('C', flagOps::isBit7Set(registers.A));
         registers.A = data << 1;
         registers.setStatus('N', flagOps::isBit7Set(registers.A));
         registers.setStatus('Z', registers.A == 0);
+    }
+    /* void BCC
+    Performs a branch if the carry flag is 0.
+
+    Flags Affected:
+        None
+
+    */
+    void BCC(Registers& registers, uint8_t data) {
+        int8_t offset = data;  // Treat the data as signed.
+        if (!registers.getStatus('C')) {
+            registers.PC += offset;
+        }
+    }
+
+    /* void BCS
+    Performs a branch if the carry flag is 1.
+
+    Flags Affected:
+        None
+    */
+    void BCS(Registers& registers, uint8_t data) {
+        int8_t offset = data;  // Treat the data as signed.
+        if (registers.getStatus('C')) {
+            registers.PC += offset;
+        }
+    }
+    /* void BEQ
+    Performs a branch if the zero flag is 1.
+    The zero flag should have been set by another opcode [TODO: name it] before.
+
+    Flags Affected:
+        None
+
+    */
+    void BEQ(Registers& registers, uint8_t data) {
+        int8_t offset = data;  // Treat the data as signed.
+        if (registers.getStatus('Z')) {
+            registers.PC += offset;
+        }
+    }
+    /* void BIT
+    Test if some bits are set in a memory location.
+    Does a bitwise AND with the accumulator and the data,
+        
+    Flags Affected:
+        None
+    */
+    void BIT(Registers& registers, uint8_t data) {
+        int8_t offset = data;  // Treat the data as signed.
+        if (registers.getStatus('C')) {
+            registers.PC += offset;
+        }
+    }
+    /* void LDA
+    Loads the data at a memory location into the accumulator
+
+    Flags Affected:
+     - Z: set to 1 if A = 0.
+     - N: set to 1 if bit 7 is set.
+    */
+    void LDA(Registers& registers, uint8_t data) {
+        registers.A = data;
+    }
+    /* void STA
+    Stores the accumulator in a memory location.
+
+    Flags Affected:
+        None
+    */
+    void STA(Registers& registers, DataBus& databus, uint16_t data) {
+        databus.write(data, registers.A);
+    }
+}
+
+namespace addr16bitOp {
+    uint16_t zeropage(DataBus& databus, Registers& registers) {
+        return dataAddrOp::zeropage(databus, registers);
     }
 }

@@ -8,6 +8,7 @@ class Memory;
 class DataBus {
 public:
 	DataBus();
+	DataBus(Memory* memory);
 	~DataBus();
 
 	uint8_t read(uint16_t address);

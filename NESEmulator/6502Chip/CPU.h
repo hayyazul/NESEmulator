@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <vector>
 #include <array>
+#include <map>
 
 #include "../databus/databus.h"
 #include "../instructions/instructions.h"
@@ -70,33 +71,27 @@ private:
 	
 };
 
-// TODO: Move this enum to a more appropriate header.
-enum AddressingModes {
-	IMPLICIT,
-	ACCUMULATOR,
-	IMMEDIATE,
-	ZERO_PAGE,
-	ZERO_PAGE_X,
-	ZERO_PAGE_Y,
-	RELATIVE,
-	ABSOLUTE,
-	ABSOLUTE_X,
-	ABSOLUTE_Y,
-	INDIRECT,
-	INDIRECT_X,
-	INDIRECT_Y
-};
-
 class _6502_CPU {
 public:
 	_6502_CPU();
+	_6502_CPU(DataBus* databus);
 	~_6502_CPU();
 
 	void executeCycle();
 
+public:
+	// Temporarily public
+	void executeOpcode(uint8_t opcode);
+
+	uint8_t memPeek(uint16_t memoryAddress);
+	Registers registersPeek();
+	void memPoke(uint16_t memoryAddress, uint8_t val);
+
 private:
 
-	std::array<Instruction, numOfInstructions> instructionSet;
+	void setupInstructionSet();
+
+	std::map<uint8_t, Instruction> instructionSet;
 	Registers registers;
 	DataBus* databus;
 

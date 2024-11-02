@@ -8,25 +8,94 @@ enum AddressingModes;
 struct Registers;
 class DataBus;
 
-typedef void(*Operation)(Registers& registers, uint8_t data);
-typedef uint8_t(*AddressingOperation)(DataBus& databus, Registers& registers);
+
+typedef void(*RegOp)(Registers& registers, uint8_t data);
+typedef void(*MemOp)(Registers& registers, DataBus& databus, uint16_t address);
+union Operation {
+	RegOp regOp;
+	MemOp memOp;
+
+	void operator()(Registers& registers, uint8_t data) {
+		return regOp(registers, data);
+	}
+	void operator()(Registers& registers, DataBus& databus, uint16_t address) {
+		return memOp(registers, databus, address);
+	}
+};
+
+typedef uint8_t(*DataFetcher)(DataBus& databus, Registers& registers);
+typedef uint16_t(*AddressFetcher)(DataBus& databus, Registers& registers);
+union AddressingOperation {
+	DataFetcher dataFetcher;
+	AddressFetcher addressFetcher;
+
+	uint16_t operator()(DataBus& databus, Registers& registers, bool fetchAddress=false) {
+		if (fetchAddress) {
+			return addressFetcher(databus, registers);
+		}
+		else {
+			return dataFetcher(databus, registers);
+		}
+	}
+};
+
+enum AddressingModes {
+	IMPLICIT,
+	ACCUMULATOR,
+	IMMEDIATE,
+	ZERO_PAGE,
+	ZERO_PAGE_X,
+	ZERO_PAGE_Y,
+	RELATIVE,
+	ABSOLUTE,
+	ABSOLUTE_X,
+	ABSOLUTE_Y,
+	INDIRECT,
+	INDIRECT_X,
+	INDIRECT_Y
+};
 
 // An opcode which fetches data every cycle or performs an operation.
+// TODO: Comments.
 struct Instruction {
 	Operation operation;
-	AddressingOperation addressingOperation;
+	AddressingOperation addresser;
+	bool isMemOp;
+
 	unsigned int size;
 	unsigned int cycleCount;
 
 	Instruction() : size(0), cycleCount(0) {};
-	Instruction(Operation op, AddressingOperation addrOp, unsigned int size, unsigned int cycleCount) : 
-		operation(op),
-		addressingOperation(addrOp),
-		size(size), 
-		cycleCount(cycleCount)
-	{};
+	Instruction(RegOp op,
+		DataFetcher addrOp,
+		unsigned int size,
+		unsigned int cycleCount)
+		:
+		size(size),
+		cycleCount(cycleCount),
+		isMemOp(false)
+	{
+		this->operation.regOp = op;
+		this->addresser.dataFetcher = addrOp;
+	};
+	Instruction(MemOp op,
+		AddressFetcher addrOp,
+		unsigned int size,
+		unsigned int cycleCount)
+		:
+		size(size),
+		cycleCount(cycleCount),
+		isMemOp(true) 
+	{
+		this->operation.memOp = op;
+		this->addresser.addressFetcher = addrOp;
+	};
 
 	~Instruction() {};
+
+	uint16_t addressingOperation(DataBus& databus, Registers& registers) {
+		return this->addresser(databus, registers, this->isMemOp);
+	}
 };
 
 namespace flagOps {
@@ -36,13 +105,24 @@ namespace flagOps {
 	bool isUnderflow(uint8_t a, uint8_t data, bool c);
 };
 
-namespace operations {
+namespace ops {  // ops = operations
 	void ADC(Registers& registers, uint8_t data);
 	void AND(Registers& registers, uint8_t data);
 	void ASL(Registers& registers, uint8_t data);
+	void BCC(Registers& registers, uint8_t data);
+	void BCS(Registers& registers, uint8_t data);
+	void BEQ(Registers& registers, uint8_t data);
+	void BIT(Registers& registers, uint8_t data);
+
+	void LDA(Registers& registers, uint8_t data);
+	void STA(Registers& registers, DataBus& databus, uint16_t data);
 };
 
-namespace addressingOperations {
+// TODO: implement ability to get 16 bit addresses via an addressing mode.
+// NOTE: I might change how addressing works entirely; instead of fetching data, it could fetch a memory address to get data from. Then the 
+// operation can get the data as it needs; a single byte for most operations (the address returned), or two bytes for memory-related ones
+// (e.g. STA instructions).
+namespace dataAddrOp {
 	/*
 		The following are the various addressing operations an operation can use.
 	An example in assembly is provided right of all addressing modes (OPC LLLLL) 
@@ -69,4 +149,8 @@ namespace addressingOperations {
 	uint8_t indirect(DataBus& databus, Registers& registers);  // JMP ($4321)
 	uint8_t indirectX(DataBus& databus, Registers& registers);  // STA ($40,X)
 	uint8_t indirectY(DataBus& databus, Registers& registers);  // LDA ($20),Y
+}
+
+namespace addr16bitOp {
+	uint16_t zeropage(DataBus& databus, Registers& registers);
 }
