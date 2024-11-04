@@ -9,7 +9,7 @@ struct Registers;
 class DataBus;
 
 
-typedef void(*RegOp)(Registers& registers, uint8_t data);
+typedef void(*RegOp)(Registers& registers, uint16_t data);
 typedef void(*MemOp)(Registers& registers, DataBus& databus, uint16_t address);
 union Operation {
 	RegOp regOp;
@@ -23,21 +23,13 @@ union Operation {
 	}
 };
 
-typedef uint8_t(*DataFetcher)(DataBus& databus, Registers& registers);
-typedef uint16_t(*AddressFetcher)(DataBus& databus, Registers& registers);
-union AddressingOperation {
-	DataFetcher dataFetcher;
-	AddressFetcher addressFetcher;
 
-	uint16_t operator()(DataBus& databus, Registers& registers, bool fetchAddress=false) {
-		if (fetchAddress) {
-			return addressFetcher(databus, registers);
-		}
-		else {
-			return dataFetcher(databus, registers);
-		}
-	}
-};
+// NOTE: Might go back to using a union again.
+typedef uint16_t(*AddressingOperation)(DataBus& databus, Registers& registers, bool fetchTwoBytes);
+/*union AddressingOperation {
+	DataFetcher dataFetcher;
+
+};*/
 
 enum AddressingModes {
 	IMPLICIT,
@@ -65,9 +57,9 @@ struct Instruction {
 	unsigned int size;
 	unsigned int cycleCount;
 
-	Instruction() : size(0), cycleCount(0) {};
+	Instruction() {};
 	Instruction(RegOp op,
-		DataFetcher addrOp,
+		AddressingOperation addrOp,
 		unsigned int size,
 		unsigned int cycleCount)
 		:
@@ -76,22 +68,30 @@ struct Instruction {
 		isMemOp(false)
 	{
 		this->operation.regOp = op;
-		this->addresser.dataFetcher = addrOp;
+		this->addresser = addrOp;
 	};
 	Instruction(MemOp op,
-		AddressFetcher addrOp,
+		AddressingOperation addrOp,
 		unsigned int size,
 		unsigned int cycleCount)
 		:
 		size(size),
 		cycleCount(cycleCount),
-		isMemOp(true) 
+		isMemOp(true)
 	{
 		this->operation.memOp = op;
-		this->addresser.addressFetcher = addrOp;
+		this->addresser = addrOp;
 	};
 
 	~Instruction() {};
+
+	void performOperation(Registers& registers, DataBus& databus, uint16_t data) {	
+		if (this->isMemOp) {
+			this->operation.memOp(registers, databus, data);
+		} else {
+			this->operation.regOp(registers, static_cast<uint8_t>(data));
+		}
+	}
 
 	uint16_t addressingOperation(DataBus& databus, Registers& registers) {
 		return this->addresser(databus, registers, this->isMemOp);
@@ -106,23 +106,55 @@ namespace flagOps {
 };
 
 namespace ops {  // ops = operations
-	void ADC(Registers& registers, uint8_t data);
-	void AND(Registers& registers, uint8_t data);
-	void ASL(Registers& registers, uint8_t data);
-	void BCC(Registers& registers, uint8_t data);
-	void BCS(Registers& registers, uint8_t data);
-	void BEQ(Registers& registers, uint8_t data);
-	void BIT(Registers& registers, uint8_t data);
-
-	void LDA(Registers& registers, uint8_t data);
+	void AND(Registers& registers, uint16_t data);
+	void ADC(Registers& registers, uint16_t data);
+	void ASL(Registers& registers, uint16_t data);
+	void BCC(Registers& registers, uint16_t data);
+	void BCS(Registers& registers, uint16_t data);
+	void BEQ(Registers& registers, uint16_t data);
+	void BIT(Registers& registers, uint16_t data);
+	void BMI(Registers& registers, uint16_t data);
+	void BNE(Registers& registers, uint16_t data);
+	void BPL(Registers& registers, uint16_t data);
+	void BRK(Registers& registers, DataBus& databus, uint16_t data);
+	void BVC(Registers& registers, uint16_t data);
+	void BVS(Registers& registers, uint16_t data);
+	void CLC(Registers& registers, uint16_t data);
+	// CLD is not included because decimal mode does not exist on the NES CPU.
+	void CLI(Registers& registers, uint16_t data);
+	void CLV(Registers& registers, uint16_t data);
+	void CMP(Registers& registers, uint16_t data);
+	void CPX(Registers& registers, uint16_t data);
+	void CPY(Registers& registers, uint16_t data);
+	void DEC(Registers& registers, DataBus& databus, uint16_t data);
+	void DEX(Registers& registers, uint16_t data);
+	void DEY(Registers& registers, uint16_t data);
+	void INC(Registers& registers, uint16_t data);
+	void LDA(Registers& registers, uint16_t data);
 	void STA(Registers& registers, DataBus& databus, uint16_t data);
+	void JMP(Registers& registers, uint16_t data);
+	void JSR(Registers& registers, DataBus& databus, uint16_t data);
+	void RTS(Registers& registers, DataBus& databus, uint16_t data);
+	void ROR(Registers& registers, uint16_t data);
+	void ROL(Registers& registers, uint16_t data);
+	void SBC(Registers& registers, uint16_t data);
+	void SEC(Registers& registers, uint16_t data);
+	void SEI(Registers& registers, uint16_t data);
+	void STX(Registers& registers, DataBus& databus, uint16_t data);
+	void STY(Registers& registers, DataBus& databus, uint16_t data);
+	void TAY(Registers& registers, uint16_t data);
+	void TAX(Registers& registers, uint16_t data);
+	void TSX(Registers& registers, uint16_t data);
+	void TXA(Registers& registers, uint16_t data);
+	void TXS(Registers& registers, uint16_t data);
+	void TYA(Registers& registers, uint16_t data);
 };
 
 // TODO: implement ability to get 16 bit addresses via an addressing mode.
 // NOTE: I might change how addressing works entirely; instead of fetching data, it could fetch a memory address to get data from. Then the 
 // operation can get the data as it needs; a single byte for most operations (the address returned), or two bytes for memory-related ones
 // (e.g. STA instructions).
-namespace dataAddrOp {
+namespace addrModes {
 	/*
 		The following are the various addressing operations an operation can use.
 	An example in assembly is provided right of all addressing modes (OPC LLLLL) 
@@ -131,26 +163,22 @@ namespace dataAddrOp {
 	affect the addressing mode.
 	*/
 	
-	uint8_t immediate(DataBus& databus, Registers& registers);  // LDA #$7b
-	uint8_t implicit(DataBus& databus, Registers& registers);  // CLC [N/A]
-	uint8_t accumulator(DataBus& databus, Registers& registers);  // LSR [N/A]
+	uint16_t immediate(DataBus& databus, Registers& registers, bool fetchTwoBytes = false);  // LDA #$7b
+	uint16_t implicit(DataBus& databus, Registers& registers, bool fetchTwoBytes = false);  // CLC [N/A]
+	uint16_t accumulator(DataBus& databus, Registers& registers, bool fetchTwoBytes = false);  // LSR [N/A]
 	
-	uint8_t zeropage(DataBus& databus, Registers& registers);  // STX $32
-	uint8_t zeropageX(DataBus& databus, Registers& registers);  // STY $32,X
-	uint8_t zeropageY(DataBus& databus, Registers& registers);  // LDX $10,Y
-	uint8_t relative(DataBus& databus, Registers& registers);  // BNE *+4 
-	uint8_t absolute(DataBus& databus, Registers& registers);  // JMP $1234
-	uint8_t absoluteX(DataBus& databus, Registers& registers);  // STA $3000,X
-	uint8_t absoluteY(DataBus& databus, Registers& registers);  // AND $4000,Y
+	uint16_t zeropage(DataBus& databus, Registers& registers, bool fetchTwoBytes = false);  // STX $32
+	uint16_t zeropageX(DataBus& databus, Registers& registers, bool fetchTwoBytes = false);  // STY $32,X
+	uint16_t zeropageY(DataBus& databus, Registers& registers, bool fetchTwoBytes = false);  // LDX $10,Y
+	uint16_t relative(DataBus& databus, Registers& registers, bool fetchTwoBytes = false);  // BNE *+4 
+	uint16_t absolute(DataBus& databus, Registers& registers, bool fetchTwoBytes = false);  // JMP $1234
+	uint16_t absoluteX(DataBus& databus, Registers& registers, bool fetchTwoBytes = false);  // STA $3000,X
+	uint16_t absoluteY(DataBus& databus, Registers& registers, bool fetchTwoBytes = false);  // AND $4000,Y
 
 	// Works similar to pointers. It first goes to the given memory address, looks at the
 	// byte and the byte of the next address, uses those two bytes to make a new address 
 	// which it gets the value of.
-	uint8_t indirect(DataBus& databus, Registers& registers);  // JMP ($4321)
-	uint8_t indirectX(DataBus& databus, Registers& registers);  // STA ($40,X)
-	uint8_t indirectY(DataBus& databus, Registers& registers);  // LDA ($20),Y
-}
-
-namespace addr16bitOp {
-	uint16_t zeropage(DataBus& databus, Registers& registers);
+	uint16_t indirect(DataBus& databus, Registers& registers, bool fetchTwoBytes = false);  // JMP ($4321)
+	uint16_t indirectX(DataBus& databus, Registers& registers, bool fetchTwoBytes = false);  // STA ($40,X)
+	uint16_t indirectY(DataBus& databus, Registers& registers, bool fetchTwoBytes = false);  // LDA ($20),Y
 }

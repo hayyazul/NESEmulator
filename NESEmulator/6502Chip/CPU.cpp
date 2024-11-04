@@ -16,13 +16,7 @@ void _6502_CPU::executeCycle() {
 
 void _6502_CPU::executeOpcode(uint8_t opcode) {
 	uint16_t data = this->instructionSet[opcode].addressingOperation(*this->databus, this->registers);
-
-	if (this->instructionSet[opcode].isMemOp) {
-		this->instructionSet[opcode].operation(this->registers, *this->databus, data);
-	}
-	else {
-		this->instructionSet[opcode].operation(this->registers, data);
-	}
+	this->instructionSet[opcode].performOperation(this->registers, *this->databus, data);
 }
 
 uint8_t _6502_CPU::memPeek(uint16_t memoryAddress) {
@@ -39,11 +33,11 @@ void _6502_CPU::memPoke(uint16_t memoryAddress, uint8_t val) {
 
 void _6502_CPU::setupInstructionSet() {
 	this->instructionSet[0xA9] = Instruction(ops::LDA,
-		dataAddrOp::immediate,
+		addrModes::immediate,
 		2,
 		2);
 	this->instructionSet[0x85] = Instruction(ops::STA,
-		addr16bitOp::zeropage,
+		addrModes::zeropage,
 		2,
 		3);
 }

@@ -19,7 +19,7 @@ struct Registers {
 	uint16_t PC;  // Program Counter
 	uint8_t SP;  // Stack pointer
 	uint8_t X;  // X index 
-	uint8_t Y;
+	uint8_t Y;  // Y index
 
 	Registers() :
 		A(0),

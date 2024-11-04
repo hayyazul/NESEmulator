@@ -35,75 +35,95 @@ namespace flagOps {
     }
 }
 
-namespace dataAddrOp {
-    uint8_t immediate(DataBus& databus, Registers& registers) {
+namespace addrModes {
+    uint16_t immediate(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
         // The value after the opcode is treated as data and not an address.
-        return databus.read(registers.PC + 1);  
+        uint16_t data = databus.read(registers.PC + 1);
+        if (fetchTwoBytes) {
+            data += static_cast<uint16_t>(databus.read(registers.PC + 2)) << 8;
+        }
+        return data;
     }
 
-    uint8_t implicit(DataBus& databus, Registers& registers) {
+    uint16_t implicit(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
         // Implicit instructions do not use any value from RAM. This 0 will go unused.
         return 0;  
     }
 
-    uint8_t accumulator(DataBus& databus, Registers& registers) {
+    uint16_t accumulator(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
         // Instructions with this addressing mode operate on the accumulator; not on RAM.
         return registers.A;
     }
 
-    uint8_t zeropage(DataBus& databus, Registers& registers) {
+    uint16_t zeropage(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
         // Indexes 0x00LL; zeropage takes fewer cycles than other addressing modes.
         uint16_t address = static_cast<uint16_t>(databus.read(registers.PC + 1));
-        return databus.read(address);
+        return databus.read(address);;
     }
-    uint8_t zeropageX(DataBus& databus, Registers& registers) {
+    uint16_t zeropageX(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
         // Indexes 0x00LL + X; zeropage takes fewer cycles than other addressing modes.
         uint16_t address = static_cast<uint16_t>(databus.read(registers.PC + 1));
         return databus.read(address + registers.X);
     }
-    uint8_t zeropageY(DataBus& databus, Registers& registers) {
+    uint16_t zeropageY(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
         // Indexes 0x00LL + Y; zeropage takes fewer cycles than other addressing modes.
         uint16_t address = static_cast<uint16_t>(databus.read(registers.PC + 1));
         return databus.read(address + registers.Y);
     }
-    uint8_t relative(DataBus& databus, Registers& registers) {
+    uint16_t relative(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
         // The offset is a signed byte
         int8_t offset = databus.read(registers.PC + 1);
-        return databus.read(registers.PC + offset);
+        uint16_t data = databus.read(registers.PC + offset);
+        if (fetchTwoBytes) {
+            data += static_cast<uint16_t>(databus.read(registers.PC + offset + 1)) << 8;
+        }
+        return data;
     }
-    uint8_t absolute(DataBus& databus, Registers& registers) {
+    uint16_t absolute(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
         // The NES is a little-endian machine, meaning the FIRST byte read takes up the LOWER 8 bits.
         // So if in memory we had these values: 8f 30
         // We would return a memory address of 0x308f
         // lb = lower byte; ub = upper byte; addr = address
         uint16_t lbOfAddr = static_cast<uint16_t>(databus.read(registers.PC + 1));
         uint16_t ubOfAddr = static_cast<uint16_t>(databus.read(registers.PC + 2)) << 8;
-        return databus.read(lbOfAddr + ubOfAddr);
+        uint16_t data = databus.read(lbOfAddr + ubOfAddr);
+        if (fetchTwoBytes) {
+            data += static_cast<uint16_t>(databus.read(lbOfAddr + ubOfAddr + 1)) << 8;
+        }
+        return data;
     }
-    uint8_t absoluteX(DataBus& databus, Registers& registers) {
+    uint16_t absoluteX(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
         // The NES is a little-endian machine, meaning the FIRST byte read takes up the LOWER 8 bits.
         // So if in memory we had these values: 8f 30
         // We would return a memory address of 0x308f + X 
         // lb = lower byte; ub = upper byte; addr = address
         uint16_t lbOfAddr = static_cast<uint16_t>(databus.read(registers.PC + 1));
         uint16_t ubOfAddr = static_cast<uint16_t>(databus.read(registers.PC + 2)) << 8;
-        return databus.read(lbOfAddr + ubOfAddr + registers.X);
+        uint16_t data = databus.read(lbOfAddr + ubOfAddr + registers.X);
+        if (fetchTwoBytes) {
+            data += static_cast<uint16_t>(databus.read(lbOfAddr + ubOfAddr + registers.X + 1)) << 8;
+        }
+        return data;
     }
-    uint8_t absoluteY(DataBus& databus, Registers& registers) {
+    uint16_t absoluteY(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
         // The NES is a little-endian machine, meaning the FIRST byte read takes up the LOWER 8 bits.
         // So if in memory we had these values: 8f 30
         // We would return a memory address of 0x308f + Y
         // lb = lower byte; ub = upper byte; addr = address
         uint16_t lbOfAddr = static_cast<uint16_t>(databus.read(registers.PC + 1));
         uint16_t ubOfAddr = static_cast<uint16_t>(databus.read(registers.PC + 2)) << 8;
-        return databus.read(lbOfAddr + ubOfAddr + registers.Y);
+        uint16_t data = databus.read(lbOfAddr + ubOfAddr + registers.Y);
+        if (fetchTwoBytes) {
+            data += static_cast<uint16_t>(databus.read(lbOfAddr + ubOfAddr + registers.Y + 1)) << 8;
+        }
+        return data;
     }
 
     // Works similar to pointers to addresses. 
     // It first goes to the given memory address, looks at the byte and the byte 
     // of the next address, uses those two bytes to make a new address 
     // which it gets the value of.
-    uint8_t indirect(DataBus& databus, Registers& registers) {
+    uint16_t indirect(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
         // lb = lower byte; ub = upper byte; addr = address
 
         // First, we get the values of the next 2 bytes (the address contained in the pointer)
@@ -114,10 +134,14 @@ namespace dataAddrOp {
         uint16_t ubOfAddr = databus.read(lbOfPtrAddr + ubOfPtrAddr + 1) << 8;
 
         // Finally we get the data.
-        return databus.read(lbOfAddr + ubOfAddr);
+        uint16_t data = databus.read(lbOfAddr + ubOfAddr);
+        if (fetchTwoBytes) {
+            data += static_cast<uint16_t>(databus.read(lbOfAddr + ubOfAddr + 1)) << 8;
+        }
+        return data;
 
     }
-    uint8_t indirectX(DataBus& databus, Registers& registers) {
+    uint16_t indirectX(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
         // lb = lower byte; ub = upper byte; addr = address
         // This addressing mode is zeropage.
 
@@ -127,9 +151,13 @@ namespace dataAddrOp {
         uint16_t addr = databus.read(ptrAddr + registers.X);
 
         // Then we get the data at this address.
-        return databus.read(addr);
+        uint16_t data = databus.read(addr);
+        if (fetchTwoBytes) {
+            data += static_cast<uint16_t>(databus.read(addr + 1)) << 8;
+        }
+        return data;
     } 
-    uint8_t indirectY(DataBus& databus, Registers& registers) {
+    uint16_t indirectY(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
         // lb = lower byte; ub = upper byte; addr = address
         // This addressing mode is zeropage.
 
@@ -139,7 +167,11 @@ namespace dataAddrOp {
         uint16_t addr = databus.read(ptrAddr);
 
         // Finally
-        return databus.read(addr + registers.X);
+        uint16_t data = databus.read(addr + registers.Y);
+        if (fetchTwoBytes) {
+            data += static_cast<uint16_t>(databus.read(addr + registers.Y + 1)) << 8;
+        }
+        return data;
     }
 }
 
@@ -155,7 +187,7 @@ namespace ops {
      i.e. if adding two unsigned numbers results in a negative number
      - N: if bit 7 is set.
     */
-    void ADC(Registers& registers, uint8_t data) {
+    void ADC(Registers& registers, uint16_t data) {
         uint8_t accumulatorPreOp = registers.A;
         registers.A += data + registers.getStatus('C');
 
@@ -172,7 +204,7 @@ namespace ops {
      - Z: set if the accumulator = 0.
      - N: set if bit 7 is set.
     */
-    void AND(Registers& registers, uint8_t data) {
+    void AND(Registers& registers, uint16_t data) {
         registers.A &= data;
         registers.setStatus('N', flagOps::isBit7Set(registers.A));
         registers.setStatus('Z', registers.A == 0);
@@ -185,7 +217,7 @@ namespace ops {
      - Z: set if A = 0
      - N: set to value of new bit 7
      */
-    void ASL(Registers& registers, uint8_t data) {
+    void ASL(Registers& registers, uint16_t data) {
         registers.setStatus('C', flagOps::isBit7Set(registers.A));
         registers.A = data << 1;
         registers.setStatus('N', flagOps::isBit7Set(registers.A));
@@ -198,7 +230,7 @@ namespace ops {
         None
 
     */
-    void BCC(Registers& registers, uint8_t data) {
+    void BCC(Registers& registers, uint16_t data) {
         int8_t offset = data;  // Treat the data as signed.
         if (!registers.getStatus('C')) {
             registers.PC += offset;
@@ -211,7 +243,7 @@ namespace ops {
     Flags Affected:
         None
     */
-    void BCS(Registers& registers, uint8_t data) {
+    void BCS(Registers& registers, uint16_t data) {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('C')) {
             registers.PC += offset;
@@ -225,7 +257,7 @@ namespace ops {
         None
 
     */
-    void BEQ(Registers& registers, uint8_t data) {
+    void BEQ(Registers& registers, uint16_t data) {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('Z')) {
             registers.PC += offset;
@@ -238,11 +270,164 @@ namespace ops {
     Flags Affected:
         None
     */
-    void BIT(Registers& registers, uint8_t data) {
+    void BIT(Registers& registers, uint16_t data) {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('C')) {
             registers.PC += offset;
         }
+    }
+    /* void BMI
+    Branches if the negative flag is set.
+
+    Flags Affected:
+        None
+    */
+    void BMI(Registers& registers, uint16_t data) {
+        int8_t offset = data;  // Treat the data as signed.
+        if (registers.getStatus('N')) {
+            registers.PC += offset;
+        }
+    }
+    /* void BNE
+    Branches if the zero flag is 0.
+
+    Flags Affected:
+        None
+    */
+    void BNE(Registers& registers, uint16_t data) {
+        int8_t offset = data;  // Treat the data as signed.
+        if (!registers.getStatus('Z')) {
+            registers.PC += offset;
+        }
+    }
+    /* void BPL
+    Branches if the negative flag is 0.
+
+    Flags Affected:
+        None
+    */
+    void BPL(Registers& registers, uint16_t data) {
+        int8_t offset = data;  // Treat the data as signed.
+        if (!registers.getStatus('N')) {
+            registers.PC += offset;
+        }
+    }
+    /* void BRK
+    Branches if the negative flag is 0.
+
+    TODO: fully implement.
+
+    Flags Affected:
+        - B: set to 1.
+    */
+    void BRK(Registers& registers, DataBus& dataBus, uint16_t data) {
+        dataBus.write(registers.SP, registers.PC);
+        dataBus.write(registers.SP + 1, registers.PC);
+        ++++registers.SP;
+    }
+    /* void BVC
+    Branches if the overflow flag is 0.
+
+    Flags Affected:
+        None
+    */
+    void BVC(Registers& registers, uint16_t data) {
+        int8_t offset = data;  // Treat the data as signed.
+        if (!registers.getStatus('V')) {
+            registers.PC += offset;
+        }
+    }
+    /* void BVS
+    Branches if the overflow flag is 0.
+
+    Flags Affected:
+        None
+    */
+    void BVS(Registers& registers, uint16_t data) {
+        int8_t offset = data;  // Treat the data as signed.
+        if (registers.getStatus('V')) {
+            registers.PC += offset;
+        }
+    }
+    /* void CLC
+    Sets carry flag to 0.
+
+    Flags Affected:
+        - C: set to 0.
+    */
+    void CLC(Registers& registers, uint16_t data) {
+        registers.setStatus('C', false);
+    }
+    /* void CLI
+    Sets interrupt disable flag to 0.
+
+    Flags Affected:
+        - I: set to 0.
+    */
+    void CLI(Registers& registers, uint16_t data) {
+        registers.setStatus('I', false);
+    }
+    /* void CLV
+    Sets overflow flag to 0.
+
+    Flags Affected:
+        - V: set to 0.
+    */
+    void CLV(Registers& registers, uint16_t data) {
+        registers.setStatus('V', false);
+    }
+    /* void CMP
+    Compares the accumulator w/ the value in memory. 
+    Sets some flags based on the result A-M (which is not stored)
+    which is to be used later in the branch instructions.
+
+    Flags Affected:
+        - C: set to 1 if A >= M  // TODO: Find if it gets cleared if otherwise.
+        - Z: set to 1 if A = M
+        - N: set if A < M
+    */
+    void CMP(Registers& registers, uint16_t data) {
+        registers.setStatus('C', registers.A >= data);
+        registers.setStatus('Z', registers.A == data);
+        registers.setStatus('N', registers.A < data);
+    }
+    /* void CPX
+    Compares the X register w/ the value in memory. 
+    Sets some flags based on the result A-M (which is not stored)
+    which is to be used later in the branch instructions.
+
+    Flags Affected:
+        - C: set to 1 if X >= M  // TODO: Find if it gets cleared if otherwise.
+        - Z: set to 1 if X = M
+        - N: set if X < M
+    */
+    void CPX(Registers& registers, uint16_t data) {
+
+    }
+    /* void CPY
+    Compares the Y register w/ the value in memory.
+    Sets some flags based on the result A-M (which is not stored)
+    which is to be used later in the branch instructions.
+
+    Flags Affected:
+        - C: set to 1 if Y >= M  // TODO: Find if it gets cleared if otherwise.
+        - Z: set to 1 if Y = M
+        - N: set if Y < M
+    */
+    void CPY(Registers& registers, uint16_t data)
+    {
+    }
+    void DEC(Registers& registers, DataBus& databus, uint16_t data)
+    {
+    }
+    void DEX(Registers& registers, uint16_t data)
+    {
+    }
+    void DEY(Registers& registers, uint16_t data)
+    {
+    }
+    void INC(Registers& registers, uint16_t data)
+    {
     }
     /* void LDA
     Loads the data at a memory location into the accumulator
@@ -251,7 +436,7 @@ namespace ops {
      - Z: set to 1 if A = 0.
      - N: set to 1 if bit 7 is set.
     */
-    void LDA(Registers& registers, uint8_t data) {
+    void LDA(Registers& registers, uint16_t data) {
         registers.A = data;
     }
     /* void STA
@@ -263,10 +448,52 @@ namespace ops {
     void STA(Registers& registers, DataBus& databus, uint16_t data) {
         databus.write(data, registers.A);
     }
-}
-
-namespace addr16bitOp {
-    uint16_t zeropage(DataBus& databus, Registers& registers) {
-        return dataAddrOp::zeropage(databus, registers);
+    void JMP(Registers& registers, uint16_t data)
+    {
+    }
+    void JSR(Registers& registers, DataBus& databus, uint16_t data)
+    {
+    }
+    void RTS(Registers& registers, DataBus& databus, uint16_t data)
+    {
+    }
+    void ROR(Registers& registers, uint16_t data)
+    {
+    }
+    void ROL(Registers& registers, uint16_t data)
+    {
+    }
+    void SBC(Registers& registers, uint16_t data)
+    {
+    }
+    void SEC(Registers& registers, uint16_t data)
+    {
+    }
+    void SEI(Registers& registers, uint16_t data)
+    {
+    }
+    void STX(Registers& registers, DataBus& databus, uint16_t data)
+    {
+    }
+    void STY(Registers& registers, DataBus& databus, uint16_t data)
+    {
+    }
+    void TAY(Registers& registers, uint16_t data)
+    {
+    }
+    void TAX(Registers& registers, uint16_t data)
+    {
+    }
+    void TSX(Registers& registers, uint16_t data)
+    {
+    }
+    void TXA(Registers& registers, uint16_t data)
+    {
+    }
+    void TXS(Registers& registers, uint16_t data)
+    {
+    }
+    void TYA(Registers& registers, uint16_t data)
+    {
     }
 }

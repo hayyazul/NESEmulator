@@ -3,6 +3,10 @@
 #pragma once
 #include <cstdint>
 
+// Inclusive
+constexpr unsigned int STACK_START_ADDR = 0x100;
+constexpr unsigned int STACK_END_ADDR = 0x1FF;
+
 class Memory;
 
 class DataBus {
