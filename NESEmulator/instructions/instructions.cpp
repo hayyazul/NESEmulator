@@ -9,7 +9,7 @@ namespace flagOps {
         // The & between the two check if the sign has changed for both the accumulator and the data value.
         // This also has the effect of checking if the accumulator and the data were of the same sign.
         // The final & with 0b10000000 is to filter out all bits but the 7th.
-        return ((aBefore ^ sum) & (data ^ sum)));
+        return ((aBefore ^ sum) & (data ^ sum));
     }
 
     bool isBit7Set(uint8_t byte) {
@@ -40,142 +40,107 @@ namespace flagOps {
 }
 
 namespace addrModes {
-    uint16_t immediate(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
-        // The value after the opcode is treated as data and not an address.
-        uint16_t data = databus.read(registers.PC + 1);
-        if (fetchTwoBytes) {
-            data += static_cast<uint16_t>(databus.read(registers.PC + 2)) << 8;
-        }
-        return data;
+    uint16_t immediate(DataBus& dataBus, Registers& registers) {
+        // The value after the opcode is treated as data and not an address; the address in this case is just the program counter iterated by 1.
+        return registers.PC + 1;
     }
 
-    uint16_t implicit(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
+    uint16_t implicit(DataBus& dataBus, Registers& registers) {
         // Implicit instructions do not use any value from RAM. This 0 will go unused.
         return 0;  
     }
 
-    uint16_t accumulator(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
-        // Instructions with this addressing mode operate on the accumulator; not on RAM.
-        return registers.A;
+    uint16_t accumulator(DataBus& dataBus, Registers& registers) {
+        // Instructions with this addressing mode operate on the accumulator; not on RAM. As a result, this 0 is unused.
+        return 0;
     }
 
-    uint16_t zeropage(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
+    uint16_t zeropage(DataBus& dataBus, Registers& registers) {
         // Indexes 0x00LL; zeropage takes fewer cycles than other addressing modes.
-        uint16_t address = static_cast<uint16_t>(databus.read(registers.PC + 1));
-        return databus.read(address);;
+        uint16_t address = static_cast<uint16_t>(dataBus.read(registers.PC + 1));
+        return address;
     }
-    uint16_t zeropageX(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
+    uint16_t zeropageX(DataBus& dataBus, Registers& registers) {
         // Indexes 0x00LL + X; zeropage takes fewer cycles than other addressing modes.
-        uint16_t address = static_cast<uint16_t>(databus.read(registers.PC + 1));
-        return databus.read(address + registers.X);
+        uint16_t address = static_cast<uint16_t>(dataBus.read(registers.PC + 1));
+        return address + registers.X;
     }
-    uint16_t zeropageY(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
+    uint16_t zeropageY(DataBus& dataBus, Registers& registers) {
         // Indexes 0x00LL + Y; zeropage takes fewer cycles than other addressing modes.
-        uint16_t address = static_cast<uint16_t>(databus.read(registers.PC + 1));
-        return databus.read(address + registers.Y);
+        uint16_t address = static_cast<uint16_t>(dataBus.read(registers.PC + 1));
+        return address + registers.Y;
     }
-    uint16_t relative(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
+    uint16_t relative(DataBus& dataBus, Registers& registers) {
         // The offset is a signed byte
-        int8_t offset = databus.read(registers.PC + 1);
-        uint16_t data = databus.read(registers.PC + offset);
-        if (fetchTwoBytes) {
-            data += static_cast<uint16_t>(databus.read(registers.PC + offset + 1)) << 8;
-        }
-        return data;
+        int8_t offset = dataBus.read(registers.PC + 1);
+        return registers.PC + offset;
     }
-    uint16_t absolute(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
+    uint16_t absolute(DataBus& dataBus, Registers& registers) {
         // The NES is a little-endian machine, meaning the FIRST byte read takes up the LOWER 8 bits.
         // So if in memory we had these values: 8f 30
         // We would return a memory address of 0x308f
         // lb = lower byte; ub = upper byte; addr = address
-        uint16_t lbOfAddr = static_cast<uint16_t>(databus.read(registers.PC + 1));
-        uint16_t ubOfAddr = static_cast<uint16_t>(databus.read(registers.PC + 2)) << 8;
-        uint16_t data = databus.read(lbOfAddr + ubOfAddr);
-        if (fetchTwoBytes) {
-            data += static_cast<uint16_t>(databus.read(lbOfAddr + ubOfAddr + 1)) << 8;
-        }
-        return data;
+        uint16_t lbOfAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 1));
+        uint16_t ubOfAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 2)) << 8;
+        return lbOfAddr + ubOfAddr;
     }
-    uint16_t absoluteX(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
+    uint16_t absoluteX(DataBus& dataBus, Registers& registers) {
         // The NES is a little-endian machine, meaning the FIRST byte read takes up the LOWER 8 bits.
         // So if in memory we had these values: 8f 30
         // We would return a memory address of 0x308f + X 
         // lb = lower byte; ub = upper byte; addr = address
-        uint16_t lbOfAddr = static_cast<uint16_t>(databus.read(registers.PC + 1));
-        uint16_t ubOfAddr = static_cast<uint16_t>(databus.read(registers.PC + 2)) << 8;
-        uint16_t data = databus.read(lbOfAddr + ubOfAddr + registers.X);
-        if (fetchTwoBytes) {
-            data += static_cast<uint16_t>(databus.read(lbOfAddr + ubOfAddr + registers.X + 1)) << 8;
-        }
-        return data;
+        uint16_t lbOfAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 1));
+        uint16_t ubOfAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 2)) << 8;
+        return lbOfAddr + ubOfAddr + registers.X;
     }
-    uint16_t absoluteY(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
+    uint16_t absoluteY(DataBus& dataBus, Registers& registers) {
         // The NES is a little-endian machine, meaning the FIRST byte read takes up the LOWER 8 bits.
         // So if in memory we had these values: 8f 30
         // We would return a memory address of 0x308f + Y
         // lb = lower byte; ub = upper byte; addr = address
-        uint16_t lbOfAddr = static_cast<uint16_t>(databus.read(registers.PC + 1));
-        uint16_t ubOfAddr = static_cast<uint16_t>(databus.read(registers.PC + 2)) << 8;
-        uint16_t data = databus.read(lbOfAddr + ubOfAddr + registers.Y);
-        if (fetchTwoBytes) {
-            data += static_cast<uint16_t>(databus.read(lbOfAddr + ubOfAddr + registers.Y + 1)) << 8;
-        }
-        return data;
+        uint16_t lbOfAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 1));
+        uint16_t ubOfAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 2)) << 8;
+        return lbOfAddr + ubOfAddr + registers.Y;
     }
 
     // Works similar to pointers to addresses. 
     // It first goes to the given memory address, looks at the byte and the byte 
     // of the next address, uses those two bytes to make a new address 
     // which it gets the value of.
-    uint16_t indirect(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
+    uint16_t indirect(DataBus& dataBus, Registers& registers) {
         // lb = lower byte; ub = upper byte; addr = address
 
         // First, we get the values of the next 2 bytes (the address contained in the pointer)
-        uint16_t lbOfPtrAddr = static_cast<uint16_t>(databus.read(registers.PC + 1));
-        uint16_t ubOfPtrAddr = static_cast<uint16_t>(databus.read(registers.PC + 2)) << 8;
+        uint16_t lbOfPtrAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 1));
+        uint16_t ubOfPtrAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 2)) << 8;
         // We then find the address of the data located at the address given by the pointer.
-        uint16_t lbOfAddr = databus.read(lbOfPtrAddr + ubOfPtrAddr);
-        uint16_t ubOfAddr = databus.read(lbOfPtrAddr + ubOfPtrAddr + 1) << 8;
+        uint16_t lbOfAddr = dataBus.read(lbOfPtrAddr + ubOfPtrAddr);
+        uint16_t ubOfAddr = dataBus.read(lbOfPtrAddr + ubOfPtrAddr + 1) << 8;
 
-        // Finally we get the data.
-        uint16_t data = databus.read(lbOfAddr + ubOfAddr);
-        if (fetchTwoBytes) {
-            data += static_cast<uint16_t>(databus.read(lbOfAddr + ubOfAddr + 1)) << 8;
-        }
-        return data;
+        return lbOfAddr + ubOfAddr;
 
     }
-    uint16_t indirectX(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
+    uint16_t indirectX(DataBus& dataBus, Registers& registers) {
         // lb = lower byte; ub = upper byte; addr = address
         // This addressing mode is zeropage.
 
         // First, we get the values of the pointer.
-        uint16_t ptrAddr = static_cast<uint16_t>(databus.read(registers.PC + 1));
+        uint16_t ptrAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 1));
         // We then find the address located at the address given by the pointer + the X register.
-        uint16_t addr = databus.read(ptrAddr + registers.X);
+        uint16_t addr = dataBus.read(ptrAddr + registers.X);
 
-        // Then we get the data at this address.
-        uint16_t data = databus.read(addr);
-        if (fetchTwoBytes) {
-            data += static_cast<uint16_t>(databus.read(addr + 1)) << 8;
-        }
-        return data;
+        return addr;
     } 
-    uint16_t indirectY(DataBus& databus, Registers& registers, bool fetchTwoBytes) {
+    uint16_t indirectY(DataBus& dataBus, Registers& registers) {
         // lb = lower byte; ub = upper byte; addr = address
         // This addressing mode is zeropage.
 
         // First, we get the values of the pointer.
-        uint16_t ptrAddr = static_cast<uint16_t>(databus.read(registers.PC + 1));
+        uint16_t ptrAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 1));
         // We then find the address located at the address given by the pointer.
-        uint16_t addr = databus.read(ptrAddr);
+        uint16_t addr = dataBus.read(ptrAddr);
 
-        // Finally
-        uint16_t data = databus.read(addr + registers.Y);
-        if (fetchTwoBytes) {
-            data += static_cast<uint16_t>(databus.read(addr + registers.Y + 1)) << 8;
-        }
-        return data;
+        return addr + registers.Y;
     }
 }
 
@@ -191,7 +156,7 @@ namespace ops {
      i.e. if adding two unsigned numbers results in a negative number
      - N: if bit 7 is set.
     */
-    void ADC(Registers& registers, uint16_t data) {
+    void ADC(Registers& registers, uint8_t data) {
         uint8_t accumulatorPreOp = registers.A;
         registers.A += data + registers.getStatus('C');
 
@@ -208,7 +173,7 @@ namespace ops {
      - Z: set if the accumulator = 0.
      - N: set if bit 7 is set.
     */
-    void AND(Registers& registers, uint16_t data) {
+    void AND(Registers& registers, uint8_t data) {
         registers.A &= data;
         registers.setStatus('N', flagOps::isBit7Set(registers.A));
         registers.setStatus('Z', registers.A == 0);
@@ -221,17 +186,17 @@ namespace ops {
      - Z: set if A = 0
      - N: set to value of new bit 7
      */
-    void ASL(Registers& registers, uint16_t data) {
+    void ASL(Registers& registers, uint8_t data) {
         registers.setStatus('C', flagOps::isBit7Set(registers.A));
         registers.A = data << 1;
         registers.setStatus('N', flagOps::isBit7Set(registers.A));
         registers.setStatus('Z', registers.A == 0);
     }
-    void ASL(Registers& registers, DataBus& databus, uint16_t data) {
-        registers.setStatus('C', flagOps::isBit7Set(databus.read(data)));
-        databus.write(data, databus.read(data) << 1);
-        registers.setStatus('N', flagOps::isBit7Set(databus.read(data)));
-        registers.setStatus('Z', databus.read(data) == 0);
+    void ASL(Registers& registers, DataBus& dataBus, uint16_t address) {
+        registers.setStatus('C', flagOps::isBit7Set(dataBus.read(address)));
+        dataBus.write(address, dataBus.read(address) << 1);
+        registers.setStatus('N', flagOps::isBit7Set(dataBus.read(address)));
+        registers.setStatus('Z', dataBus.read(address) == 0);
     }
     /* void BCC
     Performs a branch if the carry flag is 0.
@@ -240,7 +205,7 @@ namespace ops {
         None
 
     */
-    void BCC(Registers& registers, uint16_t data) {
+    void BCC(Registers& registers, uint8_t data) {
         int8_t offset = data;  // Treat the data as signed.
         if (!registers.getStatus('C')) {
             registers.PC += offset;
@@ -252,7 +217,7 @@ namespace ops {
     Flags Affected:
         None
     */
-    void BCS(Registers& registers, uint16_t data) {
+    void BCS(Registers& registers, uint8_t data) {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('C')) {
             registers.PC += offset;
@@ -266,7 +231,7 @@ namespace ops {
         None
 
     */
-    void BEQ(Registers& registers, uint16_t data) {
+    void BEQ(Registers& registers, uint8_t data) {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('Z')) {
             registers.PC += offset;
@@ -279,7 +244,7 @@ namespace ops {
     Flags Affected:
         None
     */
-    void BIT(Registers& registers, uint16_t data) {
+    void BIT(Registers& registers, uint8_t data) {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('C')) {
             registers.PC += offset;
@@ -291,7 +256,7 @@ namespace ops {
     Flags Affected:
         None
     */
-    void BMI(Registers& registers, uint16_t data) {
+    void BMI(Registers& registers, uint8_t data) {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('N')) {
             registers.PC += offset;
@@ -303,7 +268,7 @@ namespace ops {
     Flags Affected:
         None
     */
-    void BNE(Registers& registers, uint16_t data) {
+    void BNE(Registers& registers, uint8_t data) {
         int8_t offset = data;  // Treat the data as signed.
         if (!registers.getStatus('Z')) {
             registers.PC += offset;
@@ -315,7 +280,7 @@ namespace ops {
     Flags Affected:
         None
     */
-    void BPL(Registers& registers, uint16_t data) {
+    void BPL(Registers& registers, uint8_t data) {
         int8_t offset = data;  // Treat the data as signed.
         if (!registers.getStatus('N')) {
             registers.PC += offset;
@@ -329,7 +294,7 @@ namespace ops {
     Flags Affected:
         - B: set to 1.
     */
-    void BRK(Registers& registers, DataBus& dataBus, uint16_t data) {
+    void BRK(Registers& registers, DataBus& dataBus, uint16_t address) {
         dataBus.write(registers.SP, registers.PC);
         dataBus.write(registers.SP + 1, registers.PC);
         registers.SP += 2;
@@ -340,7 +305,7 @@ namespace ops {
     Flags Affected:
         None
     */
-    void BVC(Registers& registers, uint16_t data) {
+    void BVC(Registers& registers, uint8_t data) {
         int8_t offset = data;  // Treat the data as signed.
         if (!registers.getStatus('V')) {
             registers.PC += offset;
@@ -352,7 +317,7 @@ namespace ops {
     Flags Affected:
         None
     */
-    void BVS(Registers& registers, uint16_t data) {
+    void BVS(Registers& registers, uint8_t data) {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('V')) {
             registers.PC += offset;
@@ -364,7 +329,7 @@ namespace ops {
     Flags Affected:
         - C: set to 0.
     */
-    void CLC(Registers& registers, uint16_t data) {
+    void CLC(Registers& registers, uint8_t data) {
         registers.setStatus('C', false);
     }
     /* void CLI
@@ -373,7 +338,7 @@ namespace ops {
     Flags Affected:
         - I: set to 0.
     */
-    void CLI(Registers& registers, uint16_t data) {
+    void CLI(Registers& registers, uint8_t data) {
         registers.setStatus('I', false);
     }
     /* void CLV
@@ -382,7 +347,7 @@ namespace ops {
     Flags Affected:
         - V: set to 0.
     */
-    void CLV(Registers& registers, uint16_t data) {
+    void CLV(Registers& registers, uint8_t data) {
         registers.setStatus('V', false);
     }
     /* void CMP
@@ -395,7 +360,7 @@ namespace ops {
         - Z: set to 1 if A = M
         - N: set if A < M
     */
-    void CMP(Registers& registers, uint16_t data) {
+    void CMP(Registers& registers, uint8_t data) {
         registers.setStatus('C', registers.A >= data);
         registers.setStatus('Z', registers.A == data);
         registers.setStatus('N', registers.A < data);
@@ -410,7 +375,7 @@ namespace ops {
         - Z: set to 1 if X = M
         - N: set if X < M
     */
-    void CPX(Registers& registers, uint16_t data) {
+    void CPX(Registers& registers, uint8_t data) {
         registers.setStatus('C', registers.X >= data);
         registers.setStatus('Z', registers.X == data);
         registers.setStatus('N', registers.X < data);
@@ -425,7 +390,7 @@ namespace ops {
         - Z: set to 1 if Y = M
         - N: set if Y < M
     */
-    void CPY(Registers& registers, uint16_t data) {
+    void CPY(Registers& registers, uint8_t data) {
         registers.setStatus('C', registers.Y >= data);
         registers.setStatus('Z', registers.Y == data);
         registers.setStatus('N', registers.Y < data);
@@ -437,9 +402,9 @@ namespace ops {
      - Z: If the result is 0.
      - N: If the 7th bit is set (indicating a negative value).
     */
-    void DEC(Registers& registers, DataBus& databus, uint16_t data) {
-        databus.write(data, databus.read(data) - 1);
-        uint8_t newVal = databus.read(data);
+    void DEC(Registers& registers, DataBus& dataBus, uint16_t address) {
+        dataBus.write(address, dataBus.read(address) - 1);
+        uint8_t newVal = dataBus.read(address);
         registers.setStatus('Z', newVal == 0);
         registers.setStatus('N', flagOps::isBit7Set(newVal));
     }
@@ -450,7 +415,7 @@ namespace ops {
      - Z: If the result is 0.
      - N: If the 7th bit is set (indicating a negative value).
     */
-    void DEX(Registers& registers, uint16_t data) {
+    void DEX(Registers& registers, uint8_t data) {
         --registers.X;
         registers.setStatus('Z', registers.X == 0);
         registers.setStatus('N', flagOps::isBit7Set(registers.X));
@@ -462,7 +427,7 @@ namespace ops {
      - Z: If the result is 0.
      - N: If the 7th bit is set (indicating a negative value).
     */
-    void DEY(Registers& registers, uint16_t data) {
+    void DEY(Registers& registers, uint8_t data) {
         --registers.Y;
         registers.setStatus('Z', registers.Y == 0);
         registers.setStatus('N', flagOps::isBit7Set(registers.Y));
@@ -474,7 +439,7 @@ namespace ops {
      - Z: If A = 0.
      - N: If the 7th bit of A is set (indicating a negative value).
     */
-    void EOR(Registers& registers, uint16_t data) {
+    void EOR(Registers& registers, uint8_t data) {
         registers.A ^= data;
         registers.setStatus('Z', registers.A == 0);
         registers.setStatus('N', flagOps::isBit7Set(registers.A));
@@ -486,8 +451,8 @@ namespace ops {
      - Z: If the result is 0.
      - N: If the 7th bit is set (indicating a negative value).
     */
-    void INC(Registers& registers, DataBus& databus, uint16_t data) {
-        uint8_t newVal = databus.write(data, databus.read(data) + 1);
+    void INC(Registers& registers, DataBus& dataBus, uint16_t address) {
+        uint8_t newVal = dataBus.write(address, dataBus.read(address) + 1);
         registers.setStatus('Z', newVal == 0);
         registers.setStatus('N', flagOps::isBit7Set(newVal));
     }
@@ -498,7 +463,7 @@ namespace ops {
      - Z: If the result is 0.
      - N: If the 7th bit is set (indicating a negative value).
     */
-    void INX(Registers& registers, uint16_t data) {
+    void INX(Registers& registers, uint8_t data) {
         ++registers.X;
         registers.setStatus('Z', registers.X == 0);
         registers.setStatus('N', flagOps::isBit7Set(registers.X));
@@ -510,7 +475,7 @@ namespace ops {
      - Z: If the result is 0.
      - N: If the 7th bit is set (indicating a negative value).
     */
-    void INY(Registers& registers, uint16_t data) {
+    void INY(Registers& registers, uint8_t data) {
         ++registers.Y;
         registers.setStatus('Z', registers.Y == 0);
         registers.setStatus('N', flagOps::isBit7Set(registers.Y));
@@ -521,7 +486,7 @@ namespace ops {
     Flags Affectected:
         None
     */
-    void JMP(Registers& registers, uint16_t data) {
+    void JMP(Registers& registers, uint8_t data) {
         registers.PC = data;
     }
     /* void JSR
@@ -539,15 +504,15 @@ namespace ops {
     Flags Affectected:
         None
     */
-    void JSR(Registers& registers, DataBus& databus, uint16_t data) {
+    void JSR(Registers& registers, DataBus& dataBus, uint16_t address) {
         const int instructionSize = 3;  // This only uses absolute addressing, and it will always be 3 bytes in length.
         registers.PC += 2;  // Add 3 to the next instruction, subtract 1 for this opcode = move PC by 2.
         uint8_t lowerByte, upperByte;
         lowerByte = registers.PC & 0b1111;
         upperByte = (registers.PC & 0b11111111) << 4;
-        databus.write(STACK_END_ADDR + registers.SP - 1, lowerByte);  // The stack pointer points to the vacant address right above the ones being used..
-        databus.write(STACK_END_ADDR + registers.SP, upperByte);
-        registers.PC = data;
+        dataBus.write(STACK_END_ADDR + registers.SP - 1, lowerByte);  // The stack pointer points to the vacant address right above the ones being used..
+        dataBus.write(STACK_END_ADDR + registers.SP, upperByte);
+        registers.PC = address;
         registers.SP -= 2;
     }
     /* void LDA
@@ -557,7 +522,7 @@ namespace ops {
      - Z: set to 1 if A = 0.
      - N: set to 1 if bit 7 of A is set.
     */
-    void LDA(Registers& registers, uint16_t data) {
+    void LDA(Registers& registers, uint8_t data) {
         registers.A = data;
         registers.setStatus('Z', registers.A == 0);
         registers.setStatus('N', flagOps::isBit7Set(registers.A));
@@ -569,7 +534,7 @@ namespace ops {
      - Z: set to 1 if X = 0.
      - N: set to 1 if bit 7 of X is set.
     */
-    void LDX(Registers& registers, uint16_t data) {
+    void LDX(Registers& registers, uint8_t data) {
         registers.X = data;
         registers.setStatus('Z', registers.X == 0);
         registers.setStatus('N', flagOps::isBit7Set(registers.X));
@@ -581,7 +546,7 @@ namespace ops {
      - Z: set to 1 if Y = 0.
      - N: set to 1 if bit 7 of Y is set.
     */
-    void LDY(Registers& registers, uint16_t data) {
+    void LDY(Registers& registers, uint8_t data) {
         registers.Y = data;
         registers.setStatus('Z', registers.Y == 0);
         registers.setStatus('N', flagOps::isBit7Set(registers.Y));
@@ -594,17 +559,17 @@ namespace ops {
      - Z: set if A = 0
      - N: set to value of new bit 7
     */
-    void LSR(Registers& registers, uint16_t data) {
+    void LSR(Registers& registers, uint8_t data) {
         registers.setStatus('C', flagOps::isBit0Set(registers.A));
         registers.A = data >> 1;
         registers.setStatus('N', flagOps::isBit7Set(registers.A));  // Won't this always be false?
         registers.setStatus('Z', registers.A == 0);
     }
-    void LSR(Registers& registers, DataBus& databus, uint16_t data) {
-        registers.setStatus('C', flagOps::isBit0Set(databus.read(data)));
-        databus.write(data, databus.read(data) >> 1);
-        registers.setStatus('N', flagOps::isBit7Set(databus.read(data)));  // Won't this always be false?
-        registers.setStatus('Z', databus.read(data) == 0);
+    void LSR(Registers& registers, DataBus& dataBus, uint16_t address) {
+        registers.setStatus('C', flagOps::isBit0Set(dataBus.read(address)));
+        dataBus.write(address, dataBus.read(address) >> 1);
+        registers.setStatus('N', flagOps::isBit7Set(dataBus.read(address)));  // Won't this always be false?
+        registers.setStatus('Z', dataBus.read(address) == 0);
     }
     /* void NOP
     Does not affect the processor; does nothing.
@@ -612,8 +577,8 @@ namespace ops {
     Flags Affected:
         None
     */
-    void NOP(Registers& registers, uint16_t data) {}
-    void NOP(Registers& registers, DataBus& databus, uint16_t data) {}
+    void NOP(Registers& registers, uint8_t data) {}
+    void NOP(Registers& registers, DataBus& dataBus, uint16_t address) {}
     /* void ORA
     Performs logical OR on address and memory value.
     
@@ -621,7 +586,7 @@ namespace ops {
      - Z: set if A = 0.
      - N: set if bit 7 of A is set.
     */
-    void ORA(Registers& registers, uint16_t data) {
+    void ORA(Registers& registers, uint8_t data) {
         registers.A |= data;
         registers.setStatus('Z', registers.A == 0);
         registers.setStatus('N', flagOps::isBit7Set(registers.A));
@@ -632,8 +597,8 @@ namespace ops {
     Flags Affected:
         None
     */
-    void PHA(Registers& registers, DataBus& databus, uint16_t data) {
-        databus.write(STACK_END_ADDR + registers.SP, registers.A);
+    void PHA(Registers& registers, DataBus& dataBus, uint16_t address) {
+        dataBus.write(STACK_END_ADDR + registers.SP, registers.A);
         --registers.SP;
     }
     /* void PHA
@@ -642,8 +607,8 @@ namespace ops {
     Flags Affected:
         None
     */
-    void PHP(Registers& registers, DataBus& databus, uint16_t data) {
-        databus.write(STACK_END_ADDR + registers.SP, registers.S);
+    void PHP(Registers& registers, DataBus& dataBus, uint16_t address) {
+        dataBus.write(STACK_END_ADDR + registers.SP, registers.S);
         --registers.SP;
     }
     /* void PLA
@@ -653,8 +618,8 @@ namespace ops {
      - Z: set if A = 0.
      - N: set if bit 7 of A is 0.
     */
-    void PLA(Registers& registers, DataBus& databus, uint16_t data) {
-        registers.A = databus.read(STACK_END_ADDR + registers.SP + 1);
+    void PLA(Registers& registers, DataBus& dataBus, uint16_t address) {
+        registers.A = dataBus.read(STACK_END_ADDR + registers.SP + 1);
         registers.setStatus('Z', registers.A == 0);
         registers.setStatus('N', flagOps::isBit7Set(registers.A));
         ++registers.SP;
@@ -665,8 +630,8 @@ namespace ops {
     Flags Affected:
         All flags are set to their respective values in the stack.
     */
-    void PLP(Registers& registers, DataBus& databus, uint16_t data) {
-        registers.S = databus.read(STACK_END_ADDR + registers.SP + 1);
+    void PLP(Registers& registers, DataBus& dataBus, uint16_t address) {
+        registers.S = dataBus.read(STACK_END_ADDR + registers.SP + 1);
         ++registers.SP;
     }
     /* void ROL
@@ -678,7 +643,7 @@ namespace ops {
      - Z: set if the new value = 0.
      - N: set if bit 7 of the new value is set.
     */
-    void ROL(Registers& registers, uint16_t data) {
+    void ROL(Registers& registers, uint8_t data) {
         bool oldBit7 = flagOps::isBit7Set(registers.A);
         registers.A <<= 1;
         registers.A += registers.getStatus('C');
@@ -686,15 +651,15 @@ namespace ops {
         registers.setStatus('Z', registers.A == 0);
         registers.setStatus('N', flagOps::isBit7Set(registers.A));
     }
-    void ROL(Registers& registers, DataBus& databus, uint16_t data) {
-        uint8_t tempVal = databus.read(data);
-        bool oldBit7 = flagOps::isBit7Set(databus.read(data));
+    void ROL(Registers& registers, DataBus& dataBus, uint16_t address) {
+        uint8_t tempVal = dataBus.read(address);
+        bool oldBit7 = flagOps::isBit7Set(dataBus.read(address));
         tempVal <<= 1;
         tempVal += registers.getStatus('C');
         registers.setStatus('C', oldBit7);
         registers.setStatus('Z', tempVal == 0);
         registers.setStatus('N', flagOps::isBit7Set(tempVal));
-        databus.write(data, tempVal);
+        dataBus.write(address, tempVal);
     }
     /* void ROR
     Moves all bits in the accumulator or memory location to the right by one bit.
@@ -705,7 +670,7 @@ namespace ops {
      - Z: set if the new value = 0.
      - N: set if bit 7 of the new value is set.
     */
-    void ROR(Registers& registers, uint16_t data) {
+    void ROR(Registers& registers, uint8_t data) {
         bool oldBit0 = flagOps::isBit0Set(registers.A);
         registers.A >>= 1;
         registers.A += registers.getStatus('C') << 7;
@@ -713,15 +678,15 @@ namespace ops {
         registers.setStatus('Z', registers.A == 0);
         registers.setStatus('N', flagOps::isBit7Set(registers.A));
     }
-    void ROR(Registers& registers, DataBus& databus, uint16_t data) {
-        uint8_t tempVal = databus.read(data);
-        bool oldBit0 = flagOps::isBit0Set(databus.read(data));
+    void ROR(Registers& registers, DataBus& dataBus, uint16_t address) {
+        uint8_t tempVal = dataBus.read(address);
+        bool oldBit0 = flagOps::isBit0Set(dataBus.read(address));
         tempVal >>= 1;
         tempVal += registers.getStatus('C') << 7;
         registers.setStatus('C', oldBit0);
         registers.setStatus('Z', tempVal == 0);
         registers.setStatus('N', flagOps::isBit7Set(tempVal));
-        databus.write(data, tempVal);
+        dataBus.write(address, tempVal);
     }
     /* void RTS
     Returns from an interrupt; pulls processor flags, then the program counter.
@@ -729,9 +694,9 @@ namespace ops {
     Flags Affected:
         All flags are set from the stack.
     */
-    void RTI(Registers& registers, DataBus& databus, uint16_t data) {
-        registers.S = databus.read(registers.SP + STACK_END_ADDR + 1);
-        registers.PC = databus.read(registers.SP + STACK_END_ADDR + 2);
+    void RTI(Registers& registers, DataBus& dataBus, uint16_t address) {
+        registers.S = dataBus.read(registers.SP + STACK_END_ADDR + 1);
+        registers.PC = dataBus.read(registers.SP + STACK_END_ADDR + 2);
         registers.SP -= 2;
     }
     /* void RTS
@@ -740,9 +705,9 @@ namespace ops {
     Flags Affected:
         None
     */
-    void RTS(Registers& registers, DataBus& databus, uint16_t data) {
-        uint8_t lowerByte = databus.read(registers.SP + STACK_END_ADDR + 1);
-        uint8_t upperByte = databus.read(registers.SP + STACK_END_ADDR + 2);
+    void RTS(Registers& registers, DataBus& dataBus, uint16_t address) {
+        uint8_t lowerByte = dataBus.read(registers.SP + STACK_END_ADDR + 1);
+        uint8_t upperByte = dataBus.read(registers.SP + STACK_END_ADDR + 2);
         // Remember that we stored the address we meant to go to next MINUS 1? So we must add it now.
         uint16_t returnAddress = lowerByte + (upperByte << 4) + 1;
         registers.PC = returnAddress;
@@ -755,7 +720,7 @@ namespace ops {
     Flags Affected:
      - C: 0 if overflow in bit 7.
     */
-    void SBC(Registers& registers, uint16_t data) {
+    void SBC(Registers& registers, uint8_t data) {
         uint8_t accumulatorBefore = registers.A;
         registers.A -= 1 + data + registers.getStatus('C');
         registers.setStatus('C', flagOps::isUnderflow(registers.A, data, registers.getStatus('C')));
@@ -769,7 +734,7 @@ namespace ops {
     Flags Affected:
      - C: set to 1.
     */
-    void SEC(Registers& registers, uint16_t data) {
+    void SEC(Registers& registers, uint8_t data) {
         registers.setStatus('C', 1);
     }
     /* void SEI
@@ -778,7 +743,7 @@ namespace ops {
     Flags Affected:
      - I: set to 1.
     */
-    void SEI(Registers& registers, uint16_t data) {
+    void SEI(Registers& registers, uint8_t data) {
         registers.setStatus('I', 1);
     }
     /* void STA
@@ -787,8 +752,8 @@ namespace ops {
     Flags Affected:
         None
     */
-    void STA(Registers& registers, DataBus& databus, uint16_t data) {
-        databus.write(data, registers.A);
+    void STA(Registers& registers, DataBus& dataBus, uint16_t address) {
+        dataBus.write(address, registers.A);
     }
     /* void STX
     Stores the X register in a memory location.
@@ -796,8 +761,8 @@ namespace ops {
     Flags Affected:
         None
     */
-    void STX(Registers& registers, DataBus& databus, uint16_t data) {
-        databus.write(data, registers.X);
+    void STX(Registers& registers, DataBus& dataBus, uint16_t address) {
+        dataBus.write(address, registers.X);
     }
     /* void STY
     Stores the Y register in a memory location.
@@ -805,8 +770,8 @@ namespace ops {
     Flags Affected:
         None
     */
-    void STY(Registers& registers, DataBus& databus, uint16_t data) {
-        databus.write(data, registers.Y);
+    void STY(Registers& registers, DataBus& dataBus, uint16_t address) {
+        dataBus.write(address, registers.Y);
     }
     /* void TAX
     Copies the accumulator into the X register.
@@ -815,7 +780,7 @@ namespace ops {
      - Z: set if X = 0.
      - N: set if bit 7 of X is set.
     */
-    void TAX(Registers& registers, uint16_t data) {
+    void TAX(Registers& registers, uint8_t data) {
         registers.X = registers.A;
         registers.setStatus('Z', registers.X == 0);
         registers.setStatus('N', flagOps::isBit7Set(registers.X));
@@ -827,7 +792,7 @@ namespace ops {
      - Z: set if Y = 0.
      - N: set if bit 7 of Y is set.
     */
-    void TAY(Registers& registers, uint16_t data) {
+    void TAY(Registers& registers, uint8_t data) {
         registers.Y = registers.A;
         registers.setStatus('Z', registers.Y == 0);
         registers.setStatus('N', flagOps::isBit7Set(registers.Y));
@@ -839,7 +804,7 @@ namespace ops {
      - Z: set if X = 0.
      - N: set if bit 7 of X is set.
     */
-    void TSX(Registers& registers, uint16_t data) {
+    void TSX(Registers& registers, uint8_t data) {
         registers.X = registers.SP;
         registers.setStatus('Z', registers.X == 0);
         registers.setStatus('N', flagOps::isBit7Set(registers.X));
@@ -851,7 +816,7 @@ namespace ops {
      - Z: set if A = 0.
      - N: set if bit 7 of A is set.
     */
-    void TXA(Registers& registers, uint16_t data) {
+    void TXA(Registers& registers, uint8_t data) {
         registers.A == registers.X;
         registers.setStatus('Z', registers.A == 0);
         registers.setStatus('N', flagOps::isBit7Set(registers.A));
@@ -862,7 +827,7 @@ namespace ops {
     Flags Affected:
         None
     */
-    void TXS(Registers& registers, uint16_t data) {
+    void TXS(Registers& registers, uint8_t data) {
         registers.SP = registers.X;
     }
     /* void TYA
@@ -872,7 +837,7 @@ namespace ops {
      - Z: set if A = 0.
      - N: set if bit 7 of A is set.
     */
-    void TYA(Registers& registers, uint16_t data) {
+    void TYA(Registers& registers, uint8_t data) {
         registers.A = registers.Y;
         registers.setStatus('Z', registers.A == 0);
         registers.setStatus('N', flagOps::isBit7Set(registers.A));

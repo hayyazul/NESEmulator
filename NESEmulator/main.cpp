@@ -27,7 +27,7 @@ int main() {
 	cpu.executeOpcode(0xA9);
 	cpu.memPoke(0x00F0, 0xab);
 	cpu.memPoke(0x0001, 0xF0);
-	cpu.executeOpcode(0x85);
+	cpu.executeOpcode(0x81);
 	auto a = cpu.registersPeek().A;
 	cout << "Accumulator (expected: 16):" << (int)a << endl;
 	auto b = cpu.memPeek(0x00ab);

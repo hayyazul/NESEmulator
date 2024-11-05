@@ -11,12 +11,21 @@ _6502_CPU::_6502_CPU(DataBus* databus) : databus(databus) {
 _6502_CPU::~_6502_CPU() {}
 
 void _6502_CPU::executeCycle() {
-	uint8_t opcode = 0x00;
+	// First check if the number of cycles elapsed corresponds with the number of cycles the instruction takes up. If so, execute the next instruction.
+	if (this->opcodeCyclesElapsed == this->currentOpcodeCycleLen) {
+		this->currentOpcodeCycleLen = 0;  // Reset the opcode counter.
+		uint8_t opcode = this->databus->read(this->registers.PC);  // Get the next opcode.
+		this->currentOpcodeCycleLen = this->instructionSet[opcode].cycleCount;  // Get how many cycles this opcode will be using.
+
+		this->executeOpcode(opcode);
+		this->registers.PC += this->instructionSet[opcode].numBytes * ~this->instructionSet[opcode].modifiesPC;  // Only move the program counter forward if the instruction does not modify the PC.
+	}
+	++this->opcodeCyclesElapsed;
+	++this->totalCyclesElapsed;
 }
 
 void _6502_CPU::executeOpcode(uint8_t opcode) {
-	uint16_t data = this->instructionSet[opcode].addressingOperation(*this->databus, this->registers);
-	this->instructionSet[opcode].performOperation(this->registers, *this->databus, data);
+	this->instructionSet[opcode].performOperation(this->registers, *this->databus);
 }
 
 uint8_t _6502_CPU::memPeek(uint16_t memoryAddress) {
@@ -40,6 +49,10 @@ void _6502_CPU::setupInstructionSet() {
 		addrModes::zeropage,
 		2,
 		3);
+	this->instructionSet[0x81] = Instruction(ops::STA,
+		addrModes::indirectX,
+		2,
+		6);
 }
 
 // Cycle operations

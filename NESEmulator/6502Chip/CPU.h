@@ -80,9 +80,10 @@ public:
 	void executeCycle();
 
 public:
-	// Temporarily public
+	// Temporarily public; with the exception of the first, never use these for non-debugging spurposes. 
 	void executeOpcode(uint8_t opcode);
 
+	// Direct memory operations. Peek = Getter, Poke = Setter, mem = memory. Serve a purely debug role.
 	uint8_t memPeek(uint16_t memoryAddress);
 	Registers registersPeek();
 	void memPoke(uint16_t memoryAddress, uint8_t val);
@@ -95,6 +96,7 @@ private:
 	Registers registers;
 	DataBus* databus;
 
-	long unsigned int totalCyclesElapsed = 0;
-	unsigned int opcodeCyclesElapsed = 0;
+	long unsigned int totalCyclesElapsed = 0;  // Total CPU cycles elapsed since startup.
+	unsigned int opcodeCyclesElapsed = 0;  // A cycle counter that is present since the CPU began executing a given instruction. Resets when it reaches the number of cycles for a given instruction.
+	unsigned int currentOpcodeCycleLen = 0;  // The number of cycles the current opcode uses.
 };
