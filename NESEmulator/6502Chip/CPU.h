@@ -25,7 +25,7 @@ struct Registers {
 		A(0),
 		S(0),
 		PC(0),
-		SP(0),
+		SP(0xFF),  // The stack pointer starts at 0x1ff and ends at 0x100. So lower values <-> higher in the stack.
 		X(0),
 		Y(0)
 	{};

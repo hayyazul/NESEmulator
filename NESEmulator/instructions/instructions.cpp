@@ -9,11 +9,15 @@ namespace flagOps {
         // The & between the two check if the sign has changed for both the accumulator and the data value.
         // This also has the effect of checking if the accumulator and the data were of the same sign.
         // The final & with 0b10000000 is to filter out all bits but the 7th.
-        return ((aBefore ^ sum) & (data ^ sum)) & 0b10000000;
+        return ((aBefore ^ sum) & (data ^ sum)));
     }
 
     bool isBit7Set(uint8_t byte) {
         return 0b10000000 & byte;
+    }
+
+    bool isBit0Set(uint8_t byte) {
+        return 0b1 & byte;
     }
 
     bool isOverflow(uint8_t a, uint8_t data, bool c) {
@@ -195,7 +199,7 @@ namespace ops {
         registers.setStatus('Z', registers.A == 0);
         registers.setStatus('V', flagOps::isSignBitIncorrect(accumulatorPreOp, registers.A, data));
         // This one checks if we overflowed the accumulator
-        registers.setStatus('C', flagOps::isOverflow(accumulatorPreOp, data, registers.getStatus('C')));
+        registers.setStatus('C', not flagOps::isOverflow(accumulatorPreOp, data, registers.getStatus('C')));
     }
     /* void AND
     Performs bitwise AND on accumulator and data.
@@ -210,7 +214,7 @@ namespace ops {
         registers.setStatus('Z', registers.A == 0);
     }
     /* void ASL
-    Performs a shift left.
+    Performs a shift left on either the accumulator or some region in memory.
     
     Flags Affected:
      - C: set to value of old bit 7
@@ -222,6 +226,12 @@ namespace ops {
         registers.A = data << 1;
         registers.setStatus('N', flagOps::isBit7Set(registers.A));
         registers.setStatus('Z', registers.A == 0);
+    }
+    void ASL(Registers& registers, DataBus& databus, uint16_t data) {
+        registers.setStatus('C', flagOps::isBit7Set(databus.read(data)));
+        databus.write(data, databus.read(data) << 1);
+        registers.setStatus('N', flagOps::isBit7Set(databus.read(data)));
+        registers.setStatus('Z', databus.read(data) == 0);
     }
     /* void BCC
     Performs a branch if the carry flag is 0.
@@ -236,7 +246,6 @@ namespace ops {
             registers.PC += offset;
         }
     }
-
     /* void BCS
     Performs a branch if the carry flag is 1.
 
@@ -323,7 +332,7 @@ namespace ops {
     void BRK(Registers& registers, DataBus& dataBus, uint16_t data) {
         dataBus.write(registers.SP, registers.PC);
         dataBus.write(registers.SP + 1, registers.PC);
-        ++++registers.SP;
+        registers.SP += 2;
     }
     /* void BVC
     Branches if the overflow flag is 0.
@@ -402,8 +411,10 @@ namespace ops {
         - N: set if X < M
     */
     void CPX(Registers& registers, uint16_t data) {
-
-    }
+        registers.setStatus('C', registers.X >= data);
+        registers.setStatus('Z', registers.X == data);
+        registers.setStatus('N', registers.X < data);
+    } 
     /* void CPY
     Compares the Y register w/ the value in memory.
     Sets some flags based on the result A-M (which is not stored)
@@ -414,30 +425,361 @@ namespace ops {
         - Z: set to 1 if Y = M
         - N: set if Y < M
     */
-    void CPY(Registers& registers, uint16_t data)
-    {
+    void CPY(Registers& registers, uint16_t data) {
+        registers.setStatus('C', registers.Y >= data);
+        registers.setStatus('Z', registers.Y == data);
+        registers.setStatus('N', registers.Y < data);
     }
-    void DEC(Registers& registers, DataBus& databus, uint16_t data)
-    {
+    /* void DEC
+    Decrements a given memory value by 1.
+
+    Flags Affectected:
+     - Z: If the result is 0.
+     - N: If the 7th bit is set (indicating a negative value).
+    */
+    void DEC(Registers& registers, DataBus& databus, uint16_t data) {
+        databus.write(data, databus.read(data) - 1);
+        uint8_t newVal = databus.read(data);
+        registers.setStatus('Z', newVal == 0);
+        registers.setStatus('N', flagOps::isBit7Set(newVal));
     }
-    void DEX(Registers& registers, uint16_t data)
-    {
+    /* void DEX
+    Decrements the X register by 1.
+
+    Flags Affectected:
+     - Z: If the result is 0.
+     - N: If the 7th bit is set (indicating a negative value).
+    */
+    void DEX(Registers& registers, uint16_t data) {
+        --registers.X;
+        registers.setStatus('Z', registers.X == 0);
+        registers.setStatus('N', flagOps::isBit7Set(registers.X));
     }
-    void DEY(Registers& registers, uint16_t data)
-    {
+    /* void DEY
+    Decrements the Y register by 1.
+
+    Flags Affectected:
+     - Z: If the result is 0.
+     - N: If the 7th bit is set (indicating a negative value).
+    */
+    void DEY(Registers& registers, uint16_t data) {
+        --registers.Y;
+        registers.setStatus('Z', registers.Y == 0);
+        registers.setStatus('N', flagOps::isBit7Set(registers.Y));
     }
-    void INC(Registers& registers, uint16_t data)
-    {
+    /* void EOR
+    Performs bitwise xor on the accumulator using the contents in memory.
+
+    Flags Affectected:
+     - Z: If A = 0.
+     - N: If the 7th bit of A is set (indicating a negative value).
+    */
+    void EOR(Registers& registers, uint16_t data) {
+        registers.A ^= data;
+        registers.setStatus('Z', registers.A == 0);
+        registers.setStatus('N', flagOps::isBit7Set(registers.A));
+    }
+    /* void INC
+    Increments memory value by 1.
+
+    Flags Affectected:
+     - Z: If the result is 0.
+     - N: If the 7th bit is set (indicating a negative value).
+    */
+    void INC(Registers& registers, DataBus& databus, uint16_t data) {
+        uint8_t newVal = databus.write(data, databus.read(data) + 1);
+        registers.setStatus('Z', newVal == 0);
+        registers.setStatus('N', flagOps::isBit7Set(newVal));
+    }
+    /* void INX
+    Increments X register by 1.
+
+    Flags Affectected:
+     - Z: If the result is 0.
+     - N: If the 7th bit is set (indicating a negative value).
+    */
+    void INX(Registers& registers, uint16_t data) {
+        ++registers.X;
+        registers.setStatus('Z', registers.X == 0);
+        registers.setStatus('N', flagOps::isBit7Set(registers.X));
+    }
+    /* void INY
+    Increments the Y register by 1.
+
+    Flags Affectected:
+     - Z: If the result is 0.
+     - N: If the 7th bit is set (indicating a negative value).
+    */
+    void INY(Registers& registers, uint16_t data) {
+        ++registers.Y;
+        registers.setStatus('Z', registers.Y == 0);
+        registers.setStatus('N', flagOps::isBit7Set(registers.Y));
+    }
+    /* void JMP
+    Sets program counter to address specified by the operand.
+
+    Flags Affectected:
+        None
+    */
+    void JMP(Registers& registers, uint16_t data) {
+        registers.PC = data;
+    }
+    /* void JSR
+    Pushes what would be the next value of the program counter MINUS 1 onto the stack.
+    Sets program counter to address specified by the operand.
+
+    e.g. If I am currently at hex value 0x0407, and the program counter would normally become 0x0409, the value
+    0x0408 is pushed onto the stack 
+    
+    Sample memory slice:
+    (00 00 08 04 00 00)
+           ^^ ^^
+    Values pushed onto stack (The 6502 is little endian, so the lower two bytes come first).
+
+    Flags Affectected:
+        None
+    */
+    void JSR(Registers& registers, DataBus& databus, uint16_t data) {
+        const int instructionSize = 3;  // This only uses absolute addressing, and it will always be 3 bytes in length.
+        registers.PC += 2;  // Add 3 to the next instruction, subtract 1 for this opcode = move PC by 2.
+        uint8_t lowerByte, upperByte;
+        lowerByte = registers.PC & 0b1111;
+        upperByte = (registers.PC & 0b11111111) << 4;
+        databus.write(STACK_END_ADDR + registers.SP - 1, lowerByte);  // The stack pointer points to the vacant address right above the ones being used..
+        databus.write(STACK_END_ADDR + registers.SP, upperByte);
+        registers.PC = data;
+        registers.SP -= 2;
     }
     /* void LDA
-    Loads the data at a memory location into the accumulator
+    Loads the data at a memory location into the accumulator.
 
     Flags Affected:
      - Z: set to 1 if A = 0.
-     - N: set to 1 if bit 7 is set.
+     - N: set to 1 if bit 7 of A is set.
     */
     void LDA(Registers& registers, uint16_t data) {
         registers.A = data;
+        registers.setStatus('Z', registers.A == 0);
+        registers.setStatus('N', flagOps::isBit7Set(registers.A));
+    }
+    /* void LDA
+    Loads the data at a memory location into the X registers.
+
+    Flags Affected:
+     - Z: set to 1 if X = 0.
+     - N: set to 1 if bit 7 of X is set.
+    */
+    void LDX(Registers& registers, uint16_t data) {
+        registers.X = data;
+        registers.setStatus('Z', registers.X == 0);
+        registers.setStatus('N', flagOps::isBit7Set(registers.X));
+    }
+    /* void LDY
+    Loads the data at a memory location into the Y register.
+
+    Flags Affected:
+     - Z: set to 1 if Y = 0.
+     - N: set to 1 if bit 7 of Y is set.
+    */
+    void LDY(Registers& registers, uint16_t data) {
+        registers.Y = data;
+        registers.setStatus('Z', registers.Y == 0);
+        registers.setStatus('N', flagOps::isBit7Set(registers.Y));
+    }
+    /* void LSR
+    Performs a shift right.
+
+    Flags Affected:
+     - C: set to value of old bit 7
+     - Z: set if A = 0
+     - N: set to value of new bit 7
+    */
+    void LSR(Registers& registers, uint16_t data) {
+        registers.setStatus('C', flagOps::isBit0Set(registers.A));
+        registers.A = data >> 1;
+        registers.setStatus('N', flagOps::isBit7Set(registers.A));  // Won't this always be false?
+        registers.setStatus('Z', registers.A == 0);
+    }
+    void LSR(Registers& registers, DataBus& databus, uint16_t data) {
+        registers.setStatus('C', flagOps::isBit0Set(databus.read(data)));
+        databus.write(data, databus.read(data) >> 1);
+        registers.setStatus('N', flagOps::isBit7Set(databus.read(data)));  // Won't this always be false?
+        registers.setStatus('Z', databus.read(data) == 0);
+    }
+    /* void NOP
+    Does not affect the processor; does nothing.
+
+    Flags Affected:
+        None
+    */
+    void NOP(Registers& registers, uint16_t data) {}
+    void NOP(Registers& registers, DataBus& databus, uint16_t data) {}
+    /* void ORA
+    Performs logical OR on address and memory value.
+    
+    Flags Affected:
+     - Z: set if A = 0.
+     - N: set if bit 7 of A is set.
+    */
+    void ORA(Registers& registers, uint16_t data) {
+        registers.A |= data;
+        registers.setStatus('Z', registers.A == 0);
+        registers.setStatus('N', flagOps::isBit7Set(registers.A));
+    }
+    /* void PHA
+    Pushes a copy of the accumulator onto the stack.
+
+    Flags Affected:
+        None
+    */
+    void PHA(Registers& registers, DataBus& databus, uint16_t data) {
+        databus.write(STACK_END_ADDR + registers.SP, registers.A);
+        --registers.SP;
+    }
+    /* void PHA
+    Pushes a copy of the status flags onto the stack.
+
+    Flags Affected:
+        None
+    */
+    void PHP(Registers& registers, DataBus& databus, uint16_t data) {
+        databus.write(STACK_END_ADDR + registers.SP, registers.S);
+        --registers.SP;
+    }
+    /* void PLA
+    Pulls the accumulator from the stack.
+
+    Flags Affected:
+     - Z: set if A = 0.
+     - N: set if bit 7 of A is 0.
+    */
+    void PLA(Registers& registers, DataBus& databus, uint16_t data) {
+        registers.A = databus.read(STACK_END_ADDR + registers.SP + 1);
+        registers.setStatus('Z', registers.A == 0);
+        registers.setStatus('N', flagOps::isBit7Set(registers.A));
+        ++registers.SP;
+    }
+    /* void PLA
+    Pulls the status flags from the stack.
+
+    Flags Affected:
+        All flags are set to their respective values in the stack.
+    */
+    void PLP(Registers& registers, DataBus& databus, uint16_t data) {
+        registers.S = databus.read(STACK_END_ADDR + registers.SP + 1);
+        ++registers.SP;
+    }
+    /* void ROL
+    Moves all bits in the accumulator or memory location to the left by one bit.
+    Bit 0 takes on the value of the old carry flag value, then the carry flag becomes the value of the old bit 7.
+
+    Flags Affected:
+     - C: set to the old value of bit 7.
+     - Z: set if the new value = 0.
+     - N: set if bit 7 of the new value is set.
+    */
+    void ROL(Registers& registers, uint16_t data) {
+        bool oldBit7 = flagOps::isBit7Set(registers.A);
+        registers.A <<= 1;
+        registers.A += registers.getStatus('C');
+        registers.setStatus('C', oldBit7);
+        registers.setStatus('Z', registers.A == 0);
+        registers.setStatus('N', flagOps::isBit7Set(registers.A));
+    }
+    void ROL(Registers& registers, DataBus& databus, uint16_t data) {
+        uint8_t tempVal = databus.read(data);
+        bool oldBit7 = flagOps::isBit7Set(databus.read(data));
+        tempVal <<= 1;
+        tempVal += registers.getStatus('C');
+        registers.setStatus('C', oldBit7);
+        registers.setStatus('Z', tempVal == 0);
+        registers.setStatus('N', flagOps::isBit7Set(tempVal));
+        databus.write(data, tempVal);
+    }
+    /* void ROR
+    Moves all bits in the accumulator or memory location to the right by one bit.
+    Bit 7 takes on the value of the old carry flag value, then the carry flag becomes the value of the old bit 0.
+
+    Flags Affected:
+     - C: set to the old value of bit 0.
+     - Z: set if the new value = 0.
+     - N: set if bit 7 of the new value is set.
+    */
+    void ROR(Registers& registers, uint16_t data) {
+        bool oldBit0 = flagOps::isBit0Set(registers.A);
+        registers.A >>= 1;
+        registers.A += registers.getStatus('C') << 7;
+        registers.setStatus('C', oldBit0);
+        registers.setStatus('Z', registers.A == 0);
+        registers.setStatus('N', flagOps::isBit7Set(registers.A));
+    }
+    void ROR(Registers& registers, DataBus& databus, uint16_t data) {
+        uint8_t tempVal = databus.read(data);
+        bool oldBit0 = flagOps::isBit0Set(databus.read(data));
+        tempVal >>= 1;
+        tempVal += registers.getStatus('C') << 7;
+        registers.setStatus('C', oldBit0);
+        registers.setStatus('Z', tempVal == 0);
+        registers.setStatus('N', flagOps::isBit7Set(tempVal));
+        databus.write(data, tempVal);
+    }
+    /* void RTS
+    Returns from an interrupt; pulls processor flags, then the program counter.
+
+    Flags Affected:
+        All flags are set from the stack.
+    */
+    void RTI(Registers& registers, DataBus& databus, uint16_t data) {
+        registers.S = databus.read(registers.SP + STACK_END_ADDR + 1);
+        registers.PC = databus.read(registers.SP + STACK_END_ADDR + 2);
+        registers.SP -= 2;
+    }
+    /* void RTS
+    Returns from the subroutine by going to the address stored in the stack.
+
+    Flags Affected:
+        None
+    */
+    void RTS(Registers& registers, DataBus& databus, uint16_t data) {
+        uint8_t lowerByte = databus.read(registers.SP + STACK_END_ADDR + 1);
+        uint8_t upperByte = databus.read(registers.SP + STACK_END_ADDR + 2);
+        // Remember that we stored the address we meant to go to next MINUS 1? So we must add it now.
+        uint16_t returnAddress = lowerByte + (upperByte << 4) + 1;
+        registers.PC = returnAddress;
+        registers.SP -= 2;
+    }
+    /* void SBC
+    Subtracts the content of the accumulator with the value in the memory and NOT of the carry flag.
+    i.e. A = A - M - (1 - C)
+
+    Flags Affected:
+     - C: 0 if overflow in bit 7.
+    */
+    void SBC(Registers& registers, uint16_t data) {
+        uint8_t accumulatorBefore = registers.A;
+        registers.A -= 1 + data + registers.getStatus('C');
+        registers.setStatus('C', flagOps::isUnderflow(registers.A, data, registers.getStatus('C')));
+        registers.setStatus('V', flagOps::isSignBitIncorrect(accumulatorBefore, registers.A, data));
+        registers.setStatus('Z', registers.A == 0);
+        registers.setStatus('N', flagOps::isBit7Set(registers.A));
+    }
+    /* void SEC
+    Sets the carry flag to 1.
+
+    Flags Affected:
+     - C: set to 1.
+    */
+    void SEC(Registers& registers, uint16_t data) {
+        registers.setStatus('C', 1);
+    }
+    /* void SEI
+    Sets interrupt disable flag to 1.
+
+    Flags Affected:
+     - I: set to 1.
+    */
+    void SEI(Registers& registers, uint16_t data) {
+        registers.setStatus('I', 1);
     }
     /* void STA
     Stores the accumulator in a memory location.
@@ -448,52 +790,91 @@ namespace ops {
     void STA(Registers& registers, DataBus& databus, uint16_t data) {
         databus.write(data, registers.A);
     }
-    void JMP(Registers& registers, uint16_t data)
-    {
+    /* void STX
+    Stores the X register in a memory location.
+
+    Flags Affected:
+        None
+    */
+    void STX(Registers& registers, DataBus& databus, uint16_t data) {
+        databus.write(data, registers.X);
     }
-    void JSR(Registers& registers, DataBus& databus, uint16_t data)
-    {
+    /* void STY
+    Stores the Y register in a memory location.
+
+    Flags Affected:
+        None
+    */
+    void STY(Registers& registers, DataBus& databus, uint16_t data) {
+        databus.write(data, registers.Y);
     }
-    void RTS(Registers& registers, DataBus& databus, uint16_t data)
-    {
+    /* void TAX
+    Copies the accumulator into the X register.
+
+    Flags Affected:
+     - Z: set if X = 0.
+     - N: set if bit 7 of X is set.
+    */
+    void TAX(Registers& registers, uint16_t data) {
+        registers.X = registers.A;
+        registers.setStatus('Z', registers.X == 0);
+        registers.setStatus('N', flagOps::isBit7Set(registers.X));
     }
-    void ROR(Registers& registers, uint16_t data)
-    {
+    /* void TAY
+    Copies the accumulator into the Y register.
+
+    Flags Affected:
+     - Z: set if Y = 0.
+     - N: set if bit 7 of Y is set.
+    */
+    void TAY(Registers& registers, uint16_t data) {
+        registers.Y = registers.A;
+        registers.setStatus('Z', registers.Y == 0);
+        registers.setStatus('N', flagOps::isBit7Set(registers.Y));
     }
-    void ROL(Registers& registers, uint16_t data)
-    {
+    /* void TSR
+    Copies the stack pointer into the X register.
+
+    Flags Affected:
+     - Z: set if X = 0.
+     - N: set if bit 7 of X is set.
+    */
+    void TSX(Registers& registers, uint16_t data) {
+        registers.X = registers.SP;
+        registers.setStatus('Z', registers.X == 0);
+        registers.setStatus('N', flagOps::isBit7Set(registers.X));
     }
-    void SBC(Registers& registers, uint16_t data)
-    {
+    /* void TXA
+    Copies the X register into the accumulator.
+
+    Flags Affected:
+     - Z: set if A = 0.
+     - N: set if bit 7 of A is set.
+    */
+    void TXA(Registers& registers, uint16_t data) {
+        registers.A == registers.X;
+        registers.setStatus('Z', registers.A == 0);
+        registers.setStatus('N', flagOps::isBit7Set(registers.A));
     }
-    void SEC(Registers& registers, uint16_t data)
-    {
+    /* void TXS
+    Copies the X register into the accumulator.
+
+    Flags Affected:
+        None
+    */
+    void TXS(Registers& registers, uint16_t data) {
+        registers.SP = registers.X;
     }
-    void SEI(Registers& registers, uint16_t data)
-    {
-    }
-    void STX(Registers& registers, DataBus& databus, uint16_t data)
-    {
-    }
-    void STY(Registers& registers, DataBus& databus, uint16_t data)
-    {
-    }
-    void TAY(Registers& registers, uint16_t data)
-    {
-    }
-    void TAX(Registers& registers, uint16_t data)
-    {
-    }
-    void TSX(Registers& registers, uint16_t data)
-    {
-    }
-    void TXA(Registers& registers, uint16_t data)
-    {
-    }
-    void TXS(Registers& registers, uint16_t data)
-    {
-    }
-    void TYA(Registers& registers, uint16_t data)
-    {
+    /* void TYA
+    Copies the Y register into the accumulator.
+
+    Flags Affected:
+     - Z: set if A = 0.
+     - N: set if bit 7 of A is set.
+    */
+    void TYA(Registers& registers, uint16_t data) {
+        registers.A = registers.Y;
+        registers.setStatus('Z', registers.A == 0);
+        registers.setStatus('N', flagOps::isBit7Set(registers.A));
     }
 }

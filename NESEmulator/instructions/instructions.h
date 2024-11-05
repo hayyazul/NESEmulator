@@ -101,14 +101,18 @@ struct Instruction {
 namespace flagOps {
 	bool isSignBitIncorrect(uint8_t aBefore, uint8_t sum, uint8_t data);
 	bool isBit7Set(uint8_t byte);
+	bool isBit0Set(uint8_t byte);
 	bool isOverflow(uint8_t a, uint8_t data, bool c);
 	bool isUnderflow(uint8_t a, uint8_t data, bool c);
 };
 
+
+// VERY IMPORTANT TODO: Sometimes, data is used as an address by an opcode even though the addressing operations only return data. Change this.
 namespace ops {  // ops = operations
 	void AND(Registers& registers, uint16_t data);
 	void ADC(Registers& registers, uint16_t data);
 	void ASL(Registers& registers, uint16_t data);
+	void ASL(Registers& registers, DataBus& databus, uint16_t data);
 	void BCC(Registers& registers, uint16_t data);
 	void BCS(Registers& registers, uint16_t data);
 	void BEQ(Registers& registers, uint16_t data);
@@ -129,21 +133,44 @@ namespace ops {  // ops = operations
 	void DEC(Registers& registers, DataBus& databus, uint16_t data);
 	void DEX(Registers& registers, uint16_t data);
 	void DEY(Registers& registers, uint16_t data);
-	void INC(Registers& registers, uint16_t data);
-	void LDA(Registers& registers, uint16_t data);
-	void STA(Registers& registers, DataBus& databus, uint16_t data);
+	void EOR(Registers& registers, uint16_t data);
+	void INC(Registers& registers, DataBus& databus, uint16_t data);
+	void INX(Registers& registers, uint16_t data);
+	void INY(Registers& registers, uint16_t data);
+
 	void JMP(Registers& registers, uint16_t data);
 	void JSR(Registers& registers, DataBus& databus, uint16_t data);
-	void RTS(Registers& registers, DataBus& databus, uint16_t data);
-	void ROR(Registers& registers, uint16_t data);
+
+	void LDA(Registers& registers, uint16_t data);
+	void LDX(Registers& registers, uint16_t data);
+	void LDY(Registers& registers, uint16_t data);
+	void LSR(Registers& registers, uint16_t data);
+	void LSR(Registers& registers, DataBus& databus, uint16_t data);
+	void NOP(Registers& registers, uint16_t data);
+	void NOP(Registers& registers, DataBus& databus, uint16_t data);
+	
+	void ORA(Registers& registers, uint16_t data);
+	void PHA(Registers& registers, DataBus& databus, uint16_t data);
+	void PHP(Registers& registers, DataBus& databus, uint16_t data);
+	void PLA(Registers& registers, DataBus& databus, uint16_t data);
+	void PLP(Registers& registers, DataBus& databus, uint16_t data);
+
 	void ROL(Registers& registers, uint16_t data);
+	void ROL(Registers& registers, DataBus& databus, uint16_t data);
+	void ROR(Registers& registers, uint16_t data);
+	void ROR(Registers& registers, DataBus& databus, uint16_t data);
+	void RTI(Registers& registers, DataBus& databus, uint16_t data);
+	void RTS(Registers& registers, DataBus& databus, uint16_t data);
 	void SBC(Registers& registers, uint16_t data);
 	void SEC(Registers& registers, uint16_t data);
 	void SEI(Registers& registers, uint16_t data);
+	
+	void STA(Registers& registers, DataBus& databus, uint16_t data);
+
 	void STX(Registers& registers, DataBus& databus, uint16_t data);
 	void STY(Registers& registers, DataBus& databus, uint16_t data);
-	void TAY(Registers& registers, uint16_t data);
 	void TAX(Registers& registers, uint16_t data);
+	void TAY(Registers& registers, uint16_t data);
 	void TSX(Registers& registers, uint16_t data);
 	void TXA(Registers& registers, uint16_t data);
 	void TXS(Registers& registers, uint16_t data);

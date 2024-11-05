@@ -13,5 +13,6 @@ uint8_t Memory::getByte(uint16_t address) const {
 }
 
 uint8_t Memory::setByte(uint16_t address, uint8_t value) {
-	return this->data->at(address) = value;
+	this->data->at(address) = value;
+	return this->data->at(address);
 }
