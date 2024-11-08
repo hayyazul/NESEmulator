@@ -47,6 +47,8 @@ enum AddressingModes {
 
 /* struct Instruction
 	An Instruction is made up of an operation and an addressing operation.
+
+	TODO: implement cycle increase when page crosses.
 */
 struct Instruction {
 	Operation operation;

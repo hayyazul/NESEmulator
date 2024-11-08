@@ -5,7 +5,7 @@ Memory::Memory() {
 }
 
 Memory::~Memory() {
-	delete this->data;
+	delete[] this->data;
 }
 
 uint8_t Memory::getByte(uint16_t address) const {

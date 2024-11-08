@@ -2,10 +2,14 @@
 #pragma once
 
 #include <iostream>
+#include <fstream>
+#include <iomanip>
 
 #include "6502Chip/CPU.h"
 #include "memory/memory.h"
 #include "databus/databus.h"
+#include "loadingData/parseNESFiles.h"
+
 
 class NES {
 public:
@@ -21,6 +25,17 @@ public:
 	void executeMachineCycle();  // For now, 1 Machine Cycle = 1 CPU Cycle. This is not how it is in the actual implementation.
 
 private:
+	
+	/* void loadData
+	Given an NESFile, loads the data into memory.
+
+	See https://www.nesdev.org/wiki/CPU_memory_map
+	*/
+	void loadData(NESFileData file);
+
+	// Cartridge ROM usually though not always starts at this address.
+	const uint16_t CART_ROM_START_ADDR = 0x8000;  // CART = Cartridge, ADDR = Address
+
 	_6502_CPU CPU;
 	Memory memory;
 	DataBus databus;

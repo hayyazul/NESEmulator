@@ -11,6 +11,7 @@
 #include "../instructions/instructions.h"
 
 constexpr int numOfInstructions = 1;
+const uint16_t RESET_VECTOR_ADDRESS = 0xfffc;
 
 // NOTE: Might replace get/set status with bool values.
 struct Registers {
@@ -42,6 +43,15 @@ struct Registers {
 		} else {
 			this->S &= ~statusMask;
 		}
+	}
+
+	bool operator==(const Registers& otherRegisters) {
+		return  otherRegisters.A == this->A && 
+				otherRegisters.S == this->S && 
+				otherRegisters.SP == this->SP && 
+				otherRegisters.PC == this->PC && 
+				otherRegisters.X == this->X && 
+				otherRegisters.Y == this->Y;
 	}
 
 private:
@@ -79,6 +89,23 @@ public:
 
 	void executeCycle();
 
+	/* void reset
+	Resets the CPU, which involves:
+	
+	Setting flags
+	TODO: reset PPU and APU flags and variables.
+	*/
+	void reset();
+
+	/* void powerON
+	Initializes CPU values to those expected when powering the console up.
+
+	It does many things similarly to reset, but does a few extra things,
+	including clearing all flags.
+	TODO: reset PPU and APU flags and variables.
+	*/
+	void powerOn();
+
 public:
 	// Temporarily public; with the exception of the first, never use these for non-debugging spurposes. 
 	void executeOpcode(uint8_t opcode);
@@ -92,6 +119,7 @@ private:
 
 	void setupInstructionSet();
 
+	// Map between bytes and their associated opcodes.
 	std::map<uint8_t, Instruction> instructionSet;
 	Registers registers;
 	DataBus* databus;
