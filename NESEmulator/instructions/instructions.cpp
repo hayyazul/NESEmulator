@@ -486,7 +486,7 @@ namespace ops {
     Flags Affectected:
         None
     */
-    void JMP(Registers& registers, uint8_t data) {
+    void JMP(Registers& registers, DataBus& databus, uint16_t data) {
         registers.PC = data;
     }
     /* void JSR

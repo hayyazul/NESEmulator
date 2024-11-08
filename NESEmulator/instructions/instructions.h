@@ -143,7 +143,7 @@ namespace ops {  // ops = operations
 	void INX(Registers& registers, uint8_t data);
 	void INY(Registers& registers, uint8_t data);
 
-	void JMP(Registers& registers, uint8_t data);
+	void JMP(Registers& registers, DataBus& databus, uint16_t data);
 	void JSR(Registers& registers, DataBus& databus, uint16_t data);
 
 	void LDA(Registers& registers, uint8_t data);

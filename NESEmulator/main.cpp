@@ -14,20 +14,24 @@ int main() {
 	NESDebug nes;
 	nes.CPU_ptr->powerOn();
 	nes.loadROM("testROMS/nestest.nes");
+	nes.CPU_ptr->reset();
 
 	// Set the PC to 0xc000 because we have not implemented the PPU yet.
 	Registers registers = nes.registersPeek();
+	nes.memPoke(0x1f0, 0x801);  // Putting an address between 0x0800 and 0x8000 on the stack.
 	registers.PC = 0xc000;
 	nes.registersPoke(registers);
 
 	std::cout << "Initial execution address: 0x" << std::hex << (int)nes.CPU_ptr->registersPeek().PC << std::endl;
 
-	for (int i = 0; i < 10; ++i) {
+	for (int i = 0; i < 1000; ++i) {
 		if (!nes.executeMachineCycle()) {
-			std::cout << "Failure: Invalid opcode: 0x" << std::hex << (int)nes.databus_ptr->read(nes.CPU_ptr->registersPeek().PC) << " at 0x" << (int)nes.CPU_ptr->registersPeek().PC << std::endl;
+			std::cout << "Failure: Invalid opcode: 0x" << std::hex << (int)nes.databus_ptr->read(nes.CPU_ptr->registersPeek().PC) << " at 0x" << std::setfill('0') << std::setw(4) << (int)nes.CPU_ptr->registersPeek().PC << std::endl;
 			break;
 		}
 	}
+
+	std::cout << "Fin" << std::endl;
 
 	/*
 	Memory memory;

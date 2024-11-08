@@ -81,6 +81,9 @@ public:
 
 	// Direct memory operations. Peek = Getter, Poke = Setter, mem = memory. Serve a purely debug role.
 	uint8_t memPeek(uint16_t memoryAddress);
+
+	// TODO: output a dump of the memory.
+	//void memDump(const char* filename);
 	
 	// TODO: directly affect memory instead of using the CPU's debugger poke/peek functions.
 	Registers registersPeek();

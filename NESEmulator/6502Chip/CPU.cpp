@@ -1,4 +1,6 @@
 #include "CPU.h"
+#include <iostream>
+#include <iomanip>
 
 _6502_CPU::_6502_CPU() : databus(nullptr) {
 	this->setupInstructionSet();
@@ -13,23 +15,28 @@ _6502_CPU::~_6502_CPU() {}
 bool _6502_CPU::executeCycle() {
 	// First check if the number of cycles elapsed corresponds with the number of cycles the instruction takes up. If so, execute the next instruction.
 	if (this->opcodeCyclesElapsed == this->currentOpcodeCycleLen) {
+		this->opcodeCyclesElapsed = 0;
 		uint8_t opcode = this->databus->read(this->registers.PC);  // Get the next opcode.
+		std::cout << "Executing opcode 0x" << std::hex << std::setfill('0') << std::setw(2) << (int)opcode << std::endl;
 		// Check if this opcode exists.
 		if (!this->instructionSet.contains(opcode)) {
 			return false;
 		};
+		Instruction& instruction = this->instructionSet[opcode];
 
-		this->currentOpcodeCycleLen = this->instructionSet[opcode].cycleCount;  // Get how many cycles this opcode will be using.
+		this->currentOpcodeCycleLen = instruction.cycleCount;  // Get how many cycles this opcode will be using.
 		this->executeOpcode(opcode);
-		this->registers.PC += this->instructionSet[opcode].numBytes * !this->instructionSet[opcode].modifiesPC;  // Only move the program counter forward if the instruction does not modify the PC.
+		this->registers.PC += instruction.numBytes * !instruction.modifiesPC;  // Only move the program counter forward if the instruction does not modify the PC.
 	}
 	++this->opcodeCyclesElapsed;
 	++this->totalCyclesElapsed;
-	true;
+	return true;
 }
 
 void _6502_CPU::reset() {
-	registers.PC = static_cast<uint16_t>(this->databus->read(RESET_VECTOR_ADDRESS)) + static_cast<uint16_t>(this->databus->read(RESET_VECTOR_ADDRESS + 1)) << 8;
+	auto a = static_cast<uint16_t>(this->databus->read(RESET_VECTOR_ADDRESS + 1)) << 8;
+	auto b = static_cast<uint16_t>(this->databus->read(RESET_VECTOR_ADDRESS));
+	registers.PC = static_cast<uint16_t>(this->databus->read(RESET_VECTOR_ADDRESS)) + (static_cast<uint16_t>(this->databus->read(RESET_VECTOR_ADDRESS + 1)) << 8);
 	registers.SP -= 3;
 	registers.setStatus('I', true);
 }
@@ -44,7 +51,8 @@ void _6502_CPU::powerOn() {
 }
 
 void _6502_CPU::executeOpcode(uint8_t opcode) {
-	this->instructionSet[opcode].performOperation(this->registers, *this->databus);
+	Instruction& instruction = this->instructionSet[opcode];  // Here for debugging purposes.
+	instruction.performOperation(this->registers, *this->databus);
 }
 
 uint8_t _6502_CPU::memPeek(uint16_t memoryAddress) {
@@ -110,13 +118,13 @@ void _6502_CPU::setupInstructionSet() {
 	this->instructionSet[0x1e] = Instruction((MemOp)ops::ASL, addrModes::absoluteX, 2, 7);
 
 	// Branch Operations (BCC, BCS, BEQ, BMI, BPL, BVC, BVS)
-	this->instructionSet[0x90] = Instruction(ops::BCC, addrModes::relative, 2, 2);
-	this->instructionSet[0xb0] = Instruction(ops::BCS, addrModes::relative, 2, 2);
-	this->instructionSet[0xf0] = Instruction(ops::BEQ, addrModes::relative, 2, 2);
-	this->instructionSet[0x30] = Instruction(ops::BMI, addrModes::relative, 2, 2);
-	this->instructionSet[0x10] = Instruction(ops::BPL, addrModes::relative, 2, 2);
-	this->instructionSet[0x50] = Instruction(ops::BVC, addrModes::relative, 2, 2);
-	this->instructionSet[0x70] = Instruction(ops::BVS, addrModes::relative, 2, 2);
+	this->instructionSet[0x90] = Instruction(ops::BCC, addrModes::relative, 2, 2, true);
+	this->instructionSet[0xb0] = Instruction(ops::BCS, addrModes::relative, 2, 2, true);
+	this->instructionSet[0xf0] = Instruction(ops::BEQ, addrModes::relative, 2, 2, true);
+	this->instructionSet[0x30] = Instruction(ops::BMI, addrModes::relative, 2, 2, true);
+	this->instructionSet[0x10] = Instruction(ops::BPL, addrModes::relative, 2, 2, true);
+	this->instructionSet[0x50] = Instruction(ops::BVC, addrModes::relative, 2, 2, true);
+	this->instructionSet[0x70] = Instruction(ops::BVS, addrModes::relative, 2, 2, true);
 
 	// Bit Test (BIT)
 	this->instructionSet[0x24] = Instruction(ops::BIT, addrModes::zeropage, 2, 3);
@@ -146,12 +154,12 @@ void _6502_CPU::setupInstructionSet() {
 	this->instructionSet[0xcc] = Instruction(ops::CPY, addrModes::absolute, 2, 4);
 
 	// Jump (JMP)
-	this->instructionSet[0x4c] = Instruction(ops::JMP, addrModes::absolute, 3, 3);
-	this->instructionSet[0x6c] = Instruction(ops::JMP, addrModes::indirect, 3, 5);
+	this->instructionSet[0x4c] = Instruction(ops::JMP, addrModes::absolute, 3, 3, true);
+	this->instructionSet[0x6c] = Instruction(ops::JMP, addrModes::indirect, 3, 5, true);
 
 	// Jump to Subroutine and Return from Subroutine (JSR, RTS)
-	this->instructionSet[0x20] = Instruction(ops::JSR, addrModes::absolute, 3, 6);
-	this->instructionSet[0x60] = Instruction(ops::RTS, addrModes::implicit, 1, 6);
+	this->instructionSet[0x20] = Instruction(ops::JSR, addrModes::absolute, 3, 6, true);
+	this->instructionSet[0x60] = Instruction(ops::RTS, addrModes::implicit, 1, 6, true);
 
 	// Increment (INC)
 	this->instructionSet[0xe6] = Instruction(ops::INC, addrModes::zeropage, 2, 5);
@@ -214,7 +222,7 @@ void _6502_CPU::setupInstructionSet() {
 	this->instructionSet[0x3e] = Instruction((MemOp)ops::ROL, addrModes::absoluteX, 2, 7);
 
 	// BNE (Branch if Not Equal)
-	this->instructionSet[0xd0] = Instruction(ops::BNE, addrModes::relative, 2, 2);
+	this->instructionSet[0xd0] = Instruction(ops::BNE, addrModes::relative, 2, 2, true);
 
 	// DEX (Decrement X)
 	this->instructionSet[0xca] = Instruction(ops::DEX, addrModes::implicit, 1, 2);
@@ -312,5 +320,3 @@ void _6502_CPU::setupInstructionSet() {
 	// TSX (Transfer Stack Pointer to X)
 	this->instructionSet[0x9e] = Instruction(ops::TSX, addrModes::implicit, 1, 2);
 }
-
-// Cycle operations

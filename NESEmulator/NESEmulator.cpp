@@ -7,13 +7,12 @@ NES::NES() {
 
 NES::~NES() {}
 
-void NES::loadROM(const char* fileName) {
+void NES::loadROM(const char* fileName) {  // Remember to reset the NES after loading a ROM.
  	NESFileData NESFile;
 	Result result = parseiNESFile(fileName, NESFile);
 
 	if (result == SUCCESS) {
 		this->loadData(NESFile);
-		this->CPU.reset();
 	} else {
 		std::cout << "iNES file parsing failed: " << result << std::endl;
 	}
@@ -33,18 +32,31 @@ bool NES::executeMachineCycle() {
 }
 
 void NES::loadData(NESFileData file) {
-	// For now, we will only load in the reset vector.
-	this->databus.write(RESET_VECTOR_ADDRESS, file.RESETVector[0]);
-	this->databus.write(RESET_VECTOR_ADDRESS + 1, file.RESETVector[1]);
-
 	// Then we load in ROM data.
+
+	// Note: There is a special case regarding PRG ROM; if its size is 0x4000 (16K), we will duplicate it.
+	// This is because we start loading in from address 0x8000, and at 16K we will only reach 0xc000. By duplicatin
+	bool duplicateData = false;
+	if (file.programDataSize == 0x4000) {
+		duplicateData = true;
+		file.programDataSize *= 2;
+		std::vector<uint8_t> tempProgramData;
+		// Duplicating data.
+		for (int i = 0; i < 2; ++i) {
+			for (uint8_t byte : file.programData) {
+				tempProgramData.push_back(byte);
+			}
+		}
+		file.programData = tempProgramData;
+	}
+
 	uint16_t j = 0;
-	for (uint16_t i = this->CART_ROM_START_ADDR; i < 0xfffa; ++i) {
+	for (uint32_t i = this->CART_ROM_START_ADDR; i <= 0xffff; ++i) {
 		if (j < file.programDataSize) {
 			this->databus.write(i, file.programData[j]);
-		} else if (j - file.programDataSize < file.characterDataSize) {
-			this->databus.write(i, file.programData[j - file.programDataSize]);
-		}
+		} //else if (j - file.programDataSize < file.characterDataSize) {  // NOTE: I am confused on where to put CHR ROM, so for now I don't put it in at all.
+			//this->databus.write(i, file.programData[j - file.programDataSize]);
+		//}
 		++j;
 	}
 }
