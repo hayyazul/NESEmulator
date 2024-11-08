@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <array>
 
-constexpr int BYTES_OF_MEMORY = 0xFFFF;
+constexpr int BYTES_OF_MEMORY = 0x10000;
 
 /*
 Basic memory class. Right now it is no different from just an array,

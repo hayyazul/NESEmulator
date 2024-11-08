@@ -26,7 +26,7 @@ struct Registers {
 		A(0),
 		S(0),
 		PC(0),
-		SP(0xFF),  // The stack pointer starts at 0x1ff and ends at 0x100. So lower values <-> higher in the stack.
+		SP(0),  // The stack pointer starts at 0x1ff and ends at 0x100. So lower values <-> higher in the stack.
 		X(0),
 		Y(0)
 	{};
@@ -87,7 +87,11 @@ public:
 	_6502_CPU(DataBus* databus);
 	~_6502_CPU();
 
-	void executeCycle();
+	/* bool executeCycle
+	Executes a machine cycle which for now is equivalent to one cpu cycle. Returns True if the cycle has been successful, false if
+	otherwise (e.g. illegal opcode).
+	*/
+	bool executeCycle();
 
 	/* void reset
 	Resets the CPU, which involves:
@@ -114,6 +118,11 @@ public:
 	uint8_t memPeek(uint16_t memoryAddress);
 	Registers registersPeek();
 	void memPoke(uint16_t memoryAddress, uint8_t val);
+	void registersPoke(Registers registers);
+
+	// Searches for a memory value and gets the first address which satisifies this condition. Returns true if found, false if not.
+	// Range (optional) is inclusive.
+	bool memFind(uint8_t value, uint16_t& address, int lowerBound = -1, int upperBound = -1);
 
 private:
 

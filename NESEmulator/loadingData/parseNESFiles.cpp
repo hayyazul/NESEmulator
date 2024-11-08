@@ -33,6 +33,10 @@ Result parseiNESFile(const char* filename, NESFileData& gameData) {
 			break;
 		case(0x6):  // This is a flag on the 7th byte; the upper nybble contains the lower nybble of the mapper ID. For now, ignore everything else.
 			gameData.mapperID = 0b1111 & (data >> 4);
+			// Check if the mapperID we got is implemented.
+			if (!IMPLEMENTED_MAPPERS.count(gameData.mapperID)) {
+				return UNRECOGNIZED_MAPPER;
+			}
 			break;
 		default:
 			break;

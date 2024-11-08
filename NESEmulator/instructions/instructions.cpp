@@ -506,7 +506,7 @@ namespace ops {
     */
     void JSR(Registers& registers, DataBus& dataBus, uint16_t address) {
         const int instructionSize = 3;  // This only uses absolute addressing, and it will always be 3 bytes in length.
-        registers.PC += 2;  // Add 3 to the next instruction, subtract 1 for this opcode = move PC by 2.
+        registers.PC += 2;  // Add 3 to move to the next instruction, subtract 1 for this opcode = move PC by 2.
         uint8_t lowerByte, upperByte;
         lowerByte = registers.PC & 0b1111;
         upperByte = (registers.PC & 0b11111111) << 4;

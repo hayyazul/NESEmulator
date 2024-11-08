@@ -10,20 +10,22 @@ _6502_CPU::_6502_CPU(DataBus* databus) : databus(databus) {
 
 _6502_CPU::~_6502_CPU() {}
 
-void _6502_CPU::executeCycle() {
+bool _6502_CPU::executeCycle() {
 	// First check if the number of cycles elapsed corresponds with the number of cycles the instruction takes up. If so, execute the next instruction.
 	if (this->opcodeCyclesElapsed == this->currentOpcodeCycleLen) {
-		this->currentOpcodeCycleLen = 0;  // Reset the opcode counter.
 		uint8_t opcode = this->databus->read(this->registers.PC);  // Get the next opcode.
-		this->currentOpcodeCycleLen = this->instructionSet[opcode].cycleCount;  // Get how many cycles this opcode will be using.
+		// Check if this opcode exists.
+		if (!this->instructionSet.contains(opcode)) {
+			return false;
+		};
 
+		this->currentOpcodeCycleLen = this->instructionSet[opcode].cycleCount;  // Get how many cycles this opcode will be using.
 		this->executeOpcode(opcode);
-		auto debugVar1 = this->instructionSet[opcode].numBytes;
-		auto debugVar2 = !this->instructionSet[opcode].modifiesPC;
 		this->registers.PC += this->instructionSet[opcode].numBytes * !this->instructionSet[opcode].modifiesPC;  // Only move the program counter forward if the instruction does not modify the PC.
 	}
 	++this->opcodeCyclesElapsed;
 	++this->totalCyclesElapsed;
+	true;
 }
 
 void _6502_CPU::reset() {
@@ -55,6 +57,26 @@ Registers _6502_CPU::registersPeek() {
 
 void _6502_CPU::memPoke(uint16_t memoryAddress, uint8_t val) {
 	this->databus->write(memoryAddress, val);
+}
+
+void _6502_CPU::registersPoke(Registers registers) {
+	this->registers = registers;
+}
+
+bool _6502_CPU::memFind(uint8_t value, uint16_t& address, int lowerBound, int upperBound) {
+	uint16_t startAddr = lowerBound == -1 ? 0 : (uint16_t)lowerBound;
+	uint16_t endAddr = upperBound == -1 ? 0xffff : (uint16_t)upperBound;
+	for (uint16_t i = startAddr; i <= endAddr; ++i) {
+		if (this->databus->read(i) == value) {
+			address = i;
+			return true;
+		};
+
+		if (i == endAddr) {
+			break;
+		}
+	}
+	return false;
 }
 
 void _6502_CPU::setupInstructionSet() {

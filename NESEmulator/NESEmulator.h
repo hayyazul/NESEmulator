@@ -22,9 +22,9 @@ public:
 
 public:
 	// Temporarily public for debugging purposes.
-	void executeMachineCycle();  // For now, 1 Machine Cycle = 1 CPU Cycle. This is not how it is in the actual implementation.
+	bool executeMachineCycle();  // For now, 1 Machine Cycle = 1 CPU Cycle. This is not how it is in the actual implementation.
 
-private:
+protected:
 	
 	/* void loadData
 	Given an NESFile, loads the data into memory.
@@ -42,5 +42,5 @@ private:
 
 	// Debug variables
 	unsigned long int totalMachineCycles = 0;
-	unsigned long int CYCLE_LIMIT = 100;  // Referring to the machine cycle.
+	unsigned long int CYCLE_LIMIT = 100000;  // Referring to the machine cycle.
 };

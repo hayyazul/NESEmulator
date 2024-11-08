@@ -5,17 +5,22 @@
 #include <fstream>
 #include <iostream>
 #include <iomanip>
+#include <array>
+#include <set> 
 
 enum Result {
 	FAILURE,  // When in the process of reading the file, some catastrophic failure prevents a full read. Used in general cases when the cause can't be figured out.
 	SUCCESS,  // When everything has been successfully been read.
 	SIZE_MISTMATCH,  // When the program or character data does not match up w/ the data size indicated in the header.
-	BAD_HEADER  // When the header fails to match up with "NES(0x1a)"
+	BAD_HEADER,  // When the header fails to match up with "NES(0x1a)"
+	UNRECOGNIZED_MAPPER  // When the mapper fails to match up with a known or implemented one.
 };
 
 const unsigned int PRG_DATA_CHUNK_SIZE = 0x4000;
 const unsigned int CHR_DATA_CHUNK_SIZE = 0x2000;
 const unsigned int HEADER_SIZE = 0x10;  // The header is 16 bytes long.
+
+const std::set<uint8_t> IMPLEMENTED_MAPPERS = { 0 };
 
 // This struct contains the file's mapperID and program and character data.
 struct NESFileData {

@@ -2,6 +2,7 @@
 //
 
 #include "NESEmulator.h"
+#include "debuggingTools/testOpcodes.h"
 
 // TODO: 
 //  - Add a few other instructions.
@@ -10,11 +11,22 @@
 //  - Add the rest of the instructions.
 
 int main() {
-	
-	NES nes;
-	nes.loadROM("testROMS/run.6502.nes");
-	for (int i = 0; i < 100; ++i) {
-		nes.executeMachineCycle();
+	NESDebug nes;
+	nes.CPU_ptr->powerOn();
+	nes.loadROM("testROMS/nestest.nes");
+
+	// Set the PC to 0xc000 because we have not implemented the PPU yet.
+	Registers registers = nes.registersPeek();
+	registers.PC = 0xc000;
+	nes.registersPoke(registers);
+
+	std::cout << "Initial execution address: 0x" << std::hex << (int)nes.CPU_ptr->registersPeek().PC << std::endl;
+
+	for (int i = 0; i < 10; ++i) {
+		if (!nes.executeMachineCycle()) {
+			std::cout << "Failure: Invalid opcode: 0x" << std::hex << (int)nes.databus_ptr->read(nes.CPU_ptr->registersPeek().PC) << " at 0x" << (int)nes.CPU_ptr->registersPeek().PC << std::endl;
+			break;
+		}
 	}
 
 	/*

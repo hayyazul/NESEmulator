@@ -14,6 +14,8 @@ void NES::loadROM(const char* fileName) {
 	if (result == SUCCESS) {
 		this->loadData(NESFile);
 		this->CPU.reset();
+	} else {
+		std::cout << "iNES file parsing failed: " << result << std::endl;
 	}
 }
 
@@ -23,10 +25,11 @@ void NES::run() {
 	}
 }
 
-void NES::executeMachineCycle() {
+bool NES::executeMachineCycle() {
 	// TODO: change it from 1:1 machine cycle to cpu cycle to its true value.
-	this->CPU.executeCycle();
+	bool result = this->CPU.executeCycle();
 	++this->totalMachineCycles;
+	return result;
 }
 
 void NES::loadData(NESFileData file) {
