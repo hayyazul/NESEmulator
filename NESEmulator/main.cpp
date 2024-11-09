@@ -2,13 +2,39 @@
 //
 
 #include "NESEmulator.h"
-#include "debuggingTools/testOpcodes.h"
 
 // TODO: 
 // - Debug instructions
 // - Create debugging tools (breakpoints, loggers, deassemblers, etc.)
 
+#include "input/input.h"
+
+#undef main  // Deals w/ the definition of main in SDL.
 int main() {
+	SDL_Renderer* renderer;
+	SDL_Window* window;
+	SDL_CreateWindowAndRenderer(1080,
+		720,
+		SDL_WINDOW_RESIZABLE, &window, &renderer);
+	SDL_SetWindowTitle(window, "NES");
+
+	Input input;
+	bool quit = false;
+	bool inputRecieved = false;
+	while (!quit) {
+		inputRecieved = input.updateInput();
+		if (inputRecieved) {
+			input.printKeyStates(NEUTRAL);
+			std::cout << "--------------------" << std::endl;
+		}
+
+		quit = input.getQuit();
+	}
+
+	SDL_DestroyWindow(window);
+	SDL_DestroyRenderer(renderer);
+
+	/*
 	NESDebug nes;
 	nes.CPU_ptr->powerOn();
 	nes.setStdValue(0xcb);  // We set all values to 0xea as to avoid any issues w/ attempting to execute illegal opcodes.

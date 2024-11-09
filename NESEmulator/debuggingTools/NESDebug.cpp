@@ -1,4 +1,4 @@
-#include "testOpcodes.h"
+#include "NESDebug.h"
 
 NESDebug::NESDebug() : NES() {
 }
