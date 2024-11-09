@@ -23,6 +23,13 @@ bool _6502_CPU::executeCycle() {
 			std::cout << " 0x" << std::hex << std::setfill('0') << std::setw(2) << (int)this->databus->read(this->registers.PC + i);
 		}
 		std::cout << " | " << std::endl;
+		int s = 0;
+		std::array<uint8_t, 0x100> a = this->dumpStack();
+		
+		for (auto& b : a) {
+			s += b;
+		}
+		std::cout << "Stack sum: " << s << std::endl;
 		// Check if this opcode exists.
 		if (!this->instructionSet.contains(opcode)) {
 			return false;

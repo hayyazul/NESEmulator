@@ -14,7 +14,7 @@ int main() {
 	NESDebug nes;
 	nes.CPU_ptr->powerOn();
 	nes.loadROM("testROMS/nestest.nes");
-	nes.CPU_ptr->reset();
+	//nes.CPU_ptr->reset();
 
 	uint16_t addr;
 	bool found = nes.memFind(0x04, addr);
@@ -33,7 +33,7 @@ int main() {
 
 	std::cout << "Initial execution address: 0x" << std::hex << (int)nes.CPU_ptr->registersPeek().PC << std::endl;
 
-	for (int i = 0; i < 1000; ++i) {
+	for (int i = 0; i < 10000; ++i) {
 		if (!nes.executeMachineCycle()) {
 			std::cout << "Failure: Invalid opcode: 0x" << std::hex << std::setfill('0') << std::setw(2) << (int)nes.databus_ptr->read(nes.CPU_ptr->registersPeek().PC) << " at 0x" << std::setfill('0') << std::setw(4) << (int)nes.CPU_ptr->registersPeek().PC << ", or in the .nes file: 0x" << std::setfill('0') << std::setw(4) << (int)(memAddrToiNESAddr(nes.CPU_ptr->registersPeek().PC)) << std::endl;
 			break;
