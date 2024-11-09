@@ -120,6 +120,8 @@ namespace ops {  // ops = operations
 	void ASL(Registers& registers, DataBus& databus, uint16_t data);
 	// For branch instructions, since they modify the PC and thus will tell the CPU to not iterate it, they have to modify it themselves.
 	// All branch instructions use one addressing mode (relative) and all have a fixed length of 2 bytes; thus we add 2 if the branch condition fails.
+	// The relative addressing adds or subtracts the PC; it does NOT account for the length of the opcode, so keep that in mind.
+	// In other words, when branching FORWARDS, add two. Do NOT add two when branching backwards.
 	void BCC(Registers& registers, uint8_t data);
 	void BCS(Registers& registers, uint8_t data);
 	void BEQ(Registers& registers, uint8_t data);
@@ -131,7 +133,7 @@ namespace ops {  // ops = operations
 	void BVC(Registers& registers, uint8_t data);
 	void BVS(Registers& registers, uint8_t data);
 	void CLC(Registers& registers, uint8_t data);
-	// CLD is not included because decimal mode does not exist on the NES CPU.
+	void CLD(Registers& registers, uint8_t data);
 	void CLI(Registers& registers, uint8_t data);
 	void CLV(Registers& registers, uint8_t data);
 	void CMP(Registers& registers, uint8_t data);
@@ -170,6 +172,7 @@ namespace ops {  // ops = operations
 	void RTS(Registers& registers, DataBus& databus, uint16_t data);
 	void SBC(Registers& registers, uint8_t data);
 	void SEC(Registers& registers, uint8_t data);
+	void SED(Registers& registers, uint8_t data);
 	void SEI(Registers& registers, uint8_t data);
 	
 	void STA(Registers& registers, DataBus& databus, uint16_t data);

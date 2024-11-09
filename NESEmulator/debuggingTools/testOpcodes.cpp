@@ -6,6 +6,12 @@ NESDebug::NESDebug() : NES() {
 NESDebug::~NESDebug() {
 }
 
+void NESDebug::setStdValue(uint8_t val) {
+	for (unsigned int i = 0; i < BYTES_OF_MEMORY; ++i) {
+		this->memory.setByte(i, val);
+	}
+}
+
 uint8_t NESDebug::memPeek(uint16_t memoryAddress) {
 	return this->databus.read(memoryAddress);
 }

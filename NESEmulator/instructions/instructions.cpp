@@ -144,7 +144,8 @@ namespace addrModes {
 }
 
 // TODO: move comments to header file.
-namespace ops {
+// TODO: Use the new functions in databus to more easily communicate w/ the stack.
+namespace ops {  // TODO: Fix operations which relied on the old system of fetching data directly.
     /* void ADC
     Adds the given data and the carry to the accumulator.
 
@@ -208,7 +209,8 @@ namespace ops {
         int8_t offset = data;  // Treat the data as signed.
         if (!registers.getStatus('C')) {
             registers.PC += offset;
-        } else {
+        } 
+        if (offset >= 0 || registers.getStatus('C')) {
             registers.PC += 2;  // In that case, iterate the program counter manually since the 
         }
     }
@@ -222,7 +224,8 @@ namespace ops {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('C')) {
             registers.PC += data;
-        } else {
+        } 
+        if (offset >= 0 || !registers.getStatus('C')) {
             registers.PC += 2;  // In that case, iterate the program counter manually since the 
         }
     }
@@ -238,7 +241,8 @@ namespace ops {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('Z')) {
             registers.PC += offset;
-        } else {
+        } 
+        if (offset >= 0 || !registers.getStatus('Z')) {
             registers.PC += 2;  // In that case, iterate the program counter manually since the 
         }
     }
@@ -281,7 +285,8 @@ namespace ops {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('N')) {
             registers.PC += offset;
-        } else {
+        } 
+        if (offset >= 0 || !registers.getStatus('N')) {
             registers.PC += 2;  // In that case, iterate the program counter manually since the 
         }
     }
@@ -295,7 +300,8 @@ namespace ops {
         int8_t offset = data;  // Treat the data as signed.
         if (!registers.getStatus('Z')) {
             registers.PC += offset;
-        } else {
+        } 
+        if (offset >= 0 || registers.getStatus('Z')) {
             registers.PC += 2;  // In that case, iterate the program counter manually since the 
         }
     }
@@ -309,20 +315,40 @@ namespace ops {
         int8_t offset = data;  // Treat the data as signed.
         if (!registers.getStatus('N')) {
             registers.PC += offset;
-        } else {
+        } 
+        if (offset >= 0 || registers.getStatus('N')) {
             registers.PC += 2;  // In that case, iterate the program counter manually since the 
         }
     }
     /* void BRK
-    TODO: fully implement.
+    Interrupt request.
+
+    Push the program counter then the status flags onto the stack.
+    Then load the address stored in the IRQ interrupt vector (located at 0xfffe and 0xffff).
+    Set the break flag in the status to 1.
+    
+    See NESDev for more details.
 
     Flags Affected:
         - B: set to 1.
     */
     void BRK(Registers& registers, DataBus& dataBus, uint16_t address) {
+        // First, push the current PC and Status Flags in the stack.
         dataBus.write(registers.SP, registers.PC);
-        dataBus.write(registers.SP + 1, registers.PC);
-        registers.SP += 2;
+        dataBus.write(registers.SP - 1, registers.PC);
+        dataBus.write(registers.SP - 2, registers.S);
+        
+        // Then, get the IRQ Interrupt Vector
+        // TODO: Get rid of magic numbers.
+        // Magic numbers: 0xfffe and 0xffff are the addresses where the IRQ vector is located.
+        // lb = lower byte; ub = upper byte.
+        uint8_t lb = dataBus.read(0xfffe);
+        uint8_t ub = dataBus.read(0xffff);
+        uint16_t irqVector = lb + (static_cast<uint16_t>(ub) << 8);
+        
+        // Finally, update the status flags.
+        registers.PC = irqVector;
+        registers.SP -= 3;
     }
     /* void BVC
     Branches if the overflow flag is 0.
@@ -334,8 +360,9 @@ namespace ops {
         int8_t offset = data;  // Treat the data as signed.
         if (!registers.getStatus('V')) {
             registers.PC += offset;
-        } else {
-            registers.PC += 2;  // In that case, iterate the program counter manually since the 
+        } 
+        if (offset >= 0 || registers.getStatus('V')) {  // Iterate the PC by two if we are going forward OR if we are not branching at all.
+            registers.PC += 2;  
         }
     }
     /* void BVS
@@ -348,7 +375,8 @@ namespace ops {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('V')) {
             registers.PC += offset;
-        } else {
+        } 
+        if (offset >= 0 || !registers.getStatus('V')) {
             registers.PC += 2;  // In that case, iterate the program counter manually since the 
         }
     }
@@ -360,6 +388,14 @@ namespace ops {
     */
     void CLC(Registers& registers, uint8_t data) {
         registers.setStatus('C', false);
+    }
+    /* void CLD
+    Sets decimal flag to 0.
+    Flags Affected:
+        - D: set to 0.
+    */
+    void CLD(Registers& registers, uint8_t data) {
+        registers.setStatus('D', 0);
     }
     /* void CLI
     Sets interrupt disable flag to 0.
@@ -537,8 +573,8 @@ namespace ops {
         const int instructionSize = 3;  // This only uses absolute addressing, and it will always be 3 bytes in length.
         registers.PC += 2;  // Add 3 to move to the next instruction, subtract 1 for this opcode = move PC by 2.
         uint8_t lowerByte, upperByte;
-        lowerByte = registers.PC & 0x1111;
-        upperByte = (registers.PC & 0b11111111) << 4;
+        lowerByte = registers.PC & 0xFF;
+        upperByte = (registers.PC & 0xFF00) >> 8;
         dataBus.write(STACK_END_ADDR + registers.SP - 1, lowerByte);  // The stack pointer points to the vacant address right above the ones being used..
         dataBus.write(STACK_END_ADDR + registers.SP, upperByte);
         registers.PC = address;
@@ -556,7 +592,7 @@ namespace ops {
         registers.setStatus('Z', registers.A == 0);
         registers.setStatus('N', flagOps::isBit7Set(registers.A));
     }
-    /* void LDA
+    /* void LDX
     Loads the data at a memory location into the X registers.
 
     Flags Affected:
@@ -718,15 +754,17 @@ namespace ops {
         dataBus.write(address, tempVal);
     }
     /* void RTI
-    Returns from an interrupt; pulls processor flags, then the program counter.
+    Returns from an interrupt; pulls the program counter, then the status flags.
+
 
     Flags Affected:
         All flags are set from the stack.
     */
     void RTI(Registers& registers, DataBus& dataBus, uint16_t address) {
-        registers.S = dataBus.read(registers.SP + STACK_END_ADDR + 1);
-        registers.PC = dataBus.read(registers.SP + STACK_END_ADDR + 2);
-        registers.SP -= 2;
+        registers.S = dataBus.pullStack(registers);
+        registers.PC = dataBus.pullStack(registers);
+        registers.PC += static_cast<uint16_t>(dataBus.pullStack(registers)) << 8;
+        registers.SP += 3;
     }
     /* void RTS
     Returns from the subroutine by going to the address stored in the stack.
@@ -738,9 +776,9 @@ namespace ops {
         uint8_t lowerByte = dataBus.read(registers.SP + STACK_END_ADDR + 1);
         uint8_t upperByte = dataBus.read(registers.SP + STACK_END_ADDR + 2);
         // Remember that we stored the address we meant to go to next MINUS 1? So we must add it now.
-        uint16_t returnAddress = lowerByte + (upperByte << 4) + 1;
+        uint16_t returnAddress = lowerByte + (upperByte << 8) + 1;
         registers.PC = returnAddress;
-        registers.SP -= 2;
+        registers.SP += 2;
     }
     /* void SBC
     Subtracts the content of the accumulator with the value in the memory and NOT of the carry flag.
@@ -765,6 +803,15 @@ namespace ops {
     */
     void SEC(Registers& registers, uint8_t data) {
         registers.setStatus('C', 1);
+    }
+    /* void SED
+    Sets decimal flag to 1.
+
+    Flags Affected:
+     - D: set to 1.
+    */
+    void SED(Registers& registers, uint8_t data)
+    {
     }
     /* void SEI
     Sets interrupt disable flag to 1.

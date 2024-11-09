@@ -24,7 +24,7 @@ struct Registers {
 
 	Registers() :
 		A(0),
-		S(0),
+		S(0b00100000),  // The 3rd bit is always 1.
 		PC(0),
 		SP(0),  // The stack pointer starts at 0x1ff and ends at 0x100. So lower values <-> higher in the stack.
 		X(0),
@@ -58,23 +58,20 @@ private:
 	inline uint8_t getStatusMask(const char status) {
 		// See NESdev for implementation details.
 		uint8_t statusMask = 0b0000000;
-		if (status == 'N') {  // Negative flag
+		if (status == 'C') {  // Carry flag
 			statusMask = 0b1;
-		}
-		else if (status == 'V') {  // oVerflow flag
+		} else if (status == 'Z') {  // Zero flag
 			statusMask = 0b10;
-		}
-		else if (status == 'B') {  // B flag (see NESdev for more info)
+		} else if (status == 'I') {  // Interrupy Disable flag (see NESdev for more info)
 			statusMask = 0b100;
-		}
-		else if (status == 'I') {  // Interrupt disable (see NESdev for more info)
+		} else if (status == 'D') {  // Decimal flag (see NESdev for more info)
 			statusMask = 0b1000;
-		}
-		else if (status == 'Z') {  // Zero flag
+		} else if (status == 'B') {  // B flag (see NESdev for more info)
 			statusMask = 0b10000;
-		}
-		else if (status == 'C') {  // Carry flag
-			statusMask = 0b100000;
+		} else if (status == 'C') {  // Carry flag
+			statusMask = 0b1000000;
+		} else if (status == 'D') {  // Decimal flag (present but disabled)
+			statusMask = 0b1000000;
 		}
 		return statusMask;
 	}

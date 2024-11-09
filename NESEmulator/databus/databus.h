@@ -16,9 +16,23 @@ public:
 	DataBus(Memory* memory);
 	~DataBus();
 
+	// Basic, fundamental read/write operations.
 	uint8_t read(uint16_t address);
 	uint8_t write(uint16_t address, uint8_t value);
 
+	// Operations specifically designed for the stack.
+	// NOTE: I might move this into the CPU instead, or into some sort of macro class.
+	/*
+	The stack is in a region of memory located from 0x100 to 0x1ff inclusive.
+	The stack starts at a higher value and decreases as more things are put onto it (push).
+	It decreases as things are taken off it (pull).
+	*/
+	
+	uint8_t pullStack(uint8_t& stackPtr);
+	uint8_t pullStack(Registers& registers);
+	void pushStack(uint8_t value, uint8_t& stackPtr);
+	void pushStack(uint8_t value, Registers& registers);
+	
 private:
 	Memory* memory;
 

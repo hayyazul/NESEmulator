@@ -1,1 +1,12 @@
 1. It might be helpful to describe what the first opcodes executed from nestest.nes should be.
+2a. If you are having issues with your CPU going onto non-program data,
+first check if your data is being loaded in correctly. 
+
+After this, check if your PC is being iterated the correct amount (i.e., an instruction which is 
+3 bytes long should not have its PC iterate by any amount besides 3 unless...)
+
+2b. If the above is correct, check the instructions which modify the PC. The reasoning is this: 
+Under normal circumstances, a PC should not increment onto an invalid opcode, so if the increments 
+are correct as checked in (2a), then the issue must lie in the above mentioned instructions.
+
+3. Use a disassembler as reference.

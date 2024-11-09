@@ -83,6 +83,8 @@ public:
 	unsigned long int totalMachineCycles = 0;
 	unsigned long int CYCLE_LIMIT = 100000;  // Referring to the machine cycle.
 
+	void setStdValue(uint8_t val);  // Initializes all memory values to the one given here.
+
 	// Direct memory operations. Peek = Getter, Poke = Setter, mem = memory. Serve a purely debug role.
 	uint8_t memPeek(uint16_t memoryAddress);
 

@@ -5,14 +5,13 @@
 #include "debuggingTools/testOpcodes.h"
 
 // TODO: 
-//  - Add a few other instructions.
-//  - Add RAM module.
-//  - Implement databus.
-//  - Add the rest of the instructions.
+// - Debug instructions
+// - Create debugging tools (breakpoints, loggers, deassemblers, etc.)
 
 int main() {
 	NESDebug nes;
 	nes.CPU_ptr->powerOn();
+	nes.setStdValue(0xcb);  // We set all values to 0xea as to avoid any issues w/ attempting to execute illegal opcodes.
 	nes.loadROM("testROMS/nestest.nes");
 	//nes.CPU_ptr->reset();
 
@@ -40,9 +39,9 @@ int main() {
 		}
 	}
 
-	std::cout << std::hex << "Value of byte 2 (Anything but 0x00 is failure): 0x" << std::setfill('0') << std::setw(2) << (int)nes.memPeek(0x2) << std::endl;
-	std::cout << std::hex << "Value of byte 3 (Anything but 0x00 is failure): 0x" << std::setfill('0') << std::setw(2) << (int)nes.memPeek(0x3) << std::endl;
-
+	std::cout << std::hex << "Value of byte 0x2 (Anything but 0x00 is failure): 0x" << std::setfill('0') << std::setw(2) << (int)nes.memPeek(0x2) << std::endl;
+	std::cout << std::hex << "Value of byte 0x3 (Anything but 0x00 is failure): 0x" << std::setfill('0') << std::setw(2) << (int)nes.memPeek(0x3) << std::endl;
+	
 	std::cout << "Fin" << std::endl;
 
 	/*
