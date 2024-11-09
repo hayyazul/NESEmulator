@@ -17,7 +17,12 @@ bool _6502_CPU::executeCycle() {
 	if (this->opcodeCyclesElapsed == this->currentOpcodeCycleLen) {
 		this->opcodeCyclesElapsed = 0;
 		uint8_t opcode = this->databus->read(this->registers.PC);  // Get the next opcode.
-		std::cout << "Executing opcode 0x" << std::hex << std::setfill('0') << std::setw(2) << (int)opcode << std::endl;
+		std::cout << "Executing opcode 0x" << std::hex << std::setfill('0') << std::setw(2) << (int)opcode << " at memory address 0x" << std::setw(4) << this->registers.PC << " | ";
+		std::cout << "5 Bytes to it's right:";
+		for (int i = 1; i <= 5; ++i) {
+			std::cout << " 0x" << std::hex << std::setfill('0') << std::setw(2) << (int)this->databus->read(this->registers.PC + i);
+		}
+		std::cout << " | " << std::endl;
 		// Check if this opcode exists.
 		if (!this->instructionSet.contains(opcode)) {
 			return false;
@@ -26,6 +31,7 @@ bool _6502_CPU::executeCycle() {
 
 		this->currentOpcodeCycleLen = instruction.cycleCount;  // Get how many cycles this opcode will be using.
 		this->executeOpcode(opcode);
+		std::cout << "PC Iterate: " << (int)(instruction.numBytes * !instruction.modifiesPC) << std::endl;
 		this->registers.PC += instruction.numBytes * !instruction.modifiesPC;  // Only move the program counter forward if the instruction does not modify the PC.
 	}
 	++this->opcodeCyclesElapsed;
@@ -71,6 +77,7 @@ void _6502_CPU::registersPoke(Registers registers) {
 	this->registers = registers;
 }
 
+// Sets address to the first address which equals the given value if it is found; otherwise it remains unchanged.
 bool _6502_CPU::memFind(uint8_t value, uint16_t& address, int lowerBound, int upperBound) {
 	uint16_t startAddr = lowerBound == -1 ? 0 : (uint16_t)lowerBound;
 	uint16_t endAddr = upperBound == -1 ? 0xffff : (uint16_t)upperBound;
@@ -85,6 +92,17 @@ bool _6502_CPU::memFind(uint8_t value, uint16_t& address, int lowerBound, int up
 		}
 	}
 	return false;
+}
+
+std::array<uint8_t, 0x100> _6502_CPU::dumpStack() {
+	std::array<uint8_t, 0x100> stack;
+	for (uint8_t i = 0x0; i <= 0xff; ++i) {
+		stack[i] == this->databus->read(i + STACK_END_ADDR);
+		if (i == 0xff) {
+			break;
+		}
+	}
+	return stack;
 }
 
 void _6502_CPU::setupInstructionSet() {

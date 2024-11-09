@@ -118,6 +118,8 @@ namespace ops {  // ops = operations
 	void ADC(Registers& registers, uint8_t data);
 	void ASL(Registers& registers, uint8_t data);
 	void ASL(Registers& registers, DataBus& databus, uint16_t data);
+	// For branch instructions, since they modify the PC and thus will tell the CPU to not iterate it, they have to modify it themselves.
+	// All branch instructions use one addressing mode (relative) and all have a fixed length of 2 bytes; thus we add 2 if the branch condition fails.
 	void BCC(Registers& registers, uint8_t data);
 	void BCS(Registers& registers, uint8_t data);
 	void BEQ(Registers& registers, uint8_t data);

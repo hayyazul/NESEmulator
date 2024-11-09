@@ -71,9 +71,8 @@ namespace addrModes {
         return address + registers.Y;
     }
     uint16_t relative(DataBus& dataBus, Registers& registers) {
-        // The offset is a signed byte
-        int8_t offset = dataBus.read(registers.PC + 1);
-        return registers.PC + offset;
+        // The offset is a signed byte; return the address where the offset is located (the next byte).
+        return registers.PC + 1;
     }
     uint16_t absolute(DataBus& dataBus, Registers& registers) {
         // The NES is a little-endian machine, meaning the FIRST byte read takes up the LOWER 8 bits.
@@ -209,6 +208,8 @@ namespace ops {
         int8_t offset = data;  // Treat the data as signed.
         if (!registers.getStatus('C')) {
             registers.PC += offset;
+        } else {
+            registers.PC += 2;  // In that case, iterate the program counter manually since the 
         }
     }
     /* void BCS
@@ -220,7 +221,9 @@ namespace ops {
     void BCS(Registers& registers, uint8_t data) {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('C')) {
-            registers.PC += offset;
+            registers.PC += data;
+        } else {
+            registers.PC += 2;  // In that case, iterate the program counter manually since the 
         }
     }
     /* void BEQ
@@ -235,10 +238,12 @@ namespace ops {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('Z')) {
             registers.PC += offset;
+        } else {
+            registers.PC += 2;  // In that case, iterate the program counter manually since the 
         }
     }
     /* void BIT
-    Test if some bits are set in a memory location.
+    Test if some bits are set in a memory location.  // TODO! : Fix; this is completely malimplemented
     Does a bitwise AND with the accumulator and the data,
         
     Flags Affected:
@@ -248,6 +253,8 @@ namespace ops {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('C')) {
             registers.PC += offset;
+        } else {
+            registers.PC += 2;  // In that case, iterate the program counter manually since the 
         }
     }
     /* void BMI
@@ -260,6 +267,8 @@ namespace ops {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('N')) {
             registers.PC += offset;
+        } else {
+            registers.PC += 2;  // In that case, iterate the program counter manually since the 
         }
     }
     /* void BNE
@@ -272,6 +281,8 @@ namespace ops {
         int8_t offset = data;  // Treat the data as signed.
         if (!registers.getStatus('Z')) {
             registers.PC += offset;
+        } else {
+            registers.PC += 2;  // In that case, iterate the program counter manually since the 
         }
     }
     /* void BPL
@@ -284,6 +295,8 @@ namespace ops {
         int8_t offset = data;  // Treat the data as signed.
         if (!registers.getStatus('N')) {
             registers.PC += offset;
+        } else {
+            registers.PC += 2;  // In that case, iterate the program counter manually since the 
         }
     }
     /* void BRK
@@ -688,7 +701,7 @@ namespace ops {
         registers.setStatus('N', flagOps::isBit7Set(tempVal));
         dataBus.write(address, tempVal);
     }
-    /* void RTS
+    /* void RTI
     Returns from an interrupt; pulls processor flags, then the program counter.
 
     Flags Affected:

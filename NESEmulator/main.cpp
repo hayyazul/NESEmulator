@@ -16,6 +16,15 @@ int main() {
 	nes.loadROM("testROMS/nestest.nes");
 	nes.CPU_ptr->reset();
 
+	uint16_t addr;
+	bool found = nes.memFind(0x04, addr);
+	if (found) {
+		std::cout << "0x04 found at address 0x" << std::hex << std::setfill('0') << std::setw(4) << addr << std::endl;
+;	} else {
+		std::cout << "Failed to find 0x04 in memory." << std::endl;
+	
+	}
+
 	// Set the PC to 0xc000 because we have not implemented the PPU yet.
 	Registers registers = nes.registersPeek();
 	nes.memPoke(0x1f0, 0x801);  // Putting an address between 0x0800 and 0x8000 on the stack.
@@ -26,10 +35,13 @@ int main() {
 
 	for (int i = 0; i < 1000; ++i) {
 		if (!nes.executeMachineCycle()) {
-			std::cout << "Failure: Invalid opcode: 0x" << std::hex << (int)nes.databus_ptr->read(nes.CPU_ptr->registersPeek().PC) << " at 0x" << std::setfill('0') << std::setw(4) << (int)nes.CPU_ptr->registersPeek().PC << std::endl;
+			std::cout << "Failure: Invalid opcode: 0x" << std::hex << std::setfill('0') << std::setw(2) << (int)nes.databus_ptr->read(nes.CPU_ptr->registersPeek().PC) << " at 0x" << std::setfill('0') << std::setw(4) << (int)nes.CPU_ptr->registersPeek().PC << ", or in the .nes file: 0x" << std::setfill('0') << std::setw(4) << (int)(memAddrToiNESAddr(nes.CPU_ptr->registersPeek().PC)) << std::endl;
 			break;
 		}
 	}
+
+	std::cout << std::hex << "Value of byte 2 (Anything but 0x00 is failure): 0x" << std::setfill('0') << std::setw(2) << (int)nes.memPeek(0x2) << std::endl;
+	std::cout << std::hex << "Value of byte 3 (Anything but 0x00 is failure): 0x" << std::setfill('0') << std::setw(2) << (int)nes.memPeek(0x3) << std::endl;
 
 	std::cout << "Fin" << std::endl;
 

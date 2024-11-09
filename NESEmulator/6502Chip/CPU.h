@@ -124,6 +124,8 @@ public:
 	// Range (optional) is inclusive.
 	bool memFind(uint8_t value, uint16_t& address, int lowerBound = -1, int upperBound = -1);
 
+	std::array<uint8_t, 0x100> dumpStack();
+
 private:
 
 	void setupInstructionSet();

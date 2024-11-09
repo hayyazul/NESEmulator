@@ -63,6 +63,10 @@ struct TestSuite {
 };
 */
 
+inline uint32_t memAddrToiNESAddr(uint16_t memAddr) {
+	return (memAddr - 0x8000 + 0x10) % 0x4000;
+};
+
 class NESDebug : public NES {
 public:
 	NESDebug();
