@@ -7,10 +7,39 @@
 // - Debug instructions
 // - Create debugging tools (breakpoints, loggers, deassemblers, etc.)
 
-#include "input/input.h"
+#include "input/cmdInput.h"
+#include "debuggingTools/debugDatabus.h"
 
 #undef main  // Deals w/ the definition of main in SDL.
 int main() {
+
+	Memory mem;
+	DebugDatabus databus{&mem};
+
+	databus.write(0x4020, 0x40);
+	uint8_t initValue = databus.read(0x4020, false);  // Should be 0x40
+	databus.write(0x4020, 0xff);
+	uint8_t newValue = databus.read(0x4020, false);  // Should be 0xff
+	databus.undoMemAction();
+	uint8_t testValue = databus.read(0x4020, false);  // Should be 0x40
+
+	std::cout << "Test (expected output: 0x40, 0xff, 0x40): " << std::hex << std::setfill('0') << "0x" << std::setw(2) << 
+		(int)initValue << ", 0x" << std::setw(2) << 
+		(int)newValue << ", 0x" << std::setw(2) << 
+		(int)testValue << std::endl;
+
+	/*
+	CommandlineInput cmdInp;
+
+	std::string myStr;
+	char myChar;
+	for (int i = 0; i < 10; ++i) {
+		myStr = cmdInp.getUserLine("Input char: ");
+		std::cout << std::endl;
+		std::cout << "Your char: " << myStr << std::endl;
+	}
+	*/
+	/*
 	SDL_Renderer* renderer;
 	SDL_Window* window;
 	SDL_CreateWindowAndRenderer(1080,
@@ -33,7 +62,7 @@ int main() {
 
 	SDL_DestroyWindow(window);
 	SDL_DestroyRenderer(renderer);
-
+	*/
 	/*
 	NESDebug nes;
 	nes.CPU_ptr->powerOn();

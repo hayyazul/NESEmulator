@@ -761,10 +761,12 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
         All flags are set from the stack.
     */
     void RTI(Registers& registers, DataBus& dataBus, uint16_t address) {
-        registers.S = dataBus.pullStack(registers);
-        registers.PC = dataBus.pullStack(registers);
-        registers.PC += static_cast<uint16_t>(dataBus.pullStack(registers)) << 8;
-        registers.SP += 3;
+        registers.S = dataBus.read(registers.SP + STACK_END_ADDR + 1);
+        ++registers.SP;
+        registers.PC = dataBus.read(registers.SP + STACK_END_ADDR + 1);
+        ++registers.SP;
+        registers.PC += static_cast<uint16_t>(dataBus.read(registers.SP + STACK_END_ADDR + 1)) << 8;
+        ++registers.SP;
     }
     /* void RTS
     Returns from the subroutine by going to the address stored in the stack.
