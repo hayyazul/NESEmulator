@@ -341,3 +341,6 @@ private:
 	// Stack containing the instructions executed in order.
 	std::stack<ExecutedInstruction> executedInstructions;
 };
+
+// A collection of code which performs a simple test of the above; put inside this function for cleanliness.
+void CPUDebuggerTest();
