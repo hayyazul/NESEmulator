@@ -11,29 +11,10 @@
 #include "debuggingTools/debugDatabus.h"
 #include "debuggingTools/NESDebug.h"
 #include "debuggingTools/CPUAnalyzer.h"
-
-#include "globals/decodeJSON.h"
 #include <any>
 
 #undef main  // Deals w/ the definition of main in SDL.
 int main() {
-
-	CPPON json;
-	CPPON otherJson;
-	
-	std::vector<std::any> a1 = { 1, 2, 5 };
-	std::vector<std::any> a2 = { -3, 0 };
-	std::vector<std::any> b = { a1, a2 };
-	otherJson.values["buddy!"] = b;
-
-	std::vector<std::any> x = { 5, 3, 2 };
-	int y = 7;
-	
-	json.values["Hello"] = y;
-	json.values["world!"] = x;
-	json.values["Farewell"] = otherJson;
-	json.print(4);
-	std::cout << std::endl;
 
 	/*
 	DebugDatabus databus;
