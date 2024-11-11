@@ -16,9 +16,12 @@ public:
 	DataBus(Memory* memory);
 	~DataBus();
 
+	// Sets the internal pointer to a Memory module to the given pointer.
+	void attach(Memory* memory);
+
 	// Basic, fundamental read/write operations.
-	uint8_t read(uint16_t address);  // Returns the memory located at that address.
-	uint8_t write(uint16_t address, uint8_t value);  // Returns the value just written (NOTE: might change this to the previous data value).
+	virtual uint8_t read(uint16_t address);  // Returns the memory located at that address.
+	virtual uint8_t write(uint16_t address, uint8_t value);  // Returns the value just written (NOTE: might change this to the previous data value).
 
 	// Operations specifically designed for the stack.
 	// NOTE: I might move this into the CPU instead, or into some sort of macro class.

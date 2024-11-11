@@ -1,5 +1,5 @@
-// debugDatabus.h - A databus extended w/ debugger features, including a memory, a way to undo operations, etc.
-
+// debugDatabus.h - A databus extended w/ debugger features, including a memory, a way to undo operations, etc. Meant to be controlled
+#pragma once
 #include <stdint.h>
 #include <stack>
 #include "../databus/databus.h"
@@ -24,25 +24,29 @@ struct DatabusAction {
 	}
 };
 
-class DebugDatabus : public DataBus {
+class DebugDatabus : public DataBus {  // NOTE: This seems a bit finicky; it's difficult to inherit and replace the vanilla Databus.
 public:
 	DebugDatabus();
 	DebugDatabus(Memory* memory);
 	~DebugDatabus();
 
-	// Undos an action performed.
-	void undoMemAction(bool supressWarning=true);
+	// Sets this->recordActions to the value given.
+	void setRecordActions(bool record);
+	bool getRecordActions() const;  // Gets this->recordActions
+	unsigned int getNumActions() const;  // Gets this->memOps.size()
+
+	// Undos an action performed. Returns whether the undo was successful.
+	bool undoMemAction(bool supressWarning=true);
 	
-	// Inherited memory operations; this time, what they do is recorded.
-	// pushAction being true will result in the current memory operation being pushed onto the stack of memory operations.
-	uint8_t read(uint16_t address, bool pushAction=true);
-	uint8_t write(uint16_t address, uint8_t value, bool pushAction=true);  // Returns the value just written.
+	// Inherited memory operations; this time, what they do is recorded (assuming recordActions is true).
+	uint8_t read(uint16_t address) override;
+	uint8_t write(uint16_t address, uint8_t value) override;
 
 private:
+	bool recordActions;  // Whether to record actions or not.
+	std::stack<DatabusAction> memOps;  // A history of databus action performed
 	
 	// Performs a given DatabusAction. This function may act as both a read or a write. Does not affect the stack of operations.
 	uint8_t performMemAction(DatabusAction action);
-
-	std::stack<DatabusAction> memOps;  // A history of dataoperations performed
 
 };

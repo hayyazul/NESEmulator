@@ -1,9 +1,15 @@
 #include "NESDebug.h"
+#include "debugDatabus.h"
 
 NESDebug::NESDebug() : NES() {
+	delete this->databus;
+	this->databus = new DebugDatabus(this->memory_ptr);
+	this->databus_ptr = this->databus;
+	this->CPU = _6502_CPU(this->databus);
 }
 
 NESDebug::~NESDebug() {
+	delete this->databus;
 }
 
 void NESDebug::setStdValue(uint8_t val) {
@@ -13,9 +19,9 @@ void NESDebug::setStdValue(uint8_t val) {
 }
 
 uint8_t NESDebug::memPeek(uint16_t memoryAddress) {
-	return this->databus.read(memoryAddress);
+	return this->databus->read(memoryAddress);
 }
-
+/*
 Registers NESDebug::registersPeek() {
 	return this->CPU.registersPeek();
 }
@@ -35,3 +41,4 @@ void NESDebug::memPoke(uint16_t memoryAddress, uint8_t val) {
 bool NESDebug::memFind(uint8_t value, uint16_t& address, int lowerBound, int upperBound) {
 	return this->CPU.memFind(value, address, lowerBound, upperBound);
 }
+*/

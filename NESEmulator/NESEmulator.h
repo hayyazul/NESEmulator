@@ -10,11 +10,16 @@
 #include "databus/databus.h"
 #include "loadingData/parseNESFiles.h"
 
-
+// TODO: Add poweron and reset features.
 class NES {
 public:
 	NES();
+	NES(DataBus* databus);
 	~NES();
+
+	void powerOn();  // Performs all the actions the NES should perform upon a power on.
+
+	void reset();  // Performs the actions the NES should perform when reset.
 
 	void loadROM(const char* fileName);
 
@@ -38,7 +43,7 @@ protected:
 
 	_6502_CPU CPU;
 	Memory memory;
-	DataBus databus;
+	DataBus* databus;
 
 	// Debug variables
 	unsigned long int totalMachineCycles = 0;

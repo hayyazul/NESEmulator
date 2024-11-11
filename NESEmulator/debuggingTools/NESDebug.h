@@ -24,7 +24,7 @@ public:
 
 	_6502_CPU* CPU_ptr = &this->CPU;
 	Memory* memory_ptr = &this->memory;
-	DataBus* databus_ptr = &this->databus;
+	DataBus* databus_ptr = this->databus;
 
 	// Debug variables
 	unsigned long int totalMachineCycles = 0;
@@ -37,7 +37,7 @@ public:
 
 	// TODO: output a dump of the memory.
 	//void memDump(const char* filename);
-	
+	/*  TODO: reimplement w/ the Debug CPU.
 	// TODO: directly affect memory instead of using the CPU's debugger poke/peek functions.
 	Registers registersPeek();
 	bool registersPeek(char c);
@@ -49,6 +49,7 @@ public:
 	// Searches for a memory value and gets the first address which satisifies this condition. Returns true if found, false if not.
 	// Range (optional) is inclusive.
 	bool memFind(uint8_t value, uint16_t& address, int lowerBound = -1, int upperBound = -1);
-
+	*/
 private:
+
 };

@@ -1,11 +1,26 @@
 ﻿#include "NESEmulator.h"
 
-NES::NES() {
-	this->databus = DataBus(&this->memory);
-	this->CPU = _6502_CPU(&this->databus);
+NES::NES() {  // Not recommended to initialize w/ this.
+	this->databus = new DataBus(&this->memory);
+	this->CPU = _6502_CPU(this->databus);
+	this->CPU.powerOn();
+}
+
+NES::NES(DataBus* databus) {
+	this->databus = databus;
+	this->databus->attach(&this->memory);
+	this->CPU.attach(this->databus);
 }
 
 NES::~NES() {}
+
+void NES::powerOn() {
+	this->CPU.powerOn();
+}
+
+void NES::reset() {
+	this->CPU.reset();
+}
 
 void NES::loadROM(const char* fileName) {  // Remember to reset the NES after loading a ROM.
  	NESFileData NESFile;
@@ -53,7 +68,7 @@ void NES::loadData(NESFileData file) {
 	uint16_t j = 0;
 	for (uint32_t i = this->CART_ROM_START_ADDR; i <= 0xffff; ++i) {
 		if (j < file.programDataSize) {
-			this->databus.write(i, file.programData[j]);
+			this->databus->write(i, file.programData[j]);
 		} //else if (j - file.programDataSize < file.characterDataSize) {  // NOTE: I am confused on where to put CHR ROM, so for now I don't put it in at all.
 			//this->databus.write(i, file.programData[j - file.programDataSize]);
 		//}

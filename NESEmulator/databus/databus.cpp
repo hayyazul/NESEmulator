@@ -2,13 +2,17 @@
 #include "../memory/memory.h"
 #include "../6502Chip/CPU.h"
 
-DataBus::DataBus() {
+DataBus::DataBus() : memory(nullptr) {
 }
 
 DataBus::DataBus(Memory* memory) : memory(memory) {
 }
 
 DataBus::~DataBus() {
+}
+
+void DataBus::attach(Memory* memory) {
+	this->memory = memory;
 }
 
 uint8_t DataBus::read(uint16_t address) {

@@ -10,3 +10,7 @@ Under normal circumstances, a PC should not increment onto an invalid opcode, so
 are correct as checked in (2a), then the issue must lie in the above mentioned instructions.
 
 3. Use a disassembler as reference.
+
+4. Note related to the project directly, but I've noticed using pointers allows for more flexibility. For example, the NES class used to have
+a DataBus object instance; but when I learned that I could not replace it w/ my debugger databus without causing subtle errors, I decided to 
+replace it w/ a pointer which did allow me to replace it w/ my debugger w/o any errors.

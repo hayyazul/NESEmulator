@@ -84,15 +84,22 @@ public:
 	_6502_CPU(DataBus* databus);
 	~_6502_CPU();
 
+	/* void attach
+	Sets the internal pointer to a databus to this new databus.
+	*/
+	void attach(DataBus* databus);
+
 	/* bool executeCycle
 	Executes a machine cycle which for now is equivalent to one cpu cycle. Returns True if the cycle has been successful, false if
 	otherwise (e.g. illegal opcode).
 	*/
-	bool executeCycle();
+	virtual bool executeCycle();
 
 	/* void reset
-	Resets the CPU, which involves:
+	Resets the CPU, which involves setting the PC to the location indicated by the reset vector and decrementing the stack pointer by 3.
 	
+    NOTE: I am not sure if that last part about decrementing the SP is entirely correct.
+
 	Setting flags
 	TODO: reset PPU and APU flags and variables.
 	*/
@@ -107,32 +114,19 @@ public:
 	*/
 	void powerOn();
 
-public:
-	// Temporarily public; with the exception of the first, never use these for non-debugging spurposes. 
-	void executeOpcode(uint8_t opcode);
+protected:
+    // Map between bytes and their associated opcodes. NOTE: I might want to try getting this into some constant global.
+	std::map<uint8_t, Instruction> INSTRUCTION_SET;
 
-	// Direct memory operations. Peek = Getter, Poke = Setter, mem = memory. Serve a purely debug role.
-	uint8_t memPeek(uint16_t memoryAddress);
-	Registers registersPeek();
-	void memPoke(uint16_t memoryAddress, uint8_t val);
-	void registersPoke(Registers registers);
-
-	// Searches for a memory value and gets the first address which satisifies this condition. Returns true if found, false if not.
-	// Range (optional) is inclusive.
-	bool memFind(uint8_t value, uint16_t& address, int lowerBound = -1, int upperBound = -1);
-
-	std::array<uint8_t, 0x100> dumpStack();
-
-private:
-
-	void setupInstructionSet();
-
-	// Map between bytes and their associated opcodes.
-	std::map<uint8_t, Instruction> instructionSet;
 	Registers registers;
-	DataBus* databus;
 
 	long unsigned int totalCyclesElapsed = 0;  // Total CPU cycles elapsed since startup.
 	unsigned int opcodeCyclesElapsed = 0;  // A cycle counter that is present since the CPU began executing a given instruction. Resets when it reaches the number of cycles for a given instruction.
 	unsigned int currentOpcodeCycleLen = 0;  // The number of cycles the current opcode uses.
+
+	void executeOpcode(uint8_t opcode);
+
+private:
+	DataBus* databus;
+	void setupInstructionSet();
 };

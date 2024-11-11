@@ -2,15 +2,28 @@
 #include "../6502Chip/CPU.h"
 #include <iostream>
 
-DebugDatabus::DebugDatabus() : DataBus() {}
-DebugDatabus::DebugDatabus(Memory* memory) : DataBus(memory) {}
+DebugDatabus::DebugDatabus() : DataBus(), recordActions(true) {}
+DebugDatabus::DebugDatabus(Memory* memory) : DataBus(memory), recordActions(true) {}
 DebugDatabus::~DebugDatabus() {}
 
-void DebugDatabus::undoMemAction(bool supressWarning) {
+void DebugDatabus::setRecordActions(bool record) {
+	this->recordActions = record;
+}
+
+bool DebugDatabus::getRecordActions() const {
+	return this->recordActions;
+}
+
+unsigned int DebugDatabus::getNumActions() const {
+	return this->memOps.size();
+}
+
+bool DebugDatabus::undoMemAction(bool supressWarning) {
 	if (this->memOps.size() == 0) {  // Only try to undo an action if there are any operations in the stack.
 		if (!supressWarning) {
 			std::cout << "Warning: attempting to undo operation when there are no operations to undo; nothing has been done." << std::endl;
 		}
+		return false;
 	} else {  // Undoing an action.
 		// First, get the last action's inerse.
 		DatabusAction lastAction = this->memOps.top();
@@ -19,20 +32,21 @@ void DebugDatabus::undoMemAction(bool supressWarning) {
 		DatabusAction inverseAct = lastAction.getInverseAction();
 		// Finally, perform this action.
 		this->performMemAction(inverseAct);
+		return true;
 	}
 }
 
-uint8_t DebugDatabus::read(uint16_t address, bool pushAction) {
+uint8_t DebugDatabus::read(uint16_t address) {
 	uint8_t data = DataBus::read(address);
-	if (pushAction) {
+	if (this->recordActions) {
 		this->memOps.push(DatabusAction(address, data));
 	}
 	return data;
 }
 
-uint8_t DebugDatabus::write(uint16_t address, uint8_t value, bool pushAction) {
+uint8_t DebugDatabus::write(uint16_t address, uint8_t value) {
 	uint8_t oldValue = DataBus::read(address);
-	if (pushAction) {
+	if (this->recordActions) {
 		this->memOps.push(DatabusAction(address, value, oldValue));
 	}
 	DataBus::write(address, value);
