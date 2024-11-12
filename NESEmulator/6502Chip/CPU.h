@@ -6,9 +6,12 @@
 #include <vector>
 #include <array>
 #include <map>
+#include <iostream>
+#include <iomanip>
 
 #include "../databus/databus.h"
 #include "../instructions/instructions.h"
+#include "../globals/helpers.hpp"
 
 constexpr int numOfInstructions = 1;
 const uint16_t RESET_VECTOR_ADDRESS = 0xfffc;
@@ -45,6 +48,25 @@ struct Registers {
 		}
 	}
 
+	// Prints the contents of the register in a human-readable format.
+	void dumpContents() {
+
+		// Now the registers (excluding flags)
+		std::cout << "A: " << displayHex(this->A, 2)
+			<< ", X: " << displayHex(this->X, 2)
+			<< ", Y: " << displayHex(this->Y, 2)
+			<< ", SP: " << displayHex(this->SP, 2)
+			<< ", PC: " << displayHex(this->PC, 4) << " | Flags: C=";
+
+		// Lastly, the flags.
+		std::cout << this->getStatus('C')
+			<< ", Z=" << this->getStatus('Z')
+			<< ", I=" << this->getStatus('I')
+			<< ", D=" << this->getStatus('D')
+			<< ", V=" << this->getStatus('V')
+			<< ", N=" << this->getStatus('N');
+	}
+
 	bool operator==(const Registers& otherRegisters) {
 		return  otherRegisters.A == this->A && 
 				otherRegisters.S == this->S && 
@@ -68,9 +90,9 @@ private:
 			statusMask = 0b1000;
 		} else if (status == 'B') {  // B flag (see NESdev for more info)
 			statusMask = 0b10000;
-		} else if (status == 'C') {  // Carry flag
+		} else if (status == 'V') {  // Carry flag  // IMPORTANT TODO: Why is the carry flag here and up there at the same time?
 			statusMask = 0b1000000;
-		} else if (status == 'D') {  // Decimal flag (present but disabled)
+		} else if (status == 'N') {  // Decimal flag (present but disabled)
 			statusMask = 0b1000000;
 		}
 		return statusMask;
@@ -87,7 +109,7 @@ public:
 	/* void attach
 	Sets the internal pointer to a databus to this new databus.
 	*/
-	void attach(DataBus* databus);
+	virtual void attach(DataBus* databus);
 
 	/* bool executeCycle
 	Executes a machine cycle which for now is equivalent to one cpu cycle. Returns True if the cycle has been successful, false if

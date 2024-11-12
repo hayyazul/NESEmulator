@@ -1,6 +1,7 @@
 #include "CPUAnalyzer.h"
 #include <iostream>
 #include <iomanip>
+#include <algorithm>
 #include "../memory/memory.h"
 #include "../input/cmdInput.h"
 
@@ -14,13 +15,13 @@ CPUDebugger::~CPUDebugger() {}
 bool CPUDebugger::executeCycle() {
 	// Execute a CPU cycle, but record some info first.
 
-	//ExecutedInstruction(uint8_t opcode, Instruction* instruction, unsigned int numActions, Registers registers, uint8_t operands[2])
+	bool oldRecordActions = this->databus->getRecordActions();
 	this->databus->setRecordActions(false);
 	
 	// Data that needs to be recorded before execution.
 	uint8_t opcode = this->databus->read(this->registers.PC);
 	if (!INSTRUCTION_SET.count(opcode)) {
-		this->databus->setRecordActions(true);
+		this->databus->setRecordActions(oldRecordActions);
 		return false;
 	}
 	Instruction* instruction = &INSTRUCTION_SET.at(opcode);
@@ -35,14 +36,19 @@ bool CPUDebugger::executeCycle() {
 	unsigned int lastMemOpsSize = this->databus->getNumActions();
 
 	// Finally, execute the cycle.
-	this->databus->setRecordActions(true);
+	this->databus->setRecordActions(oldRecordActions);
 	bool success = _6502_CPU::executeCycle();
 
 	// Get the last info needed to describe an executed instruction: how many databus actions it took.
 	unsigned int numOfDatabusActions = this->databus->getNumActions() - lastMemOpsSize;
-	this->executedInstructions.push(ExecutedInstruction(opcode, instruction, numOfDatabusActions, oldRegisters, operands));
+	this->executedInstructions.push_back(ExecutedInstruction(opcode, instruction, numOfDatabusActions, oldRegisters, operands));
 
 	return success;
+}
+
+void CPUDebugger::attach(DebugDatabus* databus) {
+	this->databus = databus;
+	_6502_CPU::attach(databus);
 }
 
 bool CPUDebugger::undoInstruction() {
@@ -51,8 +57,8 @@ bool CPUDebugger::undoInstruction() {
 		return false;
 	}
 
-	ExecutedInstruction lastInstruction = this->executedInstructions.top();
-	this->executedInstructions.pop();
+	ExecutedInstruction lastInstruction = this->executedInstructions.back();
+	this->executedInstructions.pop_back();
 	for (int i = 0; i < lastInstruction.numOfActionsInvolved; ++i) {
 		this->databus->undoMemAction();
 	}
@@ -66,7 +72,24 @@ ExecutedInstruction CPUDebugger::getLastExecutedInstruction() {
 		return ExecutedInstruction();
 	}
 
-	return this->executedInstructions.top();
+	return this->executedInstructions.back();
+}
+
+std::vector<ExecutedInstruction> CPUDebugger::getExecutedInstructions() {
+	return this->getExecutedInstructions(this->executedInstructions.size());
+}
+
+// Returns vector of executed instructions, from least recent to most/
+std::vector<ExecutedInstruction> CPUDebugger::getExecutedInstructions(unsigned int lastN) {
+	std::vector<ExecutedInstruction> executedInstructions;
+
+	if (this->executedInstructions.size()) {
+		for (unsigned int i = 0; i < lastN && i < this->executedInstructions.size(); ++i) {
+			executedInstructions.push_back(this->executedInstructions.at(this->executedInstructions.size() - lastN + i));
+		}
+	}
+
+	return executedInstructions;
 }
 
 std::vector<uint8_t> CPUDebugger::memDump(uint16_t startAddr, uint16_t endAddr) {
@@ -206,7 +229,7 @@ void CPUDebuggerTest() {
 	Registers r;
 	execInstr = cpu.getLastExecutedInstruction();
 	std::cout << std::setfill('-') << std::setw(20) << '-' << std::endl;
-	std::cout << "Last instruction: " << execInstr.instructionName << std::endl;;
+	execInstr.print();
 	char inputChar = '0';
 	while (inputChar != 'q') {
 		std::cout << std::setfill('-') << std::setw(20) << '-' << std::endl;
@@ -216,7 +239,8 @@ void CPUDebuggerTest() {
 		case('u'):
 			cpu.undoInstruction();
 			execInstr = cpu.getLastExecutedInstruction();
-			std::cout << "Last instruction: " << execInstr.instructionName << std::endl;
+			execInstr.print();
+			std::cout << std::endl;
 			break;
 		case('d'):
 			testValues = cpu.memDump(0x0700, 0x0705);

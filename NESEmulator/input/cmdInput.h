@@ -15,6 +15,10 @@ public:
 	std::string getUserLine();
 	std::string getUserLine(std::string);  // Optional message input; same as getUserChar.
 
+	// Asking the user for some numerical input; defaults to 0 when invalid.
+	int getUserInt();
+	int getUserInt(std::string msg);
+
 private:
 
 	// Removes any extra input the user has input (so as to prevent them from affecting future inputs),

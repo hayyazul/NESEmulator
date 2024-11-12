@@ -14,7 +14,7 @@
 class NES {
 public:
 	NES();
-	NES(DataBus* databus);
+	NES(DataBus* databus, _6502_CPU* CPU);
 	~NES();
 
 	void powerOn();  // Performs all the actions the NES should perform upon a power on.
@@ -27,7 +27,7 @@ public:
 
 public:
 	// Temporarily public for debugging purposes.
-	bool executeMachineCycle();  // For now, 1 Machine Cycle = 1 CPU Cycle. This is not how it is in the actual implementation.
+	virtual bool executeMachineCycle();  // For now, 1 Machine Cycle = 1 CPU Cycle. This is not how it is in the actual implementation.
 
 protected:
 	
@@ -41,11 +41,9 @@ protected:
 	// Cartridge ROM usually though not always starts at this address.
 	const uint16_t CART_ROM_START_ADDR = 0x8000;  // CART = Cartridge, ADDR = Address
 
-	_6502_CPU CPU;
+	_6502_CPU* CPU;
 	Memory memory;
 	DataBus* databus;
 
-	// Debug variables
 	unsigned long int totalMachineCycles = 0;
-	unsigned long int CYCLE_LIMIT = 100000;  // Referring to the machine cycle.
 };

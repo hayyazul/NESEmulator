@@ -2,24 +2,25 @@
 
 NES::NES() {  // Not recommended to initialize w/ this.
 	this->databus = new DataBus(&this->memory);
-	this->CPU = _6502_CPU(this->databus);
-	this->CPU.powerOn();
+	this->CPU = new _6502_CPU(this->databus);
+	this->CPU->powerOn();
 }
 
-NES::NES(DataBus* databus) {
+NES::NES(DataBus* databus, _6502_CPU* CPU) {
 	this->databus = databus;
 	this->databus->attach(&this->memory);
-	this->CPU.attach(this->databus);
+	this->CPU = CPU;
+	this->CPU->attach(this->databus);
 }
 
 NES::~NES() {}
 
 void NES::powerOn() {
-	this->CPU.powerOn();
+	this->CPU->powerOn();
 }
 
 void NES::reset() {
-	this->CPU.reset();
+	this->CPU->reset();
 }
 
 void NES::loadROM(const char* fileName) {  // Remember to reset the NES after loading a ROM.
@@ -34,14 +35,13 @@ void NES::loadROM(const char* fileName) {  // Remember to reset the NES after lo
 }
 
 void NES::run() {
-	while (this->totalMachineCycles < this->CYCLE_LIMIT) {
-		this->executeMachineCycle();
-	}
+	// Soon I will put this in some sort of loop; for now, it is not.
+	this->executeMachineCycle();
 }
 
 bool NES::executeMachineCycle() {
 	// TODO: change it from 1:1 machine cycle to cpu cycle to its true value.
-	bool result = this->CPU.executeCycle();
+	bool result = this->CPU->executeCycle();
 	++this->totalMachineCycles;
 	return result;
 }

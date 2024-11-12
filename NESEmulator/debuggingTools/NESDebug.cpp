@@ -1,15 +1,28 @@
 #include "NESDebug.h"
 #include "debugDatabus.h"
+#include "CPUAnalyzer.h"
 
 NESDebug::NESDebug() : NES() {
 	delete this->databus;
-	this->databus = new DebugDatabus(this->memory_ptr);
-	this->databus_ptr = this->databus;
-	this->CPU = _6502_CPU(this->databus);
+	this->databusInstance.attach(&this->memory);
+	this->databus = &this->databusInstance;  // Gets casted into a vanilla databus pointer (used for normal ops)
+	this->cpuInstance.attach(&this->databusInstance);  // Attaches the debugger pointer instead.
+	this->CPU = (_6502_CPU*)(&this->cpuInstance);
 }
 
 NESDebug::~NESDebug() {
 	delete this->databus;
+	delete this->CPU;
+}
+
+bool NESDebug::setRecord(bool record) {
+	bool oldRecordActions = this->databusInstance.getRecordActions();
+	this->databusInstance.setRecordActions(record);
+	return oldRecordActions;
+}
+
+bool NESDebug::getRecord(bool record) const {
+	return this->databusInstance.getRecordActions();
 }
 
 void NESDebug::setStdValue(uint8_t val) {
@@ -20,6 +33,10 @@ void NESDebug::setStdValue(uint8_t val) {
 
 uint8_t NESDebug::memPeek(uint16_t memoryAddress) {
 	return this->databus->read(memoryAddress);
+}
+CPUDebugger* NESDebug::getCPUPtr() {
+	CPUDebugger* cpuPtr = &this->cpuInstance;
+	return cpuPtr;
 }
 /*
 Registers NESDebug::registersPeek() {

@@ -1,11 +1,19 @@
 // CPUAnalyzer.h - A set of tools designed to work with the debugger version of the NES class (NESDebug) in order to streamline
 // debugging and analysis of the CPU.
+#pragma once
 
 #include "../6502Chip/CPU.h"
+#include "../globals/helpers.hpp"
 #include "debugDatabus.h"
+
 #include <string>
 #include <map>
 #include <vector>
+
+#include <iostream>
+#include <iomanip>
+
+
 
 // Map between bytes and their associated instructions as strings.
 const std::map<uint8_t, std::string> opcodeToName = {
@@ -289,15 +297,49 @@ struct ExecutedInstruction {
 		instructionExecuted(instruction),
 		numOfActionsInvolved(numActions),
 		oldRegisters(registers),
-		numOfOperands(instruction->numBytes - 1),
-		instructionName(opcodeToName.at(opcode))
+		numOfOperands(instruction->numBytes - 1)
 	{
+		this->instructionName = opcodeToName.at(opcode);
 		this->operands[0] = operands[0];
 		this->operands[1] = operands[1];
 	};
 	~ExecutedInstruction() {};
+
+	// NOTE: I might return a string containing the message instead.
+	void print() {
+		// JMP ABSLT | Operands: 0x02, 0x04 | Old Values of A: 0x00, X: 0x02, Y:0x09, SP: 0xf3, PC: 0x0110 | Flags C:0 Z:0 I:0 D:0 V:0 N:0
+		std::cout << this->instructionName << " | ";  // Opcode name
+		std::cout << "Operands: ";  // Now the operands
+		for (unsigned int i = 0; i < 2; ++i) { 
+			if (i < this->numOfOperands) {
+				std::cout << displayHex(this->operands[i], 2);
+			} else {
+				std::cout << "____";
+			}
+		
+			if (i == 0) {
+				std::cout << ", ";
+			}
+		}
+		// Now the registers (excluding flags)
+		std::cout << " | Old values of A: " << displayHex(oldRegisters.A, 2)
+			<< ", X: " << displayHex(oldRegisters.X, 2)
+			<< ", Y: " << displayHex(oldRegisters.Y, 2)
+			<< ", SP: " << displayHex(oldRegisters.SP, 2)
+			<< ", PC: " << displayHex(oldRegisters.PC, 4) << " | Flags C:";
+		
+		// Lastly, the flags.
+		std::cout << oldRegisters.getStatus('C')
+			<< ", Z: " << oldRegisters.getStatus('Z')
+			<< ", I: " << oldRegisters.getStatus('I')
+			<< ", D: " << oldRegisters.getStatus('D')
+			<< ", V: " << oldRegisters.getStatus('V')
+			<< ", N: " << oldRegisters.getStatus('N');
+	};
+	
 };
 
+// TODO: Give this a better name.
 class CPUDebugger : public _6502_CPU {
 public:
 	CPUDebugger();
@@ -307,11 +349,18 @@ public:
 	// Note: Currently one cycle = one instruction, but in reality it is different and depends on the specific instruction.
 	bool executeCycle() override;
 
+	void attach(DebugDatabus* databus);
+
 	// Undos an instruction in the stack.
 	bool undoInstruction();
 
 	// Returns the last executed instruction
 	ExecutedInstruction getLastExecutedInstruction();
+
+	// Gets a fill list, in order, of the executed instructions this CPU has performed.
+	// You almost never want a full dump.
+	std::vector<ExecutedInstruction> getExecutedInstructions();
+	std::vector<ExecutedInstruction> getExecutedInstructions(unsigned int lastN);
 
 public:
 	// Basic debugging operations which do not affect the internal stack.
@@ -339,7 +388,7 @@ private:
 	
 	// NOTE: Might change from a stack to a vector, just because other debugger functions may find that structure more useful.
 	// Stack containing the instructions executed in order.
-	std::stack<ExecutedInstruction> executedInstructions;
+	std::vector<ExecutedInstruction> executedInstructions;
 };
 
 // A collection of code which performs a simple test of the above; put inside this function for cleanliness.

@@ -11,10 +11,77 @@
 #include "debuggingTools/debugDatabus.h"
 #include "debuggingTools/NESDebug.h"
 #include "debuggingTools/CPUAnalyzer.h"
-#include <any>
 
 #undef main  // Deals w/ the definition of main in SDL.
 int main() {
+	NESDebug nes;
+	CommandlineInput input;
+	nes.setStdValue(0xcd);
+	nes.loadROM("testROMS/nestest.nes");
+	nes.powerOn();
+
+	bool success = true;  // Execute until failure.
+	int i = 0;
+	nes.setRecord(false);
+	while (success && i < 1000) {
+		if (i > 950) {
+			nes.setRecord(true);
+		}
+		success = nes.executeMachineCycle();
+		++i;
+	}
+
+	CPUDebugger* cpuPtr = nes.getCPUPtr();
+	ExecutedInstruction instr = cpuPtr->getLastExecutedInstruction();
+	Registers r = cpuPtr->registersPeek();
+	int numOfInstr = 0;
+	std::string msg = "";
+	std::vector<ExecutedInstruction> lastNInstructions;
+
+	std::cout << "Failure! Entering Debugging mode..." << std::endl;
+	std::cout << "Last instruction: ";
+	instr.print();
+	
+	char inputChar = '0';
+	while (inputChar != 'q') {
+		std::cout << std::endl << std::setfill('-') << std::setw(20) << '-' << std::endl;
+		msg = "What to perform (q: quit, s: see last (n) instructions, u: undo the last instruction, r: dump registers, d: dump memory from (x) to (y)): ";
+		inputChar = input.getUserChar(msg);
+		std::cout << std::endl;
+		switch (inputChar) {
+		case('u'):
+			cpuPtr->undoInstruction();
+			std::cout << "Last instruction: " << std::endl;
+			instr = cpuPtr->getLastExecutedInstruction();
+			instr.print();
+			break;
+		case('r'):
+			r = cpuPtr->registersPeek();
+			std::cout << "Register values: ";
+			r.dumpContents();
+			std::cout << std::endl;
+			break;
+		case('s'):
+			msg = "How many instructions would you like to see? Give a positive integer value: ";
+			numOfInstr = input.getUserInt(msg);
+			if (numOfInstr <= 0) {
+				break;
+			}
+			lastNInstructions = cpuPtr->getExecutedInstructions(numOfInstr);
+			std::cout << std::endl;
+			for (ExecutedInstruction& instruction : lastNInstructions) {
+				instruction.print();
+				std::cout << std::endl;
+			}
+			break;
+		case('d'):
+			break;
+		default:
+			break;
+		}
+	}
+
+	//CPUDebuggerTest();
 
 	/*
 	DebugDatabus databus;

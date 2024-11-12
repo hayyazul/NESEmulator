@@ -3,6 +3,7 @@
 
 #include "../6502Chip/CPU.h"
 #include "../NESEmulator.h"
+#include "../debuggingTools/CPUAnalyzer.h"
 
 #include <string>
 #include <vector>
@@ -22,15 +23,18 @@ public:
 	// Cartridge ROM usually though not always starts at this address.
 	const uint16_t CART_ROM_START_ADDR = 0x8000;  // CART = Cartridge, ADDR = Address
 
-	_6502_CPU* CPU_ptr = &this->CPU;
-	Memory* memory_ptr = &this->memory;
-	DataBus* databus_ptr = this->databus;
-
 	// Debug variables
 	unsigned long int totalMachineCycles = 0;
 	unsigned long int CYCLE_LIMIT = 100000;  // Referring to the machine cycle.
 
+	// Sets the CPU and Databus recorders to the given value; returns the old value.
+	bool setRecord(bool record);
+	// Sets the CPU and Databus recorders to the given value; returns the old value.
+	bool getRecord(bool record) const;
+
 	void setStdValue(uint8_t val);  // Initializes all memory values to the one given here.
+
+	CPUDebugger* getCPUPtr();
 
 	// Direct memory operations. Peek = Getter, Poke = Setter, mem = memory. Serve a purely debug role.
 	uint8_t memPeek(uint16_t memoryAddress);
@@ -51,5 +55,7 @@ public:
 	bool memFind(uint8_t value, uint16_t& address, int lowerBound = -1, int upperBound = -1);
 	*/
 private:
-
+	// Instances of the debugger versions of the databus and CPU.
+	DebugDatabus databusInstance;
+	CPUDebugger cpuInstance;
 };

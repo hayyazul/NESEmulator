@@ -32,6 +32,23 @@ std::string CommandlineInput::getUserLine(std::string msg) {
 	return this->getUserLine();
 }
 
+int CommandlineInput::getUserInt() {
+	std::string userInput = this->getUserLine();  // Get the input.
+	bool firstChar = true;
+	for (const char& c : userInput) {  // Check if it is a valid input (e.g., the first character is a number or a dash; all subsequent characters are numbers)
+		if (!(isdigit(c) || (firstChar && c == '-'))) {
+			return 0;  // Default to 0 in this case.
+		}
+	}
+
+	return stoi(userInput);
+}
+
+int CommandlineInput::getUserInt(std::string msg) {
+	std::cout << msg;
+	return this->getUserInt();
+}
+
 void CommandlineInput::clearExtraneousInput(bool gotChar) {
 	std::string dummyStr;
 	std::cin.clear();
