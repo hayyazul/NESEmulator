@@ -329,7 +329,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
         //}
     }
     /* void BRK
-    Interrupt request.
+    Interrupt request as an instruction. Note that an interrupt can be requested outside the CPU and it will have the same effect as this instruction.
 
     Push the program counter then the status flags onto the stack.
     Then load the address stored in the IRQ interrupt vector (located at 0xfffe and 0xffff).
@@ -341,10 +341,12 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
         - B: set to 1.
     */
     void BRK(Registers& registers, DataBus& dataBus, uint16_t address) {
-        // First, push the current PC and Status Flags in the stack.
-        dataBus.write(registers.SP, registers.PC);
-        dataBus.write(registers.SP - 1, registers.PC);
-        dataBus.write(registers.SP - 2, registers.S);
+        // First, push the PC + 2 and Status Flags in the stack.
+        // NOTE: I don't know if I need to push the current PC, +1, or +2 onto the stack.
+        // NOTE: This code is duplicated in _6502_CPU; maybe I can fix that?
+        dataBus.write(STACK_END_ADDR + registers.SP, registers.PC + 1);  
+        dataBus.write(STACK_END_ADDR + registers.SP - 1, (registers.PC + 1) >> 8);
+        dataBus.write(STACK_END_ADDR + registers.SP - 2, registers.S);
         
         // Then, get the IRQ Interrupt Vector
         // TODO: Get rid of magic numbers.

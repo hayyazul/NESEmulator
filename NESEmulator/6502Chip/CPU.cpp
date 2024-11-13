@@ -2,11 +2,11 @@
 #include <iostream>
 #include <iomanip>
 
-_6502_CPU::_6502_CPU() : databus(nullptr) {
+_6502_CPU::_6502_CPU() : databus(nullptr), interruptRequested(false) {
 	this->setupInstructionSet();
 }
 
-_6502_CPU::_6502_CPU(DataBus* databus) : databus(databus) {
+_6502_CPU::_6502_CPU(DataBus* databus) : databus(databus), interruptRequested(false) {
 	this->setupInstructionSet();
 }
 
@@ -18,20 +18,15 @@ void _6502_CPU::attach(DataBus* databus) {
 
 bool _6502_CPU::executeCycle() {
 	// First check if the number of cycles elapsed corresponds with the number of cycles the instruction takes up. If so, execute the next instruction.
-	if (true) { //For now, don't bother. this->opcodeCyclesElapsed == this->currentOpcodeCycleLen) {
+	if (true) { // For now, don't bother.                                                                                              this->opcodeCyclesElapsed == this->currentOpcodeCycleLen) {
 		this->opcodeCyclesElapsed = 0;
-		uint8_t opcode = this->databus->read(this->registers.PC);  // Get the next opcode.
-		// Displays the opcode, its location in memory, the 3 bytes which follow it, the stack sum, and how much the PC was iterated (does not include branch offsets, JMPs, etc. instruction specific PC changes).
 
-		/*
-		std::cout << opcodesMap[opcode] << " : 0x" << std::hex << std::setfill('0') << std::setw(2) << (int)opcode << " at addr 0x" << std::setw(4) << this->registers.PC << " |";
-		for (int i = 1; i <= 3; ++i) {
-			std::cout << " 0x" << std::hex << std::setfill('0') << std::setw(2) << (int)this->databus->read(this->registers.PC + i);
-			if (i != 3) {
-				std::cout << ",";
-			}
+		if (this->performInterrupt) {
+			this->performInterruptActions();
 		}
-		*/
+
+		uint8_t opcode = this->databus->read(this->registers.PC);  // Get the next opcode.
+
 		// Check if this opcode exists.
 		if (!INSTRUCTION_SET.contains(opcode)) {
 			return false;
@@ -40,21 +35,20 @@ bool _6502_CPU::executeCycle() {
 
 		this->currentOpcodeCycleLen = instruction.cycleCount;  // Get how many cycles this opcode will be using.
 		this->executeOpcode(opcode);
-		/*
-		int s = 0;
-		std::array<uint8_t, 0x100> a = this->dumpStack();
 
-		for (auto& b : a) {
-			s += b;
+		if (this->interruptRequested) {  // After a request has been made, we do not want to perform the interrupt until after the current opcode is done.
+			this->performInterrupt = true;
 		}
-		std::cout << " | Stack sum: " << s << " | SP: 0x" << std::setw(2) << (int)registers.SP;
-		std::cout << " | PC Iter: " << (int)(instruction.numBytes * !instruction.modifiesPC) << std::endl;
-		*/
+
 		this->registers.PC += instruction.numBytes * !instruction.modifiesPC;  // Only move the program counter forward if the instruction does not modify the PC.
 	}
 	++this->opcodeCyclesElapsed;
 	this->totalCyclesElapsed += this->currentOpcodeCycleLen;
 	return true;
+}
+
+void _6502_CPU::requestInterrupt() {
+	this->interruptRequested = true;
 }
 
 void _6502_CPU::reset() {
@@ -72,6 +66,30 @@ void _6502_CPU::powerOn() {
 	this->registers.setStatus('D', 0);
 	this->registers.setStatus('V', 0);
 	this->registers.setStatus('N', 0);
+}
+
+void _6502_CPU::performInterruptActions() {
+	// First, push the PC + 2 and Status Flags in the stack.
+	// NOTE: I don't know if I need to push the current PC, +1, or +2 onto the stack.
+	// NOTE: This code is duplicated in instructions.cpp; maybe I can fix that?
+	this->databus->write(STACK_END_ADDR + this->registers.SP, this->registers.PC);  // Store LB of PC (PCL)
+	this->databus->write(STACK_END_ADDR + this->registers.SP - 1, this->registers.PC >> 8);  // Store UB of PC (PCH)
+	this->databus->write(STACK_END_ADDR + this->registers.SP - 2, this->registers.S);
+
+	// Then, get the IRQ Interrupt Vector
+	// TODO: Get rid of magic numbers.
+	// Magic numbers: 0xfffe and 0xffff are the addresses where the IRQ vector is located.
+	// lb = lower byte; ub = upper byte.
+	uint8_t lb = this->databus->read(0xfffe);
+	uint8_t ub = this->databus->read(0xffff);
+	uint16_t irqVector = lb + (static_cast<uint16_t>(ub) << 8);
+
+	this->registers.PC = irqVector;
+	this->registers.SP -= 3;
+
+	this->registers.setStatus('I', true);
+	this->performInterrupt = false;
+	this->interruptRequested = false;
 }
 
 void _6502_CPU::executeOpcode(uint8_t opcode) {

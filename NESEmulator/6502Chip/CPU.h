@@ -121,6 +121,9 @@ public:
 	*/
 	virtual bool executeCycle();
 
+	// Makes a request for an IRQ interrupt; ignored if the Interrupt Disable Flag (I) is set to 1.
+	void requestInterrupt();
+
 	/* void reset
 	Resets the CPU, which involves setting the PC to the location indicated by the reset vector and decrementing the stack pointer by 3.
 	
@@ -146,11 +149,16 @@ protected:
 
 	Registers registers;
 
+	bool interruptRequested;  // Whether a REQUEST for an interrupt has been made.
+	bool performInterrupt;  // Whether to PERFORM an interrupt in the current cpu cycle.
+
 	long unsigned int totalCyclesElapsed = 0;  // Total CPU cycles elapsed since startup.
 	unsigned int opcodeCyclesElapsed = 0;  // A cycle counter that is present since the CPU began executing a given instruction. Resets when it reaches the number of cycles for a given instruction.
 	unsigned int currentOpcodeCycleLen = 0;  // The number of cycles the current opcode uses.
 
 	void executeOpcode(uint8_t opcode);
+
+	void performInterruptActions();
 
 private:
 	DataBus* databus;
