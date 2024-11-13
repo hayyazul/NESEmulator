@@ -9,11 +9,12 @@
 #include <set> 
 
 enum Result {
-	FAILURE,  // When in the process of reading the file, some catastrophic failure prevents a full read. Used in general cases when the cause can't be figured out.
-	SUCCESS,  // When everything has been successfully been read.
-	SIZE_MISTMATCH,  // When the program or character data does not match up w/ the data size indicated in the header.
-	BAD_HEADER,  // When the header fails to match up with "NES(0x1a)"
-	UNRECOGNIZED_MAPPER  // When the mapper fails to match up with a known or implemented one.
+	FAILURE,  // 0: When in the process of reading the file, some catastrophic failure prevents a full read. Used in general cases when the cause can't be figured out.
+	SUCCESS,  // 1: When everything has been successfully been read.
+	SIZE_MISTMATCH,  // 2: When the program or character data does not match up w/ the data size indicated in the header.
+	BAD_HEADER,  // 3: When the header fails to match up with "NES(0x1a)"
+	UNRECOGNIZED_MAPPER,  // 4: When the mapper fails to match up with a known or implemented one.
+	CANT_OPEN_FILE  // 5: When opening the file fails.
 };
 
 const unsigned int PRG_DATA_CHUNK_SIZE = 0x4000;

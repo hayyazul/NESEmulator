@@ -19,6 +19,9 @@ public:
 	int getUserInt();
 	int getUserInt(std::string msg);
 
+	int getUserHex();
+	int getUserHex(std::string msg);
+
 private:
 
 	// Removes any extra input the user has input (so as to prevent them from affecting future inputs),

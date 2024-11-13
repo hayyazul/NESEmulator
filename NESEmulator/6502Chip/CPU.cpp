@@ -53,7 +53,7 @@ bool _6502_CPU::executeCycle() {
 		this->registers.PC += instruction.numBytes * !instruction.modifiesPC;  // Only move the program counter forward if the instruction does not modify the PC.
 	}
 	++this->opcodeCyclesElapsed;
-	++this->totalCyclesElapsed;
+	this->totalCyclesElapsed += this->currentOpcodeCycleLen;
 	return true;
 }
 

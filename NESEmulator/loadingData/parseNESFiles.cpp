@@ -3,6 +3,10 @@
 Result parseiNESFile(const char* filename, NESFileData& gameData) {
 	std::ifstream file{filename, std::ios_base::binary};
 	
+	if (!file) {
+		return CANT_OPEN_FILE;
+	}
+
 	unsigned int i = 0;
 	
 	const uint8_t properHeader[4]{'N', 'E', 'S', 0x1a};

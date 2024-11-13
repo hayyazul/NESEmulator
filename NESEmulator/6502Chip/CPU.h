@@ -46,6 +46,7 @@ struct Registers {
 		} else {
 			this->S &= ~statusMask;
 		}
+
 	}
 
 	// Prints the contents of the register in a human-readable format.
@@ -79,21 +80,24 @@ struct Registers {
 private:
 	inline uint8_t getStatusMask(const char status) {
 		// See NESdev for implementation details.
-		uint8_t statusMask = 0b0000000;
+		uint8_t statusMask = 0b00000000;
+		//                     NV1BDIZC  
 		if (status == 'C') {  // Carry flag
-			statusMask = 0b1;
+			statusMask = 0b00000001;
 		} else if (status == 'Z') {  // Zero flag
-			statusMask = 0b10;
+			statusMask = 0b00000010;
 		} else if (status == 'I') {  // Interrupy Disable flag (see NESdev for more info)
-			statusMask = 0b100;
+			statusMask = 0b00000100;
 		} else if (status == 'D') {  // Decimal flag (see NESdev for more info)
-			statusMask = 0b1000;
+			statusMask = 0b00001000;
 		} else if (status == 'B') {  // B flag (see NESdev for more info)
-			statusMask = 0b10000;
+			statusMask = 0b00010000;
+		// There is a bit between the B and V bits which is always 1; make sure to set it to 1 in 
+		// instructions which affect the status flags.
 		} else if (status == 'V') {  // Carry flag  // IMPORTANT TODO: Why is the carry flag here and up there at the same time?
-			statusMask = 0b1000000;
+			statusMask = 0b01000000;
 		} else if (status == 'N') {  // Decimal flag (present but disabled)
-			statusMask = 0b1000000;
+			statusMask = 0b10000000;
 		}
 		return statusMask;
 	}

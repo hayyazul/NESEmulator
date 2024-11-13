@@ -39,11 +39,21 @@ bool CPUDebugger::executeCycle() {
 	this->databus->setRecordActions(oldRecordActions);
 	bool success = _6502_CPU::executeCycle();
 
+	// DEBUG:
+	// Validating the constant 1 in the 5th bit:
+	if (!(0b00100000 & this->registers.S)) {
+		this->registers.S |= 0b00100000;
+	}
+
 	// Get the last info needed to describe an executed instruction: how many databus actions it took.
 	unsigned int numOfDatabusActions = this->databus->getNumActions() - lastMemOpsSize;
-	this->executedInstructions.push_back(ExecutedInstruction(opcode, instruction, numOfDatabusActions, oldRegisters, operands));
+	this->executedInstructions.push_back(ExecutedInstruction(opcode, instruction, numOfDatabusActions, oldRegisters, operands, this->executedInstructions.size()));
 
 	return success;
+}
+
+bool CPUDebugger::pcAt(uint16_t address) {
+	return this->registers.PC == address;
 }
 
 void CPUDebugger::attach(DebugDatabus* databus) {
@@ -62,6 +72,8 @@ bool CPUDebugger::undoInstruction() {
 	for (int i = 0; i < lastInstruction.numOfActionsInvolved; ++i) {
 		this->databus->undoMemAction();
 	}
+	--this->opcodeCyclesElapsed;
+	this->totalCyclesElapsed -= lastInstruction.instructionExecuted->cycleCount;
 	this->registers = lastInstruction.oldRegisters;
 	return true;
 }
@@ -83,13 +95,21 @@ std::vector<ExecutedInstruction> CPUDebugger::getExecutedInstructions() {
 std::vector<ExecutedInstruction> CPUDebugger::getExecutedInstructions(unsigned int lastN) {
 	std::vector<ExecutedInstruction> executedInstructions;
 
+	// How far back the first element is.
+	int firstElementOffset = lastN < this->executedInstructions.size() ? lastN : this->executedInstructions.size();
+
 	if (this->executedInstructions.size()) {
-		for (unsigned int i = 0; i < lastN && i < this->executedInstructions.size(); ++i) {
-			executedInstructions.push_back(this->executedInstructions.at(this->executedInstructions.size() - lastN + i));
+		for (unsigned int i = 0; i < firstElementOffset; ++i) {
+			executedInstructions.push_back(this->executedInstructions.at(this->executedInstructions.size() - firstElementOffset + i));
 		}
 	}
 
 	return executedInstructions;
+}
+
+void CPUDebugger::clearExecutedInstructions() {
+	this->executedInstructions = std::vector<ExecutedInstruction>();
+	this->databus->clearRecordedActions();
 }
 
 std::vector<uint8_t> CPUDebugger::memDump(uint16_t startAddr, uint16_t endAddr) {

@@ -49,6 +49,35 @@ int CommandlineInput::getUserInt(std::string msg) {
 	return this->getUserInt();
 }
 
+int CommandlineInput::getUserHex() {
+	std::string userInput = this->getUserLine();  // Get the input.
+	std::string hexStr = "";
+	// Basic error checking.
+	if (userInput.size() < 3 || userInput.at(1) != 'x') {
+		return 0;
+	}
+
+	int i = 0;
+	for (const char& c : userInput) {  
+		if (i < 2) {  // Skip over the "0x" prefix. 
+			++i;
+			continue;
+		}
+
+		if (!isxdigit(c)) {
+			return 0;  // Default to 0 in this case.
+		} 
+		hexStr += c;
+	}
+
+	return stoi(hexStr, 0, 16);
+}
+
+int CommandlineInput::getUserHex(std::string msg) {
+	std::cout << msg;
+	return this->getUserHex();
+}
+
 void CommandlineInput::clearExtraneousInput(bool gotChar) {
 	std::string dummyStr;
 	std::cin.clear();

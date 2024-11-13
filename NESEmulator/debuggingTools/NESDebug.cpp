@@ -11,8 +11,8 @@ NESDebug::NESDebug() : NES() {
 }
 
 NESDebug::~NESDebug() {
-	delete this->databus;
-	delete this->CPU;
+	// The CPU and Databus instances will get destroyed because they are 
+	// a part of this class.
 }
 
 bool NESDebug::setRecord(bool record) {
@@ -23,6 +23,10 @@ bool NESDebug::setRecord(bool record) {
 
 bool NESDebug::getRecord(bool record) const {
 	return this->databusInstance.getRecordActions();
+}
+
+void NESDebug::clearRecord() {
+	this->cpuInstance.clearExecutedInstructions();
 }
 
 void NESDebug::setStdValue(uint8_t val) {

@@ -280,6 +280,7 @@ struct ExecutedInstruction {
 	std::string instructionName;
 	uint8_t opcodeExecuted;  
 	Instruction* instructionExecuted;  // This will also contain other important info, like how many operands were involved.
+	unsigned int executedIndex;  // The index of when this execution was executed. 
 
 	int numOfOperands;
 	uint8_t operands[2];  // The upto two operands involved in the instruction. Default values are 0.
@@ -292,12 +293,13 @@ struct ExecutedInstruction {
 	Registers oldRegisters;
 
 	ExecutedInstruction() {};
-	ExecutedInstruction(uint8_t opcode, Instruction* instruction, unsigned int numActions, Registers registers, uint8_t operands[2]) :
+	ExecutedInstruction(uint8_t opcode, Instruction* instruction, unsigned int numActions, Registers registers, uint8_t operands[2], unsigned int idx) :
 		opcodeExecuted(opcode),
 		instructionExecuted(instruction),
 		numOfActionsInvolved(numActions),
 		oldRegisters(registers),
-		numOfOperands(instruction->numBytes - 1)
+		numOfOperands(instruction->numBytes - 1),
+		executedIndex(idx)
 	{
 		this->instructionName = opcodeToName.at(opcode);
 		this->operands[0] = operands[0];
@@ -306,6 +308,7 @@ struct ExecutedInstruction {
 	~ExecutedInstruction() {};
 
 	// NOTE: I might return a string containing the message instead.
+	// Outputs the instruction executed, the operands, and the values of the registers BEFORE execution.
 	void print() {
 		// JMP ABSLT | Operands: 0x02, 0x04 | Old Values of A: 0x00, X: 0x02, Y:0x09, SP: 0xf3, PC: 0x0110 | Flags C:0 Z:0 I:0 D:0 V:0 N:0
 		std::cout << this->instructionName << " | ";  // Opcode name
@@ -326,7 +329,7 @@ struct ExecutedInstruction {
 			<< ", X: " << displayHex(oldRegisters.X, 2)
 			<< ", Y: " << displayHex(oldRegisters.Y, 2)
 			<< ", SP: " << displayHex(oldRegisters.SP, 2)
-			<< ", PC: " << displayHex(oldRegisters.PC, 4) << " | Flags C:";
+			<< ", PC: " << displayHex(oldRegisters.PC, 4) << " | Flags " << displayHex(oldRegisters.S, 2) << " C:";
 		
 		// Lastly, the flags.
 		std::cout << oldRegisters.getStatus('C')
@@ -335,6 +338,8 @@ struct ExecutedInstruction {
 			<< ", D: " << oldRegisters.getStatus('D')
 			<< ", V: " << oldRegisters.getStatus('V')
 			<< ", N: " << oldRegisters.getStatus('N');
+
+		std::cout << " | (" << std::dec << this->executedIndex << ")";
 	};
 	
 };
@@ -349,11 +354,12 @@ public:
 	// Note: Currently one cycle = one instruction, but in reality it is different and depends on the specific instruction.
 	bool executeCycle() override;
 
+	bool pcAt(uint16_t address);  // Tells you when the PC has reached a certain value; useful for breakpoints.
+
 	void attach(DebugDatabus* databus);
 
 	// Undos an instruction in the stack.
 	bool undoInstruction();
-
 	// Returns the last executed instruction
 	ExecutedInstruction getLastExecutedInstruction();
 
@@ -361,6 +367,7 @@ public:
 	// You almost never want a full dump.
 	std::vector<ExecutedInstruction> getExecutedInstructions();
 	std::vector<ExecutedInstruction> getExecutedInstructions(unsigned int lastN);
+	void clearExecutedInstructions();
 
 public:
 	// Basic debugging operations which do not affect the internal stack.
@@ -390,6 +397,7 @@ private:
 	// Stack containing the instructions executed in order.
 	std::vector<ExecutedInstruction> executedInstructions;
 };
+
 
 // A collection of code which performs a simple test of the above; put inside this function for cleanliness.
 void CPUDebuggerTest();

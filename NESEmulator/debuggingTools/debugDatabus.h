@@ -2,6 +2,7 @@
 #pragma once
 #include <stdint.h>
 #include <stack>
+#include <vector>
 #include "../databus/databus.h"
 
 // A small container which has some info on a given action; this is a command pattern.
@@ -33,6 +34,7 @@ public:
 	// Sets this->recordActions to the value given.
 	void setRecordActions(bool record);
 	bool getRecordActions() const;  // Gets this->recordActions
+	void clearRecordedActions();
 	unsigned int getNumActions() const;  // Gets this->memOps.size()
 
 	// Undos an action performed. Returns whether the undo was successful.
@@ -50,3 +52,8 @@ private:
 	uint8_t performMemAction(DatabusAction action);
 
 };
+
+// Displays a dump of memory
+void displayMemDump(std::vector<uint8_t>& dump, uint16_t startAddr, uint16_t endAddr, unsigned int bytesPerRow=16);
+
+void displayMemDumpLine(std::vector<uint8_t>& dump, uint16_t startAddr, uint16_t endAddr, unsigned int row, unsigned int bytesPerRow);

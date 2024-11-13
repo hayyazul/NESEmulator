@@ -32,6 +32,8 @@ public:
 	// Sets the CPU and Databus recorders to the given value; returns the old value.
 	bool getRecord(bool record) const;
 
+	void clearRecord();  // Deletes the store executed instructions vector and memops stack.
+
 	void setStdValue(uint8_t val);  // Initializes all memory values to the one given here.
 
 	CPUDebugger* getCPUPtr();
