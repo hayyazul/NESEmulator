@@ -1,5 +1,5 @@
 // cmdInput.h - An interface to get commandline inputs more easily and more safely.
-
+#pragma once
 #include <string>
 
 class CommandlineInput {

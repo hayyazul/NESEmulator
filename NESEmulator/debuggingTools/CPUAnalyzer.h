@@ -277,13 +277,15 @@ const std::map<uint8_t, std::string> opcodeToName = {
 // Contains basic info regarding the execution of the most recent instruction.
 struct ExecutedInstruction {
 	// We record both the byte and the instruction just in case an opcode was assigned to the wrong instruction.
+
 	std::string instructionName;
 	uint8_t opcodeExecuted;  
 	Instruction* instructionExecuted;  // This will also contain other important info, like how many operands were involved.
 	unsigned int executedIndex;  // The index of when this execution was executed. 
 
-	int numOfOperands;
+	int numOfOperands, numOfCycles, lastCycleCount;
 	uint8_t operands[2];  // The upto two operands involved in the instruction. Default values are 0.
+	
 
 	// OLD NOTE: I might not need to access the DatabusAction(s) located in here directly; I could just get the size, then ask
 	// the databus to undo [size] number of memory operations. This vector might be removed, though I also might keep it for 
@@ -293,15 +295,17 @@ struct ExecutedInstruction {
 	Registers oldRegisters;
 
 	ExecutedInstruction() {};
-	ExecutedInstruction(uint8_t opcode, Instruction* instruction, unsigned int numActions, Registers registers, uint8_t operands[2], unsigned int idx) :
+	ExecutedInstruction(uint8_t opcode, Instruction* instruction, unsigned int numActions, Registers registers, uint8_t operands[2], unsigned int idx, int lastCycleCount) :
 		opcodeExecuted(opcode),
 		instructionExecuted(instruction),
 		numOfActionsInvolved(numActions),
 		oldRegisters(registers),
 		numOfOperands(instruction->numBytes - 1),
-		executedIndex(idx)
+		executedIndex(idx),
+		lastCycleCount(lastCycleCount)
 	{
 		this->instructionName = opcodeToName.at(opcode);
+		this->numOfCycles = instruction->cycleCount;
 		this->operands[0] = operands[0];
 		this->operands[1] = operands[1];
 	};
@@ -313,13 +317,14 @@ struct ExecutedInstruction {
 		// JMP ABSLT | Operands: 0x02, 0x04 | Old Values of A: 0x00, X: 0x02, Y:0x09, SP: 0xf3, PC: 0x0110 | Flags C:0 Z:0 I:0 D:0 V:0 N:0
 		std::cout << this->instructionName << " | ";  // Opcode name
 		std::cout << "Operands: ";  // Now the operands
-		for (unsigned int i = 0; i < 2; ++i) { 
+		for (unsigned int i = 0; i < 2; ++i) {
 			if (i < this->numOfOperands) {
 				std::cout << displayHex(this->operands[i], 2);
-			} else {
+			}
+			else {
 				std::cout << "____";
 			}
-		
+
 			if (i == 0) {
 				std::cout << ", ";
 			}
@@ -330,7 +335,7 @@ struct ExecutedInstruction {
 			<< ", Y: " << displayHex(oldRegisters.Y, 2)
 			<< ", SP: " << displayHex(oldRegisters.SP, 2)
 			<< ", PC: " << displayHex(oldRegisters.PC, 4) << " | Flags " << displayHex(oldRegisters.S, 2) << " C:";
-		
+
 		// Lastly, the flags.
 		std::cout << oldRegisters.getStatus('C')
 			<< ", Z: " << oldRegisters.getStatus('Z')
@@ -339,7 +344,7 @@ struct ExecutedInstruction {
 			<< ", V: " << oldRegisters.getStatus('V')
 			<< ", N: " << oldRegisters.getStatus('N');
 
-		std::cout << " | (" << std::dec << this->executedIndex << ")";
+		std::cout << " | Prev. Cycle #: " << std::dec << this->lastCycleCount << " | (" << this->executedIndex << ")";
 	};
 	
 };

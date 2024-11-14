@@ -39,6 +39,7 @@ bool CPUDebugger::executeCycle() {
 	this->databus->setRecordActions(oldRecordActions);
 	bool success = _6502_CPU::executeCycle();
 
+	// TODO: Fix the bug where the constant 1 is allowed to be unset; it should not, the CPu should check if it is unset and re-set it to 1.
 	// DEBUG:
 	// Validating the constant 1 in the 5th bit:
 	if (!(0b00100000 & this->registers.S)) {
@@ -47,7 +48,14 @@ bool CPUDebugger::executeCycle() {
 
 	// Get the last info needed to describe an executed instruction: how many databus actions it took.
 	unsigned int numOfDatabusActions = this->databus->getNumActions() - lastMemOpsSize;
-	this->executedInstructions.push_back(ExecutedInstruction(opcode, instruction, numOfDatabusActions, oldRegisters, operands, this->executedInstructions.size()));
+	this->executedInstructions.push_back(ExecutedInstruction(
+		opcode, 
+		instruction, 
+		numOfDatabusActions, 
+		oldRegisters, 
+		operands, 
+		this->executedInstructions.size(), 
+		this->totalCyclesElapsed));
 
 	return success;
 }
@@ -73,7 +81,7 @@ bool CPUDebugger::undoInstruction() {
 		this->databus->undoMemAction();
 	}
 	--this->opcodeCyclesElapsed;
-	this->totalCyclesElapsed -= lastInstruction.instructionExecuted->cycleCount;
+	this->totalCyclesElapsed = lastInstruction.lastCycleCount;
 	this->registers = lastInstruction.oldRegisters;
 	return true;
 }

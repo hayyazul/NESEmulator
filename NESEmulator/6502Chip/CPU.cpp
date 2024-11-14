@@ -2,11 +2,11 @@
 #include <iostream>
 #include <iomanip>
 
-_6502_CPU::_6502_CPU() : databus(nullptr), interruptRequested(false) {
+_6502_CPU::_6502_CPU() : databus(nullptr), interruptRequested(false), performInterrupt(false) {
 	this->setupInstructionSet();
 }
 
-_6502_CPU::_6502_CPU(DataBus* databus) : databus(databus), interruptRequested(false) {
+_6502_CPU::_6502_CPU(DataBus* databus) : databus(databus), interruptRequested(false), performInterrupt(false) {
 	this->setupInstructionSet();
 }
 
@@ -32,15 +32,15 @@ bool _6502_CPU::executeCycle() {
 			return false;
 		};
 		Instruction& instruction = INSTRUCTION_SET[opcode];
-
-		this->currentOpcodeCycleLen = instruction.cycleCount;  // Get how many cycles this opcode will be using.
 		this->executeOpcode(opcode);
+		this->currentOpcodeCycleLen = instruction.cycleCount;  // Get how many cycles this opcode will be using.
 
 		if (this->interruptRequested) {  // After a request has been made, we do not want to perform the interrupt until after the current opcode is done.
 			this->performInterrupt = true;
 		}
 
 		this->registers.PC += instruction.numBytes * !instruction.modifiesPC;  // Only move the program counter forward if the instruction does not modify the PC.
+	
 	}
 	++this->opcodeCyclesElapsed;
 	this->totalCyclesElapsed += this->currentOpcodeCycleLen;
@@ -128,13 +128,13 @@ void _6502_CPU::setupInstructionSet() {
 	INSTRUCTION_SET[0x1e] = Instruction((MemOp)ops::ASL, addrModes::absoluteX, 3, 7);
 
 	// Branch Operations (BCC, BCS, BEQ, BMI, BPL, BVC, BVS)
-	INSTRUCTION_SET[0x90] = Instruction(ops::BCC, addrModes::relative, 2, 2, true);
-	INSTRUCTION_SET[0xb0] = Instruction(ops::BCS, addrModes::relative, 2, 2, true);
-	INSTRUCTION_SET[0xf0] = Instruction(ops::BEQ, addrModes::relative, 2, 2, true);
-	INSTRUCTION_SET[0x30] = Instruction(ops::BMI, addrModes::relative, 2, 2, true);
-	INSTRUCTION_SET[0x10] = Instruction(ops::BPL, addrModes::relative, 2, 2, true);
-	INSTRUCTION_SET[0x50] = Instruction(ops::BVC, addrModes::relative, 2, 2, true);
-	INSTRUCTION_SET[0x70] = Instruction(ops::BVS, addrModes::relative, 2, 2, true);
+	INSTRUCTION_SET[0x90] = Instruction((BranchOp)ops::BCC, addrModes::relative, 2, 2, true);
+	INSTRUCTION_SET[0xb0] = Instruction((BranchOp)ops::BCS, addrModes::relative, 2, 2, true);
+	INSTRUCTION_SET[0xf0] = Instruction((BranchOp)ops::BEQ, addrModes::relative, 2, 2, true);
+	INSTRUCTION_SET[0x30] = Instruction((BranchOp)ops::BMI, addrModes::relative, 2, 2, true);
+	INSTRUCTION_SET[0x10] = Instruction((BranchOp)ops::BPL, addrModes::relative, 2, 2, true);
+	INSTRUCTION_SET[0x50] = Instruction((BranchOp)ops::BVC, addrModes::relative, 2, 2, true);
+	INSTRUCTION_SET[0x70] = Instruction((BranchOp)ops::BVS, addrModes::relative, 2, 2, true);
 
 	// Bit Test (BIT)
 	INSTRUCTION_SET[0x24] = Instruction(ops::BIT, addrModes::zeropage, 2, 3);
@@ -233,7 +233,7 @@ void _6502_CPU::setupInstructionSet() {
 	INSTRUCTION_SET[0x3e] = Instruction((MemOp)ops::ROL, addrModes::absoluteX, 3, 7);
 
 	// BNE (Branch if Not Equal)
-	INSTRUCTION_SET[0xd0] = Instruction(ops::BNE, addrModes::relative, 2, 2, true);
+	INSTRUCTION_SET[0xd0] = Instruction((BranchOp)ops::BNE, addrModes::relative, 2, 2, true);
 
 	// DEX (Decrement X)
 	INSTRUCTION_SET[0xca] = Instruction(ops::DEX, addrModes::implicit, 1, 2);
