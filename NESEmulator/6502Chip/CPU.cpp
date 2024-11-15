@@ -52,11 +52,13 @@ void _6502_CPU::requestInterrupt() {
 }
 
 void _6502_CPU::reset() {
-	auto a = static_cast<uint16_t>(this->databus->read(RESET_VECTOR_ADDRESS + 1)) << 8;
-	auto b = static_cast<uint16_t>(this->databus->read(RESET_VECTOR_ADDRESS));
+	// The CPU resets by decrementing the stack pointer by 3 (Going down the stack), setting the PC to the reset vector, and setting the interrupt disable to true.
+	// This process takes 7 CPU cycles.
 	registers.PC = static_cast<uint16_t>(this->databus->read(RESET_VECTOR_ADDRESS)) + (static_cast<uint16_t>(this->databus->read(RESET_VECTOR_ADDRESS + 1)) << 8);
 	registers.SP -= 3;
 	registers.setStatus('I', true);
+	this->totalCyclesElapsed += 7;
+
 }
 
 void _6502_CPU::powerOn() {

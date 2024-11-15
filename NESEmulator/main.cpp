@@ -13,6 +13,9 @@
 #include "debuggingTools/CPUAnalyzer.h"
 
 #include "debuggingTools/basicDebugSuite.hpp"
+#include "loadingData/parseLogData.h"
+
+// Investigate 1129 +/- 5
 
 #undef main  // Deals w/ the definition of main in SDL.
 int main() {

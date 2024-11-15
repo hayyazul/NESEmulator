@@ -13,10 +13,10 @@
 #include <iostream>
 #include <iomanip>
 
-
+struct ExecutedOpcodeLogEntry;
 
 // Map between bytes and their associated instructions as strings.
-const std::map<uint8_t, std::string> opcodeToName = {
+const std::map<uint8_t, std::string> OPCODE_TO_NAME = {
 {0x00, "BRK IMPLD"},
 {0x01, "ORA INDXD"},
 {0x02, "??? ?????"},
@@ -304,7 +304,7 @@ struct ExecutedInstruction {
 		executedIndex(idx),
 		lastCycleCount(lastCycleCount)
 	{
-		this->instructionName = opcodeToName.at(opcode);
+		this->instructionName = OPCODE_TO_NAME.at(opcode);
 		this->numOfCycles = instruction->cycleCount;
 		this->operands[0] = operands[0];
 		this->operands[1] = operands[1];
@@ -344,7 +344,7 @@ struct ExecutedInstruction {
 			<< ", V: " << oldRegisters.getStatus('V')
 			<< ", N: " << oldRegisters.getStatus('N');
 
-		std::cout << " | Prev. Cycle #: " << std::dec << this->lastCycleCount << " | (" << this->executedIndex << ")";
+		std::cout << " | Old Cycle #: " << std::dec << this->lastCycleCount << " | (" << this->executedIndex << ")";
 	};
 	
 };
@@ -397,6 +397,9 @@ public:
 	std::array<uint8_t, 0x100> dumpStack();
 private:
 	DebugDatabus* databus;
+
+	// TEMP
+	std::vector<ExecutedOpcodeLogEntry> log;
 	
 	// NOTE: Might change from a stack to a vector, just because other debugger functions may find that structure more useful.
 	// Stack containing the instructions executed in order.

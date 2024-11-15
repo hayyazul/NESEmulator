@@ -9,7 +9,8 @@ namespace helperByteOps {
         // The & between the two check if the sign has changed for both the accumulator and the data value.
         // This also has the effect of checking if the accumulator and the data were of the same sign.
         // The final & with 0b10000000 is to filter out all bits but the 7th.
-        return ((aBefore ^ sum) & (data ^ sum));
+
+        return ((aBefore ^ sum) & (data ^ sum) & 0b10000000);
     }
 
     bool isBit7Set(uint8_t byte) {
@@ -18,6 +19,13 @@ namespace helperByteOps {
 
     bool isBit0Set(uint8_t byte) {
         return 0b1 & byte;
+    }
+
+    // The CPU checks if a number is less than another by subtracting one from the other, then seeing if the negative bit is set.
+    bool isLessThan(uint8_t a, uint8_t d) {
+        uint8_t subResult = a - d;
+        subResult &= 0b10000000;
+        return subResult;
     }
 
     bool isOverflow(uint8_t a, uint8_t data, bool c) {
@@ -185,7 +193,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
         registers.setStatus('Z', registers.A == 0);
         registers.setStatus('V', helperByteOps::isSignBitIncorrect(accumulatorPreOp, registers.A, data));
         // This one checks if we overflowed the accumulator
-        registers.setStatus('C', not helperByteOps::isOverflow(accumulatorPreOp, data, registers.getStatus('C')));
+        registers.setStatus('C', helperByteOps::isOverflow(accumulatorPreOp, data, registers.getStatus('C')));
     }
     /* void AND
     Performs bitwise AND on accumulator and data.
@@ -209,7 +217,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     */
     void ASL(Registers& registers, uint8_t data) {
         registers.setStatus('C', helperByteOps::isBit7Set(registers.A));
-        registers.A = data << 1;
+        registers.A = registers.A << 1;
         registers.setStatus('N', helperByteOps::isBit7Set(registers.A));
         registers.setStatus('Z', registers.A == 0);
     }
@@ -468,12 +476,12 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     Flags Affected:
         - C: set to 1 if A >= M  // TODO: Find if it gets cleared if otherwise.
         - Z: set to 1 if A = M
-        - N: set if A < M
+        - N: set if A < M; This is checked by subtracting A by M, then seeing if the 7th bit is set.
     */
     void CMP(Registers& registers, uint8_t data) {
         registers.setStatus('C', registers.A >= data);
         registers.setStatus('Z', registers.A == data);
-        registers.setStatus('N', registers.A < data);
+        registers.setStatus('N', helperByteOps::isLessThan(registers.A, data));
     }
     /* void CPX
     Compares the X register w/ the value in memory. 
@@ -488,7 +496,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void CPX(Registers& registers, uint8_t data) {
         registers.setStatus('C', registers.X >= data);
         registers.setStatus('Z', registers.X == data);
-        registers.setStatus('N', registers.X < data);
+        registers.setStatus('N', helperByteOps::isLessThan(registers.X, data));
     } 
     /* void CPY
     Compares the Y register w/ the value in memory.
@@ -503,7 +511,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void CPY(Registers& registers, uint8_t data) {
         registers.setStatus('C', registers.Y >= data);
         registers.setStatus('Z', registers.Y == data);
-        registers.setStatus('N', registers.Y < data);
+        registers.setStatus('N', helperByteOps::isLessThan(registers.Y, data));
     }
     /* void DEC
     Decrements a given memory value by 1.
@@ -883,12 +891,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
 
      */
     void SBC(Registers& registers, uint8_t data) {
-        uint8_t accumulatorBefore = registers.A;
-        registers.A -= 1 + data - registers.getStatus('C');
-        registers.setStatus('C', helperByteOps::isUnderflow(registers.A, data, registers.getStatus('C')));
-        registers.setStatus('V', helperByteOps::isSignBitIncorrect(accumulatorBefore, registers.A, data));
-        registers.setStatus('Z', registers.A == 0);
-        registers.setStatus('N', helperByteOps::isBit7Set(registers.A));
+        ops::ADC(registers, ~data);
     }
     /* void SEC
     Sets the carry flag to 1.

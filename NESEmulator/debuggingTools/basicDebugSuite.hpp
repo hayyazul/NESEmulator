@@ -19,11 +19,13 @@ void debuggingSuite() {
 	nes.getCPUPtr()->registersPoke(reg);
 	bool success = true;  // Execute until failure.
 	int i = 0;
-	nes.setRecord(false);
-	while (success && i < 100) {
+	nes.setRecord(true);
+	while (success && i < 1) {
 		success = nes.executeMachineCycle();
 		++i;
 	}
+
+	const char* filename = "testROMS/nestest.txt";
 
 	CPUDebugger* cpuPtr = nes.getCPUPtr();
 	ExecutedInstruction instr = cpuPtr->getLastExecutedInstruction();

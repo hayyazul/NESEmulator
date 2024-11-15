@@ -4,14 +4,19 @@
 #include <algorithm>
 #include "../memory/memory.h"
 #include "../input/cmdInput.h"
+#include "../loadingData/parseLogData.h"
 
-CPUDebugger::CPUDebugger() : _6502_CPU(this->databus) {}
+CPUDebugger::CPUDebugger() : _6502_CPU(this->databus) {
+	const char* filename = "testROMS/nestest.txt";
+	this->log = getTestFileLog(filename);
+}
 
 CPUDebugger::CPUDebugger(DebugDatabus* databus) : databus(databus), _6502_CPU(databus) {}
 
 CPUDebugger::~CPUDebugger() {}
 
 // TODO: make it cycle accurate (e.g., make it so 1 CPU cycle != 1 instruction).
+// Make it return an error code instead of a bool.
 bool CPUDebugger::executeCycle() {
 	// Execute a CPU cycle, but record some info first.
 
@@ -55,7 +60,7 @@ bool CPUDebugger::executeCycle() {
 		oldRegisters, 
 		operands, 
 		this->executedInstructions.size(), 
-		this->totalCyclesElapsed));
+		this->totalCyclesElapsed - instruction->cycleCount));
 
 	return success;
 }

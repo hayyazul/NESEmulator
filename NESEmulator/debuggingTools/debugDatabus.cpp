@@ -3,8 +3,12 @@
 #include <iostream>
 #include <minmax.h>
 
-DebugDatabus::DebugDatabus() : DataBus(), recordActions(true) {}
-DebugDatabus::DebugDatabus(Memory* memory) : DataBus(memory), recordActions(true) {}
+DebugDatabus::DebugDatabus() : DataBus(), recordActions(false) {
+	this->clearRecordedActions();
+}
+DebugDatabus::DebugDatabus(Memory* memory) : DataBus(memory), recordActions(false) {
+	this->clearRecordedActions();
+}
 DebugDatabus::~DebugDatabus() {}
 
 void DebugDatabus::setRecordActions(bool record) {
