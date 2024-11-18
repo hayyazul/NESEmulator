@@ -5,8 +5,12 @@
 #include "debuggingTools/debugDatabus.h"
 #include "debuggingTools/NESDebug.h"
 #include "debuggingTools/CPUAnalyzer.h"
+#include "../loadingData/parseLogData.h"
+
+#include <minmax.h>
 
 // Runs the full debugger program..
+// TODO: Split this up into various functions.
 void debuggingSuite() {
 	NESDebug nes;
 	CommandlineInput input;
@@ -25,7 +29,8 @@ void debuggingSuite() {
 		++i;
 	}
 
-	const char* filename = "testROMS/nestest.txt";
+	const char* logFilename = "testROMS/nestest.txt";
+	std::vector<ExecutedOpcodeLogEntry> log = getTestFileLog(logFilename);
 
 	CPUDebugger* cpuPtr = nes.getCPUPtr();
 	ExecutedInstruction instr = cpuPtr->getLastExecutedInstruction();
@@ -53,7 +58,7 @@ void debuggingSuite() {
 	char inputChar = '0';
 	while (inputChar != 'q') {
 		std::cout << std::endl << std::setfill('-') << std::setw(20) << '-' << std::endl;
-		msg = " --- What to perform --- \n q: quit\n s: see last (n) instructions\n u: undo the last instruction\n     U: undo (n) instructions\n r: dump registers\n d: dump memory from (x) to (y)\n e: execute next instruction\n     E: execute (n) instructions\n     A: execute until (address) or (i) cycles\n o: toggle output; currently (" + btos(outputResults, "ON", "OFF") + ")\n Option: ";
+		msg = " --- What to perform --- \n q: quit\n s: see last (n) instructions\n u: undo the last instruction\n     U: undo (n) instructions\n r: dump registers\n d: dump memory from (x) to (y)\n e: execute next instruction\n     E: execute (n) instructions\n     A: execute until (address) or (i) cycles\n     V: execute until log mismatch or (i) cycles\n o: toggle output; currently (" + btos(outputResults, "ON", "OFF") + ")\n Option: ";
 		inputChar = input.getUserChar(msg);
 		std::cout << std::endl;
 		switch (inputChar) {
@@ -142,6 +147,26 @@ void debuggingSuite() {
 					break;
 				}
 				else if (outputResults) {
+					std::cout << "(" << std::dec << i << "): ";
+					nes.getCPUPtr()->getLastExecutedInstruction().print();
+					std::cout << std::endl;
+				}
+			}
+			break;
+		case('V'):
+			msg = "How many cycles before giving up: ";
+			numOfCycles = input.getUserInt(msg);
+			for (int i = 0; i < numOfCycles; ++i) {
+				success = nes.executeMachineCycle();
+				if (!success) {
+					std::cout << "Execution failed (invalid opcode)! For more info, memdump at " << displayHex(nes.getCPUPtr()->registersPeek().PC, 4) << std::endl;
+					break;
+				} else if (!nes.getCPUPtr()->correspondsWithLog(log, true)) {
+					std::cout << "Log mismatch found." << std::endl;
+					int mismatchIdx = min(nes.getCPUPtr()->getExecutedInstructions().size(), log.size()) - 1;
+					log.at(mismatchIdx).printEqualityStatement(nes.getCPUPtr()->getExecutedInstructions().at(mismatchIdx));
+					break;
+				} else if (outputResults) {
 					std::cout << "(" << std::dec << i << "): ";
 					nes.getCPUPtr()->getLastExecutedInstruction().print();
 					std::cout << std::endl;

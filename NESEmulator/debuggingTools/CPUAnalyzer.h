@@ -349,6 +349,7 @@ struct ExecutedInstruction {
 	
 };
 
+
 // TODO: Give this a better name.
 class CPUDebugger : public _6502_CPU {
 public:
@@ -367,6 +368,10 @@ public:
 	bool undoInstruction();
 	// Returns the last executed instruction
 	ExecutedInstruction getLastExecutedInstruction();
+	
+	// Checks the current vector of executed instructions and sees if it and the log agree (that is, the opcodes, operands, old registers, etc. are equal w/
+	// its corresponding entry in the log). checkLast only checks the last entry present.
+	bool correspondsWithLog(std::vector<ExecutedOpcodeLogEntry>& log, bool checkLast=false);
 
 	// Gets a fill list, in order, of the executed instructions this CPU has performed.
 	// You almost never want a full dump.
@@ -397,9 +402,6 @@ public:
 	std::array<uint8_t, 0x100> dumpStack();
 private:
 	DebugDatabus* databus;
-
-	// TEMP
-	std::vector<ExecutedOpcodeLogEntry> log;
 	
 	// NOTE: Might change from a stack to a vector, just because other debugger functions may find that structure more useful.
 	// Stack containing the instructions executed in order.

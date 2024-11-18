@@ -90,7 +90,9 @@ namespace addrModes {
     uint16_t relative(DataBus& dataBus, Registers& registers, bool& addCycles) {
         // The offset is a signed byte; return the address where the offset is located (the next byte).
         int8_t offset = dataBus.read(registers.PC + 1);  // Get the offset (this is always an offset as this addressing mode is used only by branch instructions).
-        addCycles = helperByteOps::crossedPgBoundary(registers.PC, offset);
+        // Note: Since the CPU has read both the opcode and the sole operand, it is now "ahead" 2 memory
+        // locations.
+        addCycles = helperByteOps::crossedPgBoundary(registers.PC + 2, offset);
         return registers.PC + 1;
     }
     uint16_t absolute(DataBus& dataBus, Registers& registers) {
@@ -149,11 +151,12 @@ namespace addrModes {
         // lb = lower byte; ub = upper byte; addr = address
         // This addressing mode is zeropage.
 
-        // First, we get the values of the pointer.
-        uint16_t ptrAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 1));
-        // We then find the address located at the address given by the pointer + the X register.
-        uint16_t addr = dataBus.read(ptrAddr + registers.X);
-        addr += dataBus.read(ptrAddr + registers.X + 1) << 8;
+        // First, we get the value of the pointer (don't forget to add the X register)
+        uint8_t ptrAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 1)) + registers.X;
+        // We then find the address located at the address given by the pointer.
+        uint16_t addr = dataBus.read(ptrAddr);
+        ptrAddr += 1;
+        addr += dataBus.read(ptrAddr) << 8;
         // TODO: Fix this; it does not get the full address.
 
         return addr;

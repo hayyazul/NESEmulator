@@ -2,13 +2,12 @@
 #include <iostream>
 #include <iomanip>
 #include <algorithm>
+#include <minmax.h>
 #include "../memory/memory.h"
 #include "../input/cmdInput.h"
 #include "../loadingData/parseLogData.h"
 
 CPUDebugger::CPUDebugger() : _6502_CPU(this->databus) {
-	const char* filename = "testROMS/nestest.txt";
-	this->log = getTestFileLog(filename);
 }
 
 CPUDebugger::CPUDebugger(DebugDatabus* databus) : databus(databus), _6502_CPU(databus) {}
@@ -98,6 +97,29 @@ ExecutedInstruction CPUDebugger::getLastExecutedInstruction() {
 	}
 
 	return this->executedInstructions.back();
+}
+
+bool CPUDebugger::correspondsWithLog(std::vector<ExecutedOpcodeLogEntry>& log, bool checkLast) {
+
+	int entriesToCheck = min(log.size(), this->executedInstructions.size());
+
+	// Important note: the log may NOT correspond w/ the list of executed instructions, even if 
+	if (log.size() < this->executedInstructions.size()) {  // TODO: reword this.
+		std::cout << "Warning: The log to compare with has fewer elements than the number of executed instructions. The program can not validate the log any further (though it can validate the first this->executedInstructions.size() instructions)." << std::endl;
+	}
+
+	if (checkLast) {
+		int lastEntryIdx = entriesToCheck - 1;
+		return log.at(lastEntryIdx) == this->executedInstructions.at(min(lastEntryIdx, this->executedInstructions.size() - 1));
+	}
+
+	for (int i = 0; i < entriesToCheck; ++i) {
+		if (log.at(i) != this->executedInstructions.at(i)) {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 std::vector<ExecutedInstruction> CPUDebugger::getExecutedInstructions() {

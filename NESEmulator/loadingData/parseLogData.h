@@ -95,7 +95,7 @@ struct ExecutedOpcodeLogEntry {
 	void printEqualityStatement(const ExecutedInstruction& execInstruction) const {
 		std::cout << "Reasons for inequality: " << std::endl;
 		bool equal = true;
-		if (this->cycleCount != execInstruction.numOfCycles) {
+		if (this->cycleCount != execInstruction.lastCycleCount) {
 			std::cout << " - The number of cycles in the log (" << std::dec << this->cycleCount << ") fails to match up with the cycles counted (" << execInstruction.lastCycleCount << ")." << std::endl;
 			equal = false;
 		}
@@ -122,16 +122,16 @@ struct ExecutedOpcodeLogEntry {
 			std::cout << " - The X in the log (" << displayHex(this->registers.X, 2) << ") fails to match the one recored (" << displayHex(execInstruction.oldRegisters.X, 2) << ")." << std::endl;
 			equal = false;
 		}
-		if (this->registers.Y != execInstruction.oldRegisters.A) {
-			std::cout << " - The Y in the log (" << displayHex(this->registers.A, 2) << ") fails to match the one recored (" << displayHex(execInstruction.oldRegisters.A, 2) << ")." << std::endl;
+		if (this->registers.Y != execInstruction.oldRegisters.Y) {
+			std::cout << " - The Y in the log (" << displayHex(this->registers.Y, 2) << ") fails to match the one recored (" << displayHex(execInstruction.oldRegisters.Y, 2) << ")." << std::endl;
 			equal = false;
 		}
-		if (this->registers.S != execInstruction.oldRegisters.A) {
-			std::cout << " - The S in the log (" << displayHex(this->registers.A, 2) << ") fails to match the one recored (" << displayHex(execInstruction.oldRegisters.A, 2) << ")." << std::endl;
+		if (this->registers.S != execInstruction.oldRegisters.S) {
+			std::cout << " - The S in the log (" << displayHex(this->registers.S, 2) << ") fails to match the one recored (" << displayHex(execInstruction.oldRegisters.S, 2) << ")." << std::endl;
 			equal = false;
 		}
-		if (this->registers.SP != execInstruction.oldRegisters.A) {
-			std::cout << " - The SP in the log (" << displayHex(this->registers.A, 2) << ") fails to match the one recored (" << displayHex(execInstruction.oldRegisters.A, 2) << ")." << std::endl;
+		if (this->registers.SP != execInstruction.oldRegisters.SP) {
+			std::cout << " - The SP in the log (" << displayHex(this->registers.SP, 2) << ") fails to match the one recored (" << displayHex(execInstruction.oldRegisters.SP, 2) << ")." << std::endl;
 			equal = false;
 		}
 		if (equal) {
