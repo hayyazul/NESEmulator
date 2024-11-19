@@ -52,7 +52,8 @@ namespace helperByteOps {
     } 
     bool crossedPgBoundary(uint16_t addr, uint8_t addition) {
         uint8_t firstByteOfAddr = addr & 0xff;
-        bool crossed = firstByteOfAddr > 0xff - addition;  // Check if we went beyond 256.
+        uint8_t addrSummed = firstByteOfAddr + addition;
+        bool crossed = addrSummed < 0xff;  // Check if we went beyond 256.
         return crossed;
     }
 }
@@ -80,13 +81,13 @@ namespace addrModes {
     }
     uint16_t zeropageX(DataBus& dataBus, Registers& registers) {
         // Indexes 0x00LL + X; zeropage takes fewer cycles than other addressing modes.
-        uint8_t address = dataBus.read(registers.PC + 1) + registers.X;
-        return address;
+        uint16_t address = static_cast<uint16_t>(dataBus.read(registers.PC + 1));
+        return address + registers.X;
     }
     uint16_t zeropageY(DataBus& dataBus, Registers& registers) {
         // Indexes 0x00LL + Y; zeropage takes fewer cycles than other addressing modes.
-        uint8_t address = dataBus.read(registers.PC + 1) + registers.Y;
-        return address;
+        uint16_t address = static_cast<uint16_t>(dataBus.read(registers.PC + 1));
+        return address + registers.Y;
     }
     uint16_t relative(DataBus& dataBus, Registers& registers, bool& addCycles) {
         // The offset is a signed byte; return the address where the offset is located (the next byte).

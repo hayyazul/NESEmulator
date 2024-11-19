@@ -201,6 +201,8 @@ struct Instruction {
 		case(REG):
 			data = databus.read(address);
 			this->operation.regOp(registers, data);
+
+			this->cycleCount += pgCross;
 			break;
 		case(BRANCH):
 			data = databus.read(address);
