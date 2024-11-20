@@ -3,7 +3,7 @@
 #
 
 # Add source to this project's executable.
-add_executable (NESEmulator "NESEmulator.cpp" "NESEmulator.h"  "6502Chip/CPU.h" "6502Chip/CPU.cpp" "databus/databus.h" "databus/databus.cpp" "instructions/instructions.h" "instructions/instructions.cpp" "memory/memory.h" "memory/memory.cpp" "main.cpp" "loadingData/parseNESFiles.h" "loadingData/parseNESFiles.cpp" "debuggingTools/NESDebug.h" "debuggingTools/NESDebug.cpp" "input/input.h" "input/input.cpp" "input/cmdInput.h" "input/cmdInput.cpp" "debuggingTools/debugDatabus.h" "debuggingTools/debugDatabus.cpp" "debuggingTools/CPUAnalyzer.cpp"  "loadingData/parseLogData.h" "loadingData/parseLogData.cpp")
+add_executable (NESEmulator "NESEmulator.cpp" "NESEmulator.h"  "6502Chip/CPU.h" "6502Chip/CPU.cpp" "databus/databus.h" "databus/databus.cpp" "instructions/instructions.h" "instructions/instructions.cpp" "memory/memory.h" "memory/memory.cpp" "main.cpp" "loadingData/parseNESFiles.h" "loadingData/parseNESFiles.cpp" "debuggingTools/NESDebug.h" "debuggingTools/NESDebug.cpp" "input/input.h" "input/input.cpp" "input/cmdInput.h" "input/cmdInput.cpp" "debuggingTools/debugDatabus.h" "debuggingTools/debugDatabus.cpp" "debuggingTools/CPUAnalyzer.cpp"  "loadingData/parseLogData.h" "loadingData/parseLogData.cpp" "memory/ram.h" "memory/ram.cpp")
 file(REMOVE REMOVE_RECURSE "${CMAKE_CURRENT_BINARY_DIR}/testROMS" )
 file(COPY "testROMS" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
