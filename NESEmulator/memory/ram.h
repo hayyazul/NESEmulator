@@ -4,7 +4,8 @@
 #include "memory.h"
 #include <array>
 
-constexpr int SIZE_OF_RAM = 0x800;
+constexpr int SIZE_OF_RAM = 0x800;  
+constexpr int SIZE_OF_RAM_ADDRESS_SPACE = 0x2000;  // While the size of the addressing space is 0x2000, this space just mirrors the first 0x800 bytes.
 
 class RAM : public Memory {
 public:

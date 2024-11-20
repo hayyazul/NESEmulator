@@ -4,6 +4,7 @@
 #include <stack>
 #include <vector>
 #include "../databus/databus.h"
+#include "../databus/nesDatabus.h"
 
 // A small container which has some info on a given action; this is a command pattern.
 struct DatabusAction {
@@ -25,7 +26,7 @@ struct DatabusAction {
 	}
 };
 
-class DebugDatabus : public DataBus {  // NOTE: This seems a bit finicky; it's difficult to inherit and replace the vanilla Databus.
+class DebugDatabus : public NESDatabus {  // NOTE: This seems a bit finicky; it's difficult to inherit and replace the vanilla Databus.
 public:
 	DebugDatabus();
 	DebugDatabus(Memory* memory);

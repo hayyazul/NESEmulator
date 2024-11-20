@@ -1,19 +1,33 @@
 ﻿#include "NESEmulator.h"
 
 NES::NES() {  // Not recommended to initialize w/ this.
-	this->databus = new DataBus(&this->memory);
+	this->memory = new Memory(0x10000);  // 0x10000 is the size of the addressing space.
+	this->ram = new RAM();
+	this->databus = new DataBus(this->memory);
 	this->CPU = new _6502_CPU(this->databus);
 	this->CPU->powerOn();
 }
 
 NES::NES(DataBus* databus, _6502_CPU* CPU) {
 	this->databus = databus;
-	this->databus->attach(&this->memory);
+	this->databus->attach(this->memory);
 	this->CPU = CPU;
 	this->CPU->attach(this->databus);
 }
 
 NES::~NES() {}
+
+void NES::attachRAM(RAM* ram) {
+	this->ram = ram;
+}
+
+void NES::attachCartridgeMemory(Memory* memory) {
+	this->memory = memory;
+}
+
+void NES::attachDataBus(DataBus* databus) {
+	this->databus = databus;
+}
 
 void NES::powerOn() {
 	this->CPU->powerOn();

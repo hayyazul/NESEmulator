@@ -9,6 +9,8 @@
 #include "memory/memory.h"
 #include "databus/databus.h"
 #include "loadingData/parseNESFiles.h"
+#include "memory/ram.h"
+#include "databus/nesDatabus.h"
 
 // TODO: Add poweron and reset features.
 class NES {
@@ -17,8 +19,11 @@ public:
 	NES(DataBus* databus, _6502_CPU* CPU);
 	~NES();
 
-	void powerOn();  // Performs all the actions the NES should perform upon a power on.
+	void attachRAM(RAM* ram);
+	void attachCartridgeMemory(Memory* memory);
+	void attachDataBus(DataBus* databus);
 
+	void powerOn();  // Performs all the actions the NES should perform upon a power on.
 	void reset();  // Performs the actions the NES should perform when reset.
 
 	void loadROM(const char* fileName);
@@ -42,7 +47,8 @@ protected:
 	const uint16_t CART_ROM_START_ADDR = 0x8000;  // CART = Cartridge, ADDR = Address
 
 	_6502_CPU* CPU;
-	Memory memory;
+	RAM* ram;
+	Memory* memory;  // Contains cartridge data, etc.
 	DataBus* databus;
 
 	unsigned long int totalMachineCycles = 0;

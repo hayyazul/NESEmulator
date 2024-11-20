@@ -4,7 +4,8 @@
 
 NESDebug::NESDebug() : NES() {
 	delete this->databus;
-	this->databusInstance.attach(&this->memory);
+	this->databusInstance.attach(this->memory);
+	this->databusInstance.attach(this->ram);
 	this->databus = &this->databusInstance;  // Gets casted into a vanilla databus pointer (used for normal ops)
 	this->cpuInstance.attach(&this->databusInstance);  // Attaches the debugger pointer instead.
 	this->CPU = (_6502_CPU*)(&this->cpuInstance);
@@ -31,7 +32,7 @@ void NESDebug::clearRecord() {
 
 void NESDebug::setStdValue(uint8_t val) {
 	for (unsigned int i = 0; i < BYTES_OF_MEMORY; ++i) {
-		this->memory.setByte(i, val);
+		this->memory->setByte(i, val);
 	}
 }
 

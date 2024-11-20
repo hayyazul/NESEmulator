@@ -4,8 +4,7 @@
 #include "NESEmulator.h"
 
 // TODO: 
-// - Debug interrupts
-// - Debug cycle len related code (there are some bugs present relating to it).
+// - Study PPU
 
 #include "input/cmdInput.h"
 #include "debuggingTools/debugDatabus.h"
@@ -15,7 +14,9 @@
 #include "debuggingTools/basicDebugSuite.hpp"
 #include "loadingData/parseLogData.h"
 
-// Investigate 1129 +/- 5
+#include "databus/nesDatabus.h"
+#include "memory/cartridgeData.h"
+#include "memory/ram.h"
 
 #undef main  // Deals w/ the definition of main in SDL.
 int main() {

@@ -3,10 +3,10 @@
 #include <iostream>
 #include <minmax.h>
 
-DebugDatabus::DebugDatabus() : DataBus(), recordActions(false) {
+DebugDatabus::DebugDatabus() : NESDatabus(), recordActions(false) {
 	this->clearRecordedActions();
 }
-DebugDatabus::DebugDatabus(Memory* memory) : DataBus(memory), recordActions(false) {
+DebugDatabus::DebugDatabus(Memory* memory) : NESDatabus(memory), recordActions(false) {
 	this->clearRecordedActions();
 }
 DebugDatabus::~DebugDatabus() {}
@@ -46,7 +46,7 @@ bool DebugDatabus::undoMemAction(bool supressWarning) {
 }
 
 uint8_t DebugDatabus::read(uint16_t address) {
-	uint8_t data = DataBus::read(address);
+	uint8_t data = NESDatabus::read(address);
 	if (this->recordActions) {
 		this->memOps.push(DatabusAction(address, data));
 	}
@@ -54,11 +54,11 @@ uint8_t DebugDatabus::read(uint16_t address) {
 }
 
 uint8_t DebugDatabus::write(uint16_t address, uint8_t value) {
-	uint8_t oldValue = DataBus::read(address);
+	uint8_t oldValue = NESDatabus::read(address);
 	if (this->recordActions) {
 		this->memOps.push(DatabusAction(address, value, oldValue));
 	}
-	DataBus::write(address, value);
+	NESDatabus::write(address, value);
 	return value;
 }
 
@@ -66,7 +66,7 @@ uint8_t DebugDatabus::performMemAction(DatabusAction action) {
 	if (action.isRead) {  // Nothing interesting happens w/ read operations.
 		return action.value;
 	} else {  // With a read action, however, we send a write command to the databus. We do not use this-> because we don't want to add this action to the action stack.
-		DataBus::write(action.address, action.value);
+		NESDatabus::write(action.address, action.value);
 	}
 
 	return 0;
