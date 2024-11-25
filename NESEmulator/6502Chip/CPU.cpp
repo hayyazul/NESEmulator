@@ -23,6 +23,8 @@ bool _6502_CPU::executeCycle() {
 
 		if (this->performInterrupt) {
 			this->performInterruptActions();
+		} else if (this->nmiRequested) {
+			this->performNMIActions();
 		}
 
 		uint8_t opcode = this->databus->read(this->registers.PC);  // Get the next opcode.
@@ -48,7 +50,13 @@ bool _6502_CPU::executeCycle() {
 }
 
 void _6502_CPU::requestInterrupt() {
-	this->interruptRequested = true;
+	if (!this->registers.getStatus('I')) {
+		this->interruptRequested = true;
+	}
+}
+
+void _6502_CPU::requestNMI() {
+	this->interruptRequested = true;	
 }
 
 void _6502_CPU::reset() {
@@ -87,6 +95,31 @@ void _6502_CPU::performInterruptActions() {
 	uint16_t irqVector = lb + (static_cast<uint16_t>(ub) << 8);
 
 	this->registers.PC = irqVector;
+	this->registers.SP -= 3;
+
+	this->registers.setStatus('I', true);
+	this->performInterrupt = false;
+	this->interruptRequested = false;
+}
+
+void _6502_CPU::performNMIActions() {
+
+	// First, push the PC + 2 and Status Flags in the stack.
+	// NOTE: I don't know if I need to push the current PC, +1, or +2 onto the stack.
+	// NOTE: This code is duplicated in instructions.cpp; maybe I can fix that?
+	this->databus->write(STACK_END_ADDR + this->registers.SP, this->registers.PC);  // Store LB of PC (PCL)
+	this->databus->write(STACK_END_ADDR + this->registers.SP - 1, this->registers.PC >> 8);  // Store UB of PC (PCH)
+	this->databus->write(STACK_END_ADDR + this->registers.SP - 2, this->registers.S);
+
+	// Then, get the IRQ Interrupt Vector
+	// TODO: Get rid of magic numbers.
+	// Magic numbers: 0xfffe and 0xffff are the addresses where the IRQ vector is located.
+	// lb = lower byte; ub = upper byte.
+	uint8_t lb = this->databus->read(0xfffa);
+	uint8_t ub = this->databus->read(0xfffb);
+	uint16_t nmiVector = lb + (static_cast<uint16_t>(ub) << 8);
+
+	this->registers.PC = nmiVector;
 	this->registers.SP -= 3;
 
 	this->registers.setStatus('I', true);

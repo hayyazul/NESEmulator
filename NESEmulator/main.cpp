@@ -20,6 +20,7 @@
 
 #undef main  // Deals w/ the definition of main in SDL.
 int main() {
-	debuggingSuite();
+
+	//	debuggingSuite();
 	return 0;
 }
