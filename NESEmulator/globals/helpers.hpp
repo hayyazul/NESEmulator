@@ -12,3 +12,12 @@ inline const std::string btos(bool b) {
 inline const std::string btos(bool b, std::string trueOption, std::string falseOption) {
 	return b ? trueOption : falseOption;
 }
+
+// 0-indexed.
+template <typename T>
+inline constexpr bool getBit(T i, int bitIdx) {
+	T indexer = 1;
+	indexer <<= bitIdx;
+
+	return i & indexer;
+}

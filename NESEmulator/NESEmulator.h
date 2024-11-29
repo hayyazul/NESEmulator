@@ -16,12 +16,13 @@
 class NES {
 public:
 	NES();
-	NES(DataBus* databus, _6502_CPU* CPU);
+	NES(NESDatabus* databus, _6502_CPU* CPU, RAM* ram, Memory* vram, PPU* ppu);
 	~NES();
 
 	void attachRAM(RAM* ram);
 	void attachCartridgeMemory(Memory* memory);
-	void attachDataBus(DataBus* databus);
+	void attachDataBus(NESDatabus* databus);
+	void attachVRAM(Memory* vram);
 
 	void powerOn();  // Performs all the actions the NES should perform upon a power on.
 	void reset();  // Performs the actions the NES should perform when reset.
@@ -46,10 +47,15 @@ protected:
 	// Cartridge ROM usually though not always starts at this address.
 	const uint16_t CART_ROM_START_ADDR = 0x8000;  // CART = Cartridge, ADDR = Address
 
+	Memory* memory;  // Contains cartridge data, etc.
+	
 	_6502_CPU* CPU;
 	RAM* ram;
-	Memory* memory;  // Contains cartridge data, etc.
-	DataBus* databus;
+	NESDatabus* databus;
+
+	Memory* VRAM;
+	PPU* ppu;
+	
 
 	unsigned long int totalMachineCycles = 0;
 };

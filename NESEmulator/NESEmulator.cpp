@@ -1,16 +1,25 @@
 ﻿#include "NESEmulator.h"
 
-NES::NES() {  // Not recommended to initialize w/ this.
+NES::NES() {  // Not recommended to initialize w/ this; this will cause a memory leak later. NOTE: Might just make these nullptrs.
 	this->memory = new Memory(0x10000);  // 0x10000 is the size of the addressing space.
 	this->ram = new RAM();
-	this->databus = new DataBus(this->memory);
+	this->databus = new NESDatabus(this->memory);
 	this->CPU = new _6502_CPU(this->databus);
+
+	this->VRAM = new Memory(0x800);
+	this->ppu = new PPU(this->VRAM, nullptr);
+	
 	this->CPU->powerOn();
 }
 
-NES::NES(DataBus* databus, _6502_CPU* CPU) {
+NES::NES(NESDatabus* databus, _6502_CPU* CPU, RAM* ram, Memory* vram, PPU* ppu) {
+	this->ram = ram;
+	this->ppu = ppu;
+	this->ppu->attach(vram);
 	this->databus = databus;
 	this->databus->attach(this->memory);
+	this->databus->attach(this->ram);
+	this->databus->attach(this->ppu);
 	this->CPU = CPU;
 	this->CPU->attach(this->databus);
 }
@@ -23,10 +32,19 @@ void NES::attachRAM(RAM* ram) {
 
 void NES::attachCartridgeMemory(Memory* memory) {
 	this->memory = memory;
+	this->databus->attach(memory);
 }
 
-void NES::attachDataBus(DataBus* databus) {
+void NES::attachDataBus(NESDatabus* databus) {
 	this->databus = databus;
+	this->databus->attach(this->memory);
+	this->databus->attach(this->ppu);
+	this->databus->attach(this->memory);
+}
+
+void NES::attachVRAM(Memory* vram) {
+	this->VRAM = vram;
+	this->ppu->attach(vram);
 }
 
 void NES::powerOn() {
@@ -55,7 +73,18 @@ void NES::run() {
 
 bool NES::executeMachineCycle() {
 	// TODO: change it from 1:1 machine cycle to cpu cycle to its true value.
-	bool result = this->CPU->executeCycle();
+
+	bool result = true;
+	if (this->totalMachineCycles % 3 == 0) {
+		result = this->CPU->executeCycle();
+	}
+	this->ppu->executePPUCycle();
+	
+	// NMI request logic; this is done when the Vertical-blanking interval is reached.
+	if (this->ppu->requestingNMI()) {
+		this->CPU->requestNMI();
+	}
+
 	++this->totalMachineCycles;
 	return result;
 }
@@ -82,7 +111,7 @@ void NES::loadData(NESFileData file) {
 	uint16_t j = 0;
 	for (uint32_t i = this->CART_ROM_START_ADDR; i <= 0xffff; ++i) {
 		if (j < file.programDataSize) {
-			this->databus->write(i, file.programData[j]);
+			this->memory->setByte(i, file.programData[j]);
 		} //else if (j - file.programDataSize < file.characterDataSize) {  // NOTE: I am confused on where to put CHR ROM, so for now I don't put it in at all.
 			//this->databus.write(i, file.programData[j - file.programDataSize]);
 		//}

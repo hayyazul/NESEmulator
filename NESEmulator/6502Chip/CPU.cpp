@@ -2,11 +2,11 @@
 #include <iostream>
 #include <iomanip>
 
-_6502_CPU::_6502_CPU() : databus(nullptr), interruptRequested(false), performInterrupt(false) {
+_6502_CPU::_6502_CPU() : databus(nullptr), interruptRequested(false), performInterrupt(false), nmiRequested(false) {
 	this->setupInstructionSet();
 }
 
-_6502_CPU::_6502_CPU(DataBus* databus) : databus(databus), interruptRequested(false), performInterrupt(false) {
+_6502_CPU::_6502_CPU(DataBus* databus) : databus(databus), interruptRequested(false), performInterrupt(false), nmiRequested(false) {
 	this->setupInstructionSet();
 }
 
@@ -18,7 +18,7 @@ void _6502_CPU::attach(DataBus* databus) {
 
 bool _6502_CPU::executeCycle() {
 	// First check if the number of cycles elapsed corresponds with the number of cycles the instruction takes up. If so, execute the next instruction.
-	if (true) { // For now, don't bother.                                                                                              this->opcodeCyclesElapsed == this->currentOpcodeCycleLen) {
+	if (this->opcodeCyclesElapsed == this->currentOpcodeCycleLen) {
 		this->opcodeCyclesElapsed = 0;
 
 		if (this->performInterrupt) {
@@ -34,6 +34,10 @@ bool _6502_CPU::executeCycle() {
 			return false;
 		};
 		Instruction& instruction = INSTRUCTION_SET[opcode];
+		if (opcode == 0x49) {
+			int a = 0;
+		}
+
 		this->executeOpcode(opcode);
 		this->currentOpcodeCycleLen = instruction.cycleCount;  // Get how many cycles this opcode will be using.
 
@@ -123,8 +127,7 @@ void _6502_CPU::performNMIActions() {
 	this->registers.SP -= 3;
 
 	this->registers.setStatus('I', true);
-	this->performInterrupt = false;
-	this->interruptRequested = false;
+	this->nmiRequested = false;
 }
 
 void _6502_CPU::executeOpcode(uint8_t opcode) {
