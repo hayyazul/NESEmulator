@@ -41,6 +41,10 @@ int CommandlineInput::getUserInt() {
 		}
 	}
 
+	if (userInput == "") {
+		return 0;
+	}
+
 	return stoi(userInput);
 }
 

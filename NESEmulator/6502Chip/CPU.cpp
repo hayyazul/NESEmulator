@@ -16,9 +16,14 @@ void _6502_CPU::attach(DataBus* databus) {
 	this->databus = databus;
 }
 
-bool _6502_CPU::executeCycle() {
+CPUCycleOutcomes _6502_CPU::executeCycle() {
 	// First check if the number of cycles elapsed corresponds with the number of cycles the instruction takes up. If so, execute the next instruction.
+	CPUCycleOutcomes outcome = PASS;
+	
 	if (this->opcodeCyclesElapsed == this->currentOpcodeCycleLen) {
+		this->totalCyclesElapsed += this->currentOpcodeCycleLen;
+
+		outcome = INSTRUCTION_EXECUTED;
 		this->opcodeCyclesElapsed = 0;
 
 		if (this->performInterrupt) {
@@ -31,10 +36,10 @@ bool _6502_CPU::executeCycle() {
 
 		// Check if this opcode exists.
 		if (!INSTRUCTION_SET.contains(opcode)) {
-			return false;
+			return FAIL;
 		};
 		Instruction& instruction = INSTRUCTION_SET[opcode];
-		if (opcode == 0x49) {
+		if (opcode == 0x10) {
 			int a = 0;
 		}
 
@@ -46,11 +51,11 @@ bool _6502_CPU::executeCycle() {
 		}
 
 		this->registers.PC += instruction.numBytes * !instruction.modifiesPC;  // Only move the program counter forward if the instruction does not modify the PC.
-	
+		
 	}
+
 	++this->opcodeCyclesElapsed;
-	this->totalCyclesElapsed += this->currentOpcodeCycleLen;
-	return true;
+	return outcome;
 }
 
 void _6502_CPU::requestInterrupt() {

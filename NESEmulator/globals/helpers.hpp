@@ -21,3 +21,23 @@ inline constexpr bool getBit(T i, int bitIdx) {
 
 	return i & indexer;
 }
+
+// 0-indexed.
+template <typename T>
+inline constexpr void setBit(T& i, int bitIdx) {
+	T indexer = 1;
+	indexer <<= bitIdx;
+	i |= indexer;
+}
+
+template <typename T>
+inline constexpr void clrBit(T& i, int bitIdx) {
+	T indexer = 1;
+	indexer <<= bitIdx;  // e.g. bitIdx = 3, indexer = 0b1000
+	indexer = ~indexer;  // e.g.   ''      , indexer = 0b0111
+	i &= indexer;
+}
+
+/* Some terminology and acronyms used in the code:
+ - xBI: x-based indexing; e.g. 0BI = 0-based indexing.
+*/

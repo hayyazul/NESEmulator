@@ -16,6 +16,12 @@
 constexpr int numOfInstructions = 1;
 const uint16_t RESET_VECTOR_ADDRESS = 0xfffc;
 
+enum CPUCycleOutcomes {
+	FAIL,  // Occurs when an attempt to execute an illegal opcode is made.
+	PASS,  // Occurs when we are still waiting for the opcode's cycle counter to tick down.
+	INSTRUCTION_EXECUTED  // Occurs when an instruction was executed this cycle.
+};
+
 // NOTE: Might replace get/set status with bool values.
 struct Registers {
 	uint8_t A;  // Accumulator
@@ -119,7 +125,7 @@ public:
 	Executes a machine cycle which for now is equivalent to one cpu cycle. Returns True if the cycle has been successful, false if
 	otherwise (e.g. illegal opcode).
 	*/
-	virtual bool executeCycle();
+	virtual CPUCycleOutcomes executeCycle();
 
 	// Makes a request for an IRQ interrupt; ignored if the Interrupt Disable Flag (I) is set to 1.
 	virtual void requestInterrupt();
@@ -157,7 +163,7 @@ protected:
 
 	bool nmiRequested;  // Whether a REQUEST for an NMI has been made.
 
-	long unsigned int totalCyclesElapsed = 0;  // Total CPU cycles elapsed since startup.
+	long unsigned int totalCyclesElapsed = 0;  // Total CPU cycles elapsed since startup.  NOTE: Im setting this at 3 because for some reason it is 3 behind now.
 	unsigned int opcodeCyclesElapsed = 0;  // A cycle counter that is present since the CPU began executing a given instruction. Resets when it reaches the number of cycles for a given instruction.
 	unsigned int currentOpcodeCycleLen = 0;  // The number of cycles the current opcode uses.
 

@@ -294,7 +294,10 @@ struct ExecutedInstruction {
 	unsigned int numOfActionsInvolved;
 	Registers oldRegisters;
 
-	ExecutedInstruction() {};
+	ExecutedInstruction() : instructionName("NO INSTRT"), opcodeExecuted(0), instructionExecuted(nullptr), executedIndex(-1), numOfOperands(0), numOfCycles(-1), lastCycleCount(-1), numOfActionsInvolved(0), oldRegisters(Registers()) {
+		this->operands[0] = 0;
+		this->operands[0] = 0;
+	};
 	ExecutedInstruction(uint8_t opcode, Instruction* instruction, unsigned int numActions, Registers registers, uint8_t operands[2], unsigned int idx, int lastCycleCount) :
 		opcodeExecuted(opcode),
 		instructionExecuted(instruction),
@@ -358,14 +361,17 @@ public:
 	~CPUDebugger();
 
 	// Note: Currently one cycle = one instruction, but in reality it is different and depends on the specific instruction.
-	bool executeCycle() override;
+	CPUCycleOutcomes executeCycle() override;
 
 	bool pcAt(uint16_t address);  // Tells you when the PC has reached a certain value; useful for breakpoints.
 
 	void attach(DebugDatabus* databus);
 
+	bool undoCPUCycle();
+	
 	// Undos an instruction in the stack.
 	bool undoInstruction();
+
 	// Returns the last executed instruction
 	ExecutedInstruction getLastExecutedInstruction();
 	

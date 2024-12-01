@@ -1,19 +1,107 @@
 #include "NESDebug.h"
 #include "debugDatabus.h"
 #include "CPUAnalyzer.h"
+#include <minmax.h>
 
 NESDebug::NESDebug() : NES() {
+	// Here, we replace the vanilla componenets w/ their debugger counterparts.
+	delete this->ppu;
 	delete this->databus;
+
+	this->ppuInstance.attach(this->VRAM);
+	this->ppu = &this->ppuInstance;
+
 	this->databusInstance.attach(this->memory);
 	this->databusInstance.attach(this->ram);
-	this->databus = &this->databusInstance;  // Gets casted into a vanilla databus pointer (used for normal ops)
+	this->databusInstance.attach(this->ppu);
+	this->databus = &this->databusInstance;
+	
 	this->cpuInstance.attach(&this->databusInstance);  // Attaches the debugger pointer instead.
-	this->CPU = (_6502_CPU*)(&this->cpuInstance);
+	this->CPU = (_6502_CPU*)(&this->cpuInstance);  // NOTE: Why did I add this cast here? Try to remove it if it doesn't break anything.
 }
 
 NESDebug::~NESDebug() {
 	// The CPU and Databus instances will get destroyed because they are 
 	// a part of this class.
+}
+
+NESCycleOutcomes NESDebug::executeInstruction() {
+	NESCycleOutcomes success;
+	do {  // Performs machine cycles until an instruction is executed.
+		success = this->executeMachineCycle();
+	} while (success != FAIL_CYCLE && success != INSTRUCTION_AND_PPU_CYCLE);
+	return success;
+}
+
+NESCycleOutcomes NESDebug::executeMachineCycle() {
+	NESCycleOutcomes success = NES::executeMachineCycle();
+	if (success) {
+		MachineAction action;
+		action.instructionExecuted = this->databusInstance.getMemOps().size() != 0;
+		// TODO: get PPU actions.
+		action.NMIRequested = this->ppu->requestingNMI();  // This also means that an NMI request is made to the CPU.
+		
+		if (action.NMIRequested) {
+			int b = 0;
+		}
+
+		action.cycle = this->totalMachineCycles - 1;  // Since NES::executeMachineCycle increments the # of machine cycles.
+
+		this->databusInstance.clearRecordedActions();
+
+		this->machineActions.push_back(action);
+	}
+
+	return success;
+}
+
+MachineAction NESDebug::undoMachineCycle() {
+	// This emulator does the following (in chronological order):
+	// 1. Check if the CPU can execute a cycle.
+	//    a. If it can, execute a CPU cycle.
+	// 2. Execute a PPU Cycle.
+	// 3. Check if the PPU is requesting an NMI.
+	//    a. If it is, then inform the CPU of an NMI request.
+	
+	if (this->totalMachineCycles) {
+		MachineAction lastAction = this->machineActions.back();
+		if (lastAction.NMIRequested) {
+			// TODO
+		}
+
+		// TODO: Implement PPU undo.
+
+		// Check if the last machine cycle had a cpu instruction executed or not.
+	//	if (lastAction.instructionExecuted) {
+		//	this->cpuInstance.undoInstruction();
+		//}
+
+		if (this->totalMachineCycles - 1 % 3 == 0) {
+			this->cpuInstance.undoCPUCycle();
+		}
+
+		this->machineActions.pop_back();
+		--this->totalMachineCycles;
+
+		return lastAction;
+	}
+
+	return MachineAction();
+}
+
+std::vector<MachineAction> NESDebug::getMachineActions() {
+	return this->machineActions;
+}
+
+std::vector<MachineAction> NESDebug::getMachineActions(int numOfActions) {
+	std::vector<MachineAction> machineActions;
+	int numOfActionsToGet = min(numOfActions, this->machineActions.size());
+	
+	for (int i = this->machineActions.size() - numOfActionsToGet; i < this->machineActions.size(); ++i) {
+		machineActions.push_back(this->machineActions.at(i));
+	}
+
+	return machineActions;
 }
 
 bool NESDebug::setRecord(bool record) {
@@ -27,6 +115,9 @@ bool NESDebug::getRecord(bool record) const {
 }
 
 void NESDebug::clearRecord() {
+	while (!this->machineActions.empty()) {
+		this->machineActions.pop_back();
+	}
 	this->cpuInstance.clearExecutedInstructions();
 }
 
@@ -39,9 +130,16 @@ void NESDebug::setStdValue(uint8_t val) {
 uint8_t NESDebug::memPeek(uint16_t memoryAddress) {
 	return this->databus->read(memoryAddress);
 }
+void NESDebug::performMachineAction(MachineAction machineAction, bool reverseOrder) {
+
+}
 CPUDebugger* NESDebug::getCPUPtr() {
 	CPUDebugger* cpuPtr = &this->cpuInstance;
 	return cpuPtr;
+}
+PPUDebug* NESDebug::getPPUPtr() {
+	PPUDebug* ppuPtr = &this->ppuInstance;
+	return ppuPtr;
 }
 /*
 Registers NESDebug::registersPeek() {

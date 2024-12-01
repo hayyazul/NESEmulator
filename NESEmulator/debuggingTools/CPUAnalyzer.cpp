@@ -16,7 +16,7 @@ CPUDebugger::~CPUDebugger() {}
 
 // TODO: make it cycle accurate (e.g., make it so 1 CPU cycle != 1 instruction).
 // Make it return an error code instead of a bool.
-bool CPUDebugger::executeCycle() {
+CPUCycleOutcomes CPUDebugger::executeCycle() {
 	// Execute a CPU cycle, but record some info first.
 
 	bool oldRecordActions = this->databus->getRecordActions();
@@ -26,7 +26,7 @@ bool CPUDebugger::executeCycle() {
 	uint8_t opcode = this->databus->read(this->registers.PC);
 	if (!INSTRUCTION_SET.count(opcode)) {
 		this->databus->setRecordActions(oldRecordActions);
-		return false;
+		return FAIL;
 	}
 	Instruction* instruction = &INSTRUCTION_SET.at(opcode);
 	Registers oldRegisters = this->registers;
@@ -41,7 +41,7 @@ bool CPUDebugger::executeCycle() {
 
 	// Finally, execute the cycle.
 	this->databus->setRecordActions(oldRecordActions);
-	bool success = _6502_CPU::executeCycle();
+	CPUCycleOutcomes outcome = _6502_CPU::executeCycle();
 
 	// TODO: Fix the bug where the constant 1 is allowed to be unset; it should not, the CPu should check if it is unset and re-set it to 1.
 	// DEBUG:
@@ -52,16 +52,18 @@ bool CPUDebugger::executeCycle() {
 
 	// Get the last info needed to describe an executed instruction: how many databus actions it took.
 	unsigned int numOfDatabusActions = this->databus->getNumActions() - lastMemOpsSize;
-	this->executedInstructions.push_back(ExecutedInstruction(
-		opcode, 
-		instruction, 
-		numOfDatabusActions, 
-		oldRegisters, 
-		operands, 
-		this->executedInstructions.size(), 
-		this->totalCyclesElapsed - instruction->cycleCount));
+	if (outcome == INSTRUCTION_EXECUTED) {
+		this->executedInstructions.push_back(ExecutedInstruction(
+			opcode,
+			instruction,
+			numOfDatabusActions,
+			oldRegisters,
+			operands,
+			this->executedInstructions.size(),
+			this->totalCyclesElapsed));
+	}
 
-	return success;
+	return outcome;
 }
 
 bool CPUDebugger::pcAt(uint16_t address) {
@@ -71,6 +73,23 @@ bool CPUDebugger::pcAt(uint16_t address) {
 void CPUDebugger::attach(DebugDatabus* databus) {
 	this->databus = databus;
 	_6502_CPU::attach(databus);
+}
+
+bool CPUDebugger::undoCPUCycle() {
+	// Return true if we can undo a cycle; false if not. We can undo if the # of cycles elapsed is > 0.
+	if (this->totalCyclesElapsed) {
+		--this->totalCyclesElapsed;
+		--this->opcodeCyclesElapsed;
+		if (this->executedInstructions.size()) {  // Check if there have been executed instructions before accessing any elements in it.
+			if (this->executedInstructions.back().lastCycleCount == this->totalCyclesElapsed) {  // Check if we are on the cycle count of the last instruction; if so, undo this one.
+				this->undoInstruction();
+			}
+		}
+
+		return true;
+	}
+
+	return false;
 }
 
 bool CPUDebugger::undoInstruction() {
@@ -110,6 +129,9 @@ bool CPUDebugger::correspondsWithLog(std::vector<ExecutedOpcodeLogEntry>& log, b
 
 	if (checkLast) {
 		int lastEntryIdx = entriesToCheck - 1;
+		if (lastEntryIdx < 0) {
+			return true;  // If there are no entries to check, default to true.
+		}
 		return log.at(lastEntryIdx) == this->executedInstructions.at(min(lastEntryIdx, this->executedInstructions.size() - 1));
 	}
 

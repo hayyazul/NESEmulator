@@ -15,6 +15,7 @@ NES::NES() {  // Not recommended to initialize w/ this; this will cause a memory
 NES::NES(NESDatabus* databus, _6502_CPU* CPU, RAM* ram, Memory* vram, PPU* ppu) {
 	this->ram = ram;
 	this->ppu = ppu;
+	this->VRAM = vram;
 	this->ppu->attach(vram);
 	this->databus = databus;
 	this->databus->attach(this->memory);
@@ -42,6 +43,11 @@ void NES::attachDataBus(NESDatabus* databus) {
 	this->databus->attach(this->memory);
 }
 
+void NES::attachPPU(PPU* ppu) {
+	this->ppu = ppu;
+	this->databus->attach(ppu);
+}
+
 void NES::attachVRAM(Memory* vram) {
 	this->VRAM = vram;
 	this->ppu->attach(vram);
@@ -66,17 +72,21 @@ void NES::loadROM(const char* fileName) {  // Remember to reset the NES after lo
 	}
 }
 
-void NES::run() {
-	// Soon I will put this in some sort of loop; for now, it is not.
-	this->executeMachineCycle();
-}
-
-bool NES::executeMachineCycle() {
-	// TODO: change it from 1:1 machine cycle to cpu cycle to its true value.
-
-	bool result = true;
+NESCycleOutcomes NES::executeMachineCycle() {
+	// NOTE: The master clock on the real NES runs 3x faster, so 1 PPU cycle every 3 master clock cycles. 
+	// This detail won't affect the behavior of this emulator, so we just make 1 machine cycle equal to 1 ppu cycle.
+	NESCycleOutcomes nesResult = PPU_CYCLE;
+	CPUCycleOutcomes cpuResult = FAIL;
 	if (this->totalMachineCycles % 3 == 0) {
-		result = this->CPU->executeCycle();
+		cpuResult = this->CPU->executeCycle();
+
+		if (cpuResult == INSTRUCTION_EXECUTED) {
+			nesResult = INSTRUCTION_AND_PPU_CYCLE;
+		} else if (cpuResult == FAIL) {
+			nesResult = FAIL_CYCLE;
+		} else {
+			nesResult = BOTH_CYCLE;
+		} 
 	}
 	this->ppu->executePPUCycle();
 	
@@ -86,7 +96,7 @@ bool NES::executeMachineCycle() {
 	}
 
 	++this->totalMachineCycles;
-	return result;
+	return nesResult;
 }
 
 void NES::loadData(NESFileData file) {
