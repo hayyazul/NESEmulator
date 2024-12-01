@@ -45,8 +45,9 @@ bool DebugDatabus::undoMemAction(bool supressWarning) {
 	}
 }
 
-std::stack<DatabusAction> DebugDatabus::getMemOps() const {
-	return this->memOps;
+const std::stack<DatabusAction>* DebugDatabus::getMemOps() const {
+	auto a = &this->memOps;
+	return a;
 }
 
 uint8_t DebugDatabus::read(uint16_t address) {

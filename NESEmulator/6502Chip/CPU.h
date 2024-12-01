@@ -163,7 +163,7 @@ protected:
 
 	bool nmiRequested;  // Whether a REQUEST for an NMI has been made.
 
-	long unsigned int totalCyclesElapsed = 0;  // Total CPU cycles elapsed since startup.  NOTE: Im setting this at 3 because for some reason it is 3 behind now.
+	long unsigned int totalCyclesElapsed = 0;  // Total CPU cycles elapsed since startup. 
 	unsigned int opcodeCyclesElapsed = 0;  // A cycle counter that is present since the CPU began executing a given instruction. Resets when it reaches the number of cycles for a given instruction.
 	unsigned int currentOpcodeCycleLen = 0;  // The number of cycles the current opcode uses.
 

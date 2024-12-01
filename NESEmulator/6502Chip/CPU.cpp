@@ -19,18 +19,20 @@ void _6502_CPU::attach(DataBus* databus) {
 CPUCycleOutcomes _6502_CPU::executeCycle() {
 	// First check if the number of cycles elapsed corresponds with the number of cycles the instruction takes up. If so, execute the next instruction.
 	CPUCycleOutcomes outcome = PASS;
+
+	if (this->nmiRequested) {
+		this->performInterruptActions();
+	}
+	else if (this->performInterrupt) {
+		this->performNMIActions();
+	}
 	
 	if (this->opcodeCyclesElapsed == this->currentOpcodeCycleLen) {
-		this->totalCyclesElapsed += this->currentOpcodeCycleLen;
 
 		outcome = INSTRUCTION_EXECUTED;
 		this->opcodeCyclesElapsed = 0;
 
-		if (this->performInterrupt) {
-			this->performInterruptActions();
-		} else if (this->nmiRequested) {
-			this->performNMIActions();
-		}
+		
 
 		uint8_t opcode = this->databus->read(this->registers.PC);  // Get the next opcode.
 
@@ -54,6 +56,7 @@ CPUCycleOutcomes _6502_CPU::executeCycle() {
 		
 	}
 
+	++this->totalCyclesElapsed;
 	++this->opcodeCyclesElapsed;
 	return outcome;
 }

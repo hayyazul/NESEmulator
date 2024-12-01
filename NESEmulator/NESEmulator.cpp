@@ -54,6 +54,11 @@ void NES::attachVRAM(Memory* vram) {
 }
 
 void NES::powerOn() {
+	// the CPU takes 7 CPU cycles to power on, so perform 21 machine cycles in the mean time.
+	this->totalMachineCycles += 21;
+	for (int i = 0; i < 21; ++i) {
+		this->ppu->executePPUCycle();
+	}
 	this->CPU->powerOn();
 }
 

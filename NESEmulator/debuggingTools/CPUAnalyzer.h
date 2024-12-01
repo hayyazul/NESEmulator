@@ -352,6 +352,17 @@ struct ExecutedInstruction {
 	
 };
 
+// Describes what happened in a given cycle.
+struct CycleAction {
+	bool instructionExecuted;  // Whether an instruction was executed this cycle.
+	ExecutedInstruction* executedInstruction;  // Pointer to the info regarding the instruction executed this cycle (if one was executed this cycle).
+
+	CycleAction() : instructionExecuted(false), executedInstruction(nullptr) {}
+	CycleAction(bool instructionExecuted, ExecutedInstruction* executedInstruction) : instructionExecuted(instructionExecuted), executedInstruction(executedInstruction) {}
+
+	~CycleAction() {}
+
+};
 
 // TODO: Give this a better name.
 class CPUDebugger : public _6502_CPU {
@@ -367,10 +378,9 @@ public:
 
 	void attach(DebugDatabus* databus);
 
-	bool undoCPUCycle();
-	
-	// Undos an instruction in the stack.
-	bool undoInstruction();
+	CPUCycleOutcomes undoCPUCycle();
+
+	//bool undoCyclesUntilInstruction();  // Undos CPU cycles until 
 
 	// Returns the last executed instruction
 	ExecutedInstruction getLastExecutedInstruction();
@@ -381,8 +391,12 @@ public:
 
 	// Gets a fill list, in order, of the executed instructions this CPU has performed.
 	// You almost never want a full dump.
+	std::vector<CycleAction> getCycleActions();
+	std::vector<CycleAction> getCycleActions(unsigned int lastN);
+
 	std::vector<ExecutedInstruction> getExecutedInstructions();
 	std::vector<ExecutedInstruction> getExecutedInstructions(unsigned int lastN);
+
 	void clearExecutedInstructions();
 
 public:
@@ -407,13 +421,21 @@ public:
 	// Outputs all the values in the stack.
 	std::array<uint8_t, 0x100> dumpStack();
 private:
+
+	// Undos an instruction in the stack.
+	bool undoInstruction(ExecutedInstruction instruction);
+
+	bool undoIRQ();
+
+	bool undoNMI();
+
 	DebugDatabus* databus;
 	
-	// NOTE: Might change from a stack to a vector, just because other debugger functions may find that structure more useful.
-	// Stack containing the instructions executed in order.
+	// Stack containing the cycle actions executed in order.
+	std::vector<CycleAction> cycleActions;
+
+	// NOTE: This is a legacy variable to be depricated. It is here to allow functions which expect a stack of executed instructions to still work.
 	std::vector<ExecutedInstruction> executedInstructions;
+
 };
 
-
-// A collection of code which performs a simple test of the above; put inside this function for cleanliness.
-void CPUDebuggerTest();

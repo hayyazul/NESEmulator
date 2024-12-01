@@ -46,7 +46,7 @@ public:
 	// Undos an action performed. Returns whether the undo was successful.
 	bool undoMemAction(bool supressWarning=true);
 
-	std::stack<DatabusAction> getMemOps() const;
+	const std::stack<DatabusAction>* getMemOps() const;
 	
 	// Inherited memory operations; this time, what they do is recorded (assuming recordActions is true).
 	uint8_t read(uint16_t address) override;

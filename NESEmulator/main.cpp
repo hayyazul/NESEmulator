@@ -6,7 +6,7 @@
 // MAIN TODO: 
 // - Implement PPU Registers.
 
-#include "debuggingTools/suites/ppuDebugSuite.hpp"
+#include "debuggingTools/suites/basicDebugSuite.hpp"
 
 #include "debuggingTools/NESDebug.h"
 #include "ppu/ppu.h"
@@ -51,15 +51,14 @@ int main() { /*
 	nes.loadROM("testROMS/donkey kong.nes");
 	nes.powerOn();
 	nes.setRecord(true);
-	for (int i = 0; i < 200'000; ++i) {
-		if (i == 89'384) {
-			int b = 0;
-		}
-		if (!nes.executeMachineCycle()) {
-			std::cout << "Illegal opcode, machine cycle no. " << i << "." << std::endl;
-		};
+	
+	for (int i = 0; i < 300; ++i) {
+		nes.executeMachineCycle();
 	}
-	nes.undoMachineCycle();
+
+	for (int i = 0; i < 300; ++i) {
+		nes.undoMachineCycle();
+	}
 	*/
 	return 0;
 }

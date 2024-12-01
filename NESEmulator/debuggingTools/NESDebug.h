@@ -12,6 +12,7 @@
 #include <iostream>
 #include <algorithm>
 
+
 inline uint32_t memAddrToiNESAddr(uint16_t memAddr) {
 	return (memAddr - 0x8000 + 0x10) % 0x4000;
 };
@@ -25,6 +26,9 @@ struct MachineAction {  // NOTE: 48 bytes is a lot.
 
 	std::stack<PPUActions> ppuActions;  // NOTE: For now, this has nothing.
 	//std::stack<DatabusAction> databusActions;
+
+	MachineAction() : cycle(-1), NMIRequested(false), instructionExecuted(false) {};
+	MachineAction(long int cycle, bool NMIRequested, bool instructionExecuted, std::stack<PPUActions> ppuActions) : cycle(cycle), NMIRequested(NMIRequested), instructionExecuted(instructionExecuted), ppuActions(ppuActions) {};
 
 	void print() {
 		std::cout << "Cycle: " << std::dec << this->cycle << std::endl;
@@ -41,6 +45,7 @@ public:
 
 	// Executes machine cycles until either a failure or an instruction is executed.
 	NESCycleOutcomes executeInstruction();
+	MachineAction undoInstruction();  // Undos machine cycles until either a failure or an instruction is undone.
 
 	NESCycleOutcomes executeMachineCycle() override;
 	MachineAction undoMachineCycle();  // Undos the last machine cycle; returns it.

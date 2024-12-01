@@ -22,6 +22,7 @@ void debuggingSuite() {
 	reg.PC = 0xc000;
 	nes.getCPUPtr()->registersPoke(reg);
 	NESCycleOutcomes success = FAIL_CYCLE;  // Execute until failure.
+	CPUCycleOutcomes cpuCycleOutcome = FAIL;
 	int i = 0;
 	nes.setRecord(true);
 	//while (success && i < 1) {
@@ -38,7 +39,7 @@ void debuggingSuite() {
 	int numOfInstr = 0;
 	int numOfCycles = 0;
 	std::string msg = "";
-	std::vector<ExecutedInstruction> lastNInstructions;
+	std::vector<CycleAction> lastNInstructions;
 	std::vector<uint8_t> memDumpVec;
 	uint16_t startAddr, endAddr, addr;
 
@@ -63,7 +64,7 @@ void debuggingSuite() {
 		std::cout << std::endl;
 		switch (inputChar) {
 		case('u'):
-			cpuPtr->undoInstruction();
+			nes.undoInstruction();
 			std::cout << "Last instruction: " << std::endl;  // Displays the last instruction that was executed (i.e. the one BEFORE the one you just undid).
 			instr = cpuPtr->getLastExecutedInstruction();
 			instr.print();
@@ -72,7 +73,7 @@ void debuggingSuite() {
 			msg = "How many: ";
 			numOfInstr = abs(input.getUserInt(msg));
 			for (int i = 0; i < numOfInstr; ++i) {
-				cpuPtr->undoInstruction();
+				nes.undoInstruction();
 				if (outputResults) {
 					std::cout << "(-" << i + 1 << "): ";
 					instr = cpuPtr->getLastExecutedInstruction();
@@ -93,9 +94,8 @@ void debuggingSuite() {
 			if (numOfInstr <= 0) {
 				break;
 			}
-			lastNInstructions = cpuPtr->getExecutedInstructions(numOfInstr);
 			std::cout << std::endl;
-			for (ExecutedInstruction& instruction : lastNInstructions) {
+			for (ExecutedInstruction& instruction : cpuPtr->getExecutedInstructions(numOfInstr)) {
 				instruction.print();
 				std::cout << std::endl;
 			}
@@ -164,7 +164,10 @@ void debuggingSuite() {
 				} else if (!nes.getCPUPtr()->correspondsWithLog(log, true)) {
 					std::cout << "Log mismatch found." << std::endl;
 					int mismatchIdx = min(nes.getCPUPtr()->getExecutedInstructions().size(), log.size()) - 1;
-					log.at(mismatchIdx).printEqualityStatement(nes.getCPUPtr()->getExecutedInstructions().at(mismatchIdx));
+
+					ExecutedInstruction executedInstruction = nes.getCPUPtr()->getExecutedInstructions().at(mismatchIdx);
+
+					log.at(mismatchIdx).printEqualityStatement(executedInstruction);
 					break;
 				} else if (outputResults) {
 					std::cout << "(" << std::dec << i << "): ";

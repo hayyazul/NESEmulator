@@ -108,7 +108,7 @@ void debuggingSuite() {
 			if (numOfInstr <= 0) {
 				break;
 			}
-			lastNInstructions = cpuPtr->getExecutedInstructions(numOfInstr);
+			lastNInstructions = cpuPtr->getCycleActions(numOfInstr);
 			std::cout << std::endl;
 			for (ExecutedInstruction& instruction : lastNInstructions) {
 				instruction.print();
