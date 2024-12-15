@@ -371,12 +371,6 @@ public:
 	CPUDebugger(DebugDatabus* databus);
 	~CPUDebugger();
 
-	// Gets value of recordActions.
-	bool getRecordActions();
-
-	// Sets recordActions; returns its old value.
-	bool setRecordActions(bool recordActions);
-
 	// Note: Currently one cycle = one instruction, but in reality it is different and depends on the specific instruction.
 	CPUCycleOutcomes executeCycle() override;
 
@@ -434,8 +428,6 @@ private:
 	bool undoIRQ();
 
 	bool undoNMI();
-
-	bool recordActions;  // Whether to record actions; also decides whether to record executed instructions, though that vector should be deprecated.
 
 	DebugDatabus* databus;
 	

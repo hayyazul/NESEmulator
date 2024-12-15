@@ -54,7 +54,7 @@ public:
 	std::vector<MachineAction> getMachineActions(int numOfActions);
 
 	bool setRecord(bool record);  // Sets the CPU and Databus recorders to the given value; returns the old value.
-	bool getRecord() const;  // Gets the values of the record flags.
+	bool getRecord(bool record) const;  // Gets the values of the record flags.
 	void clearRecord();  // Deletes the store executed instructions vector and memops stack.
 
 	void setStdValue(uint8_t val);  // Initializes all memory values to the one given here.

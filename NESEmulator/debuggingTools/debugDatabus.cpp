@@ -45,6 +45,11 @@ bool DebugDatabus::undoMemAction(bool supressWarning) {
 	}
 }
 
+const std::stack<DatabusAction>* DebugDatabus::getMemOps() const {
+	auto a = &this->memOps;
+	return a;
+}
+
 uint8_t DebugDatabus::read(uint16_t address) {
 	uint8_t data = NESDatabus::read(address);
 	if (this->recordActions) {

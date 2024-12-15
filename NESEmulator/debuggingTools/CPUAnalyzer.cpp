@@ -14,17 +14,6 @@ CPUDebugger::CPUDebugger(DebugDatabus* databus) : databus(databus), _6502_CPU(da
 
 CPUDebugger::~CPUDebugger() {}
 
-bool CPUDebugger::getRecordActions() {
-	return this->recordActions;
-}
-
-bool CPUDebugger::setRecordActions(bool recordActions) {
-	bool oldVal = this->recordActions;
-	this->recordActions = recordActions;
-
-	return oldVal;
-}
-
 // TODO: make it cycle accurate (e.g., make it so 1 CPU cycle != 1 instruction).
 // Make it return an error code instead of a bool.
 CPUCycleOutcomes CPUDebugger::executeCycle() {
@@ -33,7 +22,7 @@ CPUCycleOutcomes CPUDebugger::executeCycle() {
 	// Save the old value of the record actions flag.
 	bool oldRecordActions = this->databus->getRecordActions();
 	this->databus->setRecordActions(false);
-
+	
 	// Data that needs to be recorded before execution.
 	uint8_t opcode = this->databus->read(this->registers.PC);
 	if (!INSTRUCTION_SET.count(opcode)) {
@@ -65,23 +54,20 @@ CPUCycleOutcomes CPUDebugger::executeCycle() {
 
 	// Get the last info needed to describe an executed instruction: how many databus actions it took.
 	unsigned int numOfDatabusActions = this->databus->getNumActions() - lastMemOpsSize;
-	if (this->recordActions) {  // Only record the cycleAction and the executedInstruction if recording is toggled.
-		if (outcome == INSTRUCTION_EXECUTED) {
-			ExecutedInstruction* executedInstruction = new ExecutedInstruction(
-				opcode,
-				instruction,
-				numOfDatabusActions,
-				oldRegisters,
-				operands,
-				this->cycleActions.size(),
-				this->totalCyclesElapsed - 1);
-
-			this->executedInstructions.push_back(*executedInstruction);
-			this->cycleActions.emplace_back(true, executedInstruction);
-		}
-		else {
-			this->cycleActions.emplace_back();
-		}
+	if (outcome == INSTRUCTION_EXECUTED) {
+		ExecutedInstruction* executedInstruction  = new ExecutedInstruction(
+			opcode,
+			instruction,
+			numOfDatabusActions,
+			oldRegisters,
+			operands,
+			this->cycleActions.size(),
+			this->totalCyclesElapsed - 1);
+		
+		this->executedInstructions.push_back(*executedInstruction);
+		this->cycleActions.emplace_back(true, executedInstruction);
+	} else {
+		this->cycleActions.emplace_back();
 	}
 
 	return outcome;
@@ -217,7 +203,6 @@ std::vector<CycleAction> CPUDebugger::getCycleActions(unsigned int lastN) {
 
 void CPUDebugger::clearExecutedInstructions() {
 	this->cycleActions = std::vector<CycleAction>();
-	this->executedInstructions = std::vector<ExecutedInstruction>();
 	this->databus->clearRecordedActions();
 }
 

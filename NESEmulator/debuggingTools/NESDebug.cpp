@@ -36,7 +36,7 @@ NESCycleOutcomes NESDebug::executeInstruction() {
 NESCycleOutcomes NESDebug::executeMachineCycle() {
 	int oldMemOpsSize = this->databusInstance.getMemOps()->size();
 	NESCycleOutcomes success = NES::executeMachineCycle();
-	if (success && this->getRecord()) {
+	if (success) {
 		MachineAction action;
 		action.instructionExecuted = this->databusInstance.getMemOps()->size() > oldMemOpsSize;
 		// TODO: get PPU actions.
@@ -124,11 +124,10 @@ std::vector<MachineAction> NESDebug::getMachineActions(int numOfActions) {
 bool NESDebug::setRecord(bool record) {
 	bool oldRecordActions = this->databusInstance.getRecordActions();
 	this->databusInstance.setRecordActions(record);
-	this->cpuInstance.setRecordActions(record);
 	return oldRecordActions;
 }
 
-bool NESDebug::getRecord() const {
+bool NESDebug::getRecord(bool record) const {
 	return this->databusInstance.getRecordActions();
 }
 
