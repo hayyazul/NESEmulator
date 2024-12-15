@@ -6,13 +6,13 @@
 // MAIN TODO: 
 // - Implement PPU Registers.
 
-#include "debuggingTools/basicDebugSuite.hpp"
+#include "debuggingTools/suites/basicDebugSuite.hpp"
 
+#include "debuggingTools/NESDebug.h"
 #include "ppu/ppu.h"
 
 #undef main  // Deals w/ the definition of main in SDL.
 int main() { 
-	
 	Memory VRAM{ 0x800 };
 	PPU ppu;
 
@@ -28,11 +28,8 @@ int main() {
 	nes.attachCartridgeMemory(&cartirdgeMemory);
 	nes.loadROM("testROMS/donkey kong.nes");
 	nes.powerOn();
-
-	//nes.setRecord(false);
-
-	for (int i = 0; i < 1'875'000; ++i) {
-		if (i == 187'000) {
+	for (int i = 0; i < 30'000'000; ++i) {
+		if (i == 600000) {
 			int a = 0;
 		}
 		if (!nes.executeMachineCycle()) {
@@ -40,12 +37,28 @@ int main() {
 			break;
 		}
 	}
+
+	std::cout << "PPU Cycle Count: " << ppu.cycleCount << std::endl;
 	
 	for (int i = 0; i < 4; ++i) {
 		std::cout << "Nametable " << i << ": " << std::endl << std::endl;
 		ppu.displayNametable(i);
 		std::cout << std::endl << " --- " << std::endl;
 	} 
-//	debuggingSuite();
+	debuggingSuite();
+	/*
+	NESDebug nes;
+	nes.loadROM("testROMS/donkey kong.nes");
+	nes.powerOn();
+	nes.setRecord(true);
+	
+	for (int i = 0; i < 300; ++i) {
+		nes.executeMachineCycle();
+	}
+
+	for (int i = 0; i < 300; ++i) {
+		nes.undoMachineCycle();
+	}
+	*/
 	return 0;
 }
