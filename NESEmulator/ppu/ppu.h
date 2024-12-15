@@ -68,12 +68,11 @@ public:
 	PPU(Memory* VRAM, Memory* CHRDATA);
 	~PPU();
 
-	void attach(Memory* vram);
+	void attachVRAM(Memory* vram);
 	void attachCHRDATA(Memory* chrdata);
 
 	// Executes a single PPU cycle.
 	void executePPUCycle();
-
 
 	// NOTE: Might move these into PPURegisters.
 	// Using the address and data given, writes to and performs some operations relating to a given PPU register.

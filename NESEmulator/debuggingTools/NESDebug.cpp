@@ -8,7 +8,7 @@ NESDebug::NESDebug() : NES() {
 	delete this->ppu;
 	delete this->databus;
 
-	this->ppuInstance.attach(this->VRAM);
+	this->ppuInstance.attachVRAM(this->VRAM);
 	this->ppu = &this->ppuInstance;
 
 	this->databusInstance.attach(this->memory);

@@ -32,8 +32,6 @@ CPUCycleOutcomes _6502_CPU::executeCycle() {
 		outcome = INSTRUCTION_EXECUTED;
 		this->opcodeCyclesElapsed = 0;
 
-		
-
 		uint8_t opcode = this->databus->read(this->registers.PC);  // Get the next opcode.
 
 		// Check if this opcode exists.

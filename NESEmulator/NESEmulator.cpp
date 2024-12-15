@@ -16,7 +16,7 @@ NES::NES(NESDatabus* databus, _6502_CPU* CPU, RAM* ram, Memory* vram, PPU* ppu) 
 	this->ram = ram;
 	this->ppu = ppu;
 	this->VRAM = vram;
-	this->ppu->attach(vram);
+	this->ppu->attachVRAM(vram);
 	this->databus = databus;
 	this->databus->attach(this->memory);
 	this->databus->attach(this->ram);
@@ -55,7 +55,7 @@ void NES::attachPPU(PPU* ppu) {
 
 void NES::attachVRAM(Memory* vram) {
 	this->VRAM = vram;
-	this->ppu->attach(vram);
+	this->ppu->attachVRAM(vram);
 }
 
 void NES::powerOn() {

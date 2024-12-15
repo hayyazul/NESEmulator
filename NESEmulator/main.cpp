@@ -28,7 +28,7 @@ int main() {
 	nes.attachCartridgeMemory(&cartirdgeMemory);
 	nes.loadROM("testROMS/donkey kong.nes");
 	nes.powerOn();
-	for (int i = 0; i < 30'000'000; ++i) {
+	for (int i = 0; i < 3'000'000; ++i) {
 		if (i == 600000) {
 			int a = 0;
 		}
@@ -44,21 +44,6 @@ int main() {
 		std::cout << "Nametable " << i << ": " << std::endl << std::endl;
 		ppu.displayNametable(i);
 		std::cout << std::endl << " --- " << std::endl;
-	} 
-	debuggingSuite();
-	/*
-	NESDebug nes;
-	nes.loadROM("testROMS/donkey kong.nes");
-	nes.powerOn();
-	nes.setRecord(true);
-	
-	for (int i = 0; i < 300; ++i) {
-		nes.executeMachineCycle();
 	}
-
-	for (int i = 0; i < 300; ++i) {
-		nes.undoMachineCycle();
-	}
-	*/
 	return 0;
 }

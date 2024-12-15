@@ -30,7 +30,7 @@ PPU::PPU(Memory* VRAM, Memory* CHRDATA) :
 
 PPU::~PPU() {}
 
-void PPU::attach(Memory* vram) {
+void PPU::attachVRAM(Memory* vram) {
 	this->VRAM = vram;
 }
 
@@ -39,6 +39,7 @@ void PPU::attachCHRDATA(Memory* chrdata) {
 }
 
 void PPU::executePPUCycle() {
+	this->updatePPUSTATUS();
 	++this->cycleCount;
 }
 
@@ -114,14 +115,10 @@ bool PPU::requestingNMI() const {
 	// TODO: clean up this code.
 	const int PPU_CYCLES_BETWEEN_VBLANKS = 262 * 341;
 	const int VBLANK_FIRST_CYCLE_COUNT = 240 * 341;
+
 	bool c = this->cycleCount % PPU_CYCLES_BETWEEN_VBLANKS == VBLANK_FIRST_CYCLE_COUNT;
-	if (c) {
-		int b = 0;
-	}
 	bool a = (getBit(this->registers.PPUCTRL, 7)) && c;
-	if (a) {
-		int b = 0;
-	}
+	
 	return a;
 }
 
