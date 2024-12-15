@@ -23,7 +23,7 @@ public:
 	~Memory();
 
 	virtual uint8_t getByte(uint16_t address) const;
-	virtual uint8_t setByte(uint16_t address, uint8_t value);
+	virtual uint8_t setByte(uint16_t address, uint8_t value);  // Returns the old value at the given address.
 
 private:
 	std::vector<uint8_t> data;  // Might change from vector to array if this proves too slow..

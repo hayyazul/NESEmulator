@@ -28,11 +28,16 @@ NES::~NES() {}
 
 void NES::attachRAM(RAM* ram) {
 	this->ram = ram;
+	if (this->databus != nullptr) {
+		this->databus->attach(ram);
+	}
 }
 
 void NES::attachCartridgeMemory(Memory* memory) {
 	this->memory = memory;
-	this->databus->attach(memory);
+	if (this->databus != nullptr) {
+		this->databus->attach(memory);
+	}
 }
 
 void NES::attachDataBus(NESDatabus* databus) {

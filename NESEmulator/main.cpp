@@ -11,7 +11,8 @@
 #include "ppu/ppu.h"
 
 #undef main  // Deals w/ the definition of main in SDL.
-int main() {
+int main() { 
+	
 	Memory VRAM{ 0x800 };
 	PPU ppu;
 
@@ -20,12 +21,18 @@ int main() {
 	Memory cartirdgeMemory{ 0x10000 };
 	_6502_CPU CPU;
 
-	NES nes{ &databus, &CPU, &ram, &VRAM, &ppu };
+	NES nes;
+	nes.attachPPU(&ppu);
+	nes.attachVRAM(&VRAM);
+	nes.attachRAM(&ram);
 	nes.attachCartridgeMemory(&cartirdgeMemory);
 	nes.loadROM("testROMS/donkey kong.nes");
 	nes.powerOn();
-	for (int i = 0; i < 1'000'000; ++i) {
-		if (i == 600000) {
+
+	//nes.setRecord(false);
+
+	for (int i = 0; i < 1'875'000; ++i) {
+		if (i == 187'000) {
 			int a = 0;
 		}
 		if (!nes.executeMachineCycle()) {
@@ -38,7 +45,7 @@ int main() {
 		std::cout << "Nametable " << i << ": " << std::endl << std::endl;
 		ppu.displayNametable(i);
 		std::cout << std::endl << " --- " << std::endl;
-	}
-	//	debuggingSuite();
+	} 
+//	debuggingSuite();
 	return 0;
 }

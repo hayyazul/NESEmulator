@@ -54,11 +54,10 @@ uint8_t DebugDatabus::read(uint16_t address) {
 }
 
 uint8_t DebugDatabus::write(uint16_t address, uint8_t value) {
-	uint8_t oldValue = NESDatabus::read(address);
+	uint8_t oldValue = NESDatabus::write(address, value);
 	if (this->recordActions) {
 		this->memOps.push(DatabusAction(address, value, oldValue));
 	}
-	NESDatabus::write(address, value);
 	return value;
 }
 
@@ -85,7 +84,7 @@ void displayMemDumpLine(std::vector<uint8_t>& dump, uint16_t startAddr, uint16_t
 	std::cout << displayHex(startAddr + row * bytesPerRow, 4) << " | ";
 	unsigned int rowSize = min((endAddr - startAddr) - row * bytesPerRow, bytesPerRow);  // This gives you how many bytes are left to display in total (not just for this row).
 	
-	for (unsigned int i = 0; i < rowSize; ++i) {
+	for (unsigned int i = 0; i <= rowSize; ++i) {
 		std::cout << displayHex(dump.at(i + row * bytesPerRow), 2) << ' ';
 	}
 	std::cout << std::endl;

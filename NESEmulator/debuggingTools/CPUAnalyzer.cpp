@@ -14,20 +14,33 @@ CPUDebugger::CPUDebugger(DebugDatabus* databus) : databus(databus), _6502_CPU(da
 
 CPUDebugger::~CPUDebugger() {}
 
+bool CPUDebugger::getRecordActions() {
+	return this->recordActions;
+}
+
+bool CPUDebugger::setRecordActions(bool recordActions) {
+	bool oldVal = this->recordActions;
+	this->recordActions = recordActions;
+
+	return oldVal;
+}
+
 // TODO: make it cycle accurate (e.g., make it so 1 CPU cycle != 1 instruction).
 // Make it return an error code instead of a bool.
-bool CPUDebugger::executeCycle() {
+CPUCycleOutcomes CPUDebugger::executeCycle() {
 	// Execute a CPU cycle, but record some info first.
 
+	// Save the old value of the record actions flag.
 	bool oldRecordActions = this->databus->getRecordActions();
 	this->databus->setRecordActions(false);
-	
+
 	// Data that needs to be recorded before execution.
 	uint8_t opcode = this->databus->read(this->registers.PC);
 	if (!INSTRUCTION_SET.count(opcode)) {
 		this->databus->setRecordActions(oldRecordActions);
-		return false;
+		return FAIL;
 	}
+
 	Instruction* instruction = &INSTRUCTION_SET.at(opcode);
 	Registers oldRegisters = this->registers;
 
@@ -41,7 +54,7 @@ bool CPUDebugger::executeCycle() {
 
 	// Finally, execute the cycle.
 	this->databus->setRecordActions(oldRecordActions);
-	bool success = _6502_CPU::executeCycle();
+	CPUCycleOutcomes outcome = _6502_CPU::executeCycle();
 
 	// TODO: Fix the bug where the constant 1 is allowed to be unset; it should not, the CPu should check if it is unset and re-set it to 1.
 	// DEBUG:
@@ -52,16 +65,26 @@ bool CPUDebugger::executeCycle() {
 
 	// Get the last info needed to describe an executed instruction: how many databus actions it took.
 	unsigned int numOfDatabusActions = this->databus->getNumActions() - lastMemOpsSize;
-	this->executedInstructions.push_back(ExecutedInstruction(
-		opcode, 
-		instruction, 
-		numOfDatabusActions, 
-		oldRegisters, 
-		operands, 
-		this->executedInstructions.size(), 
-		this->totalCyclesElapsed - instruction->cycleCount));
+	if (this->recordActions) {  // Only record the cycleAction and the executedInstruction if recording is toggled.
+		if (outcome == INSTRUCTION_EXECUTED) {
+			ExecutedInstruction* executedInstruction = new ExecutedInstruction(
+				opcode,
+				instruction,
+				numOfDatabusActions,
+				oldRegisters,
+				operands,
+				this->cycleActions.size(),
+				this->totalCyclesElapsed - 1);
 
-	return success;
+			this->executedInstructions.push_back(*executedInstruction);
+			this->cycleActions.emplace_back(true, executedInstruction);
+		}
+		else {
+			this->cycleActions.emplace_back();
+		}
+	}
+
+	return outcome;
 }
 
 bool CPUDebugger::pcAt(uint16_t address) {
@@ -73,21 +96,68 @@ void CPUDebugger::attach(DebugDatabus* databus) {
 	_6502_CPU::attach(databus);
 }
 
-bool CPUDebugger::undoInstruction() {
+CPUCycleOutcomes CPUDebugger::undoCPUCycle() {
+	// Return true if we can undo a cycle; false if not. We can undo if the # of cycles elapsed is > 0.
+	CPUCycleOutcomes outcome = PASS;
+	if (this->totalCyclesElapsed) {
+		// Check if there have been executed instructions before accessing any elements in it.
+		--this->totalCyclesElapsed;
+		--this->opcodeCyclesElapsed;
+		CycleAction lastAction = this->cycleActions.back();
+		if (lastAction.instructionExecuted) {  // Check if we are on the cycle count of the last instruction; if so, undo this one.
+				this->undoInstruction(*lastAction.executedInstruction);
+				outcome = INSTRUCTION_EXECUTED;
+		}
+
+		this->cycleActions.pop_back();
+	} else {
+		outcome = FAIL;
+	}
+
+	return outcome;
+}
+/*
+bool CPUDebugger::undoCyclesUntilInstruction() {
+	CPUCycleOutcomes outcome = PASS;
+	while (outcome == PASS) {  // Undo CPU cycles until an instruction is undone or we run out of instructions to undo.
+		outcome = this->undoCPUCycle();
+	}
+
+	return outcome == INSTRUCTION_EXECUTED;
+}
+*/
+bool CPUDebugger::undoInstruction(ExecutedInstruction instruction) {
+	// First check if there are any executed instructions.
 	if (this->executedInstructions.size() == 0) {
 		std::cout << "Warning: there have been no executed instructions; no instruction has been undone." << std::endl;
 		return false;
 	}
 
-	ExecutedInstruction lastInstruction = this->executedInstructions.back();
-	this->executedInstructions.pop_back();
-	for (int i = 0; i < lastInstruction.numOfActionsInvolved; ++i) {
+	// Then, undo the mem
+	for (int i = 0; i < instruction.numOfActionsInvolved; ++i) {
 		this->databus->undoMemAction();
 	}
-	--this->opcodeCyclesElapsed;
-	this->totalCyclesElapsed = lastInstruction.lastCycleCount;
-	this->registers = lastInstruction.oldRegisters;
+	this->registers = instruction.oldRegisters;
+	this->executedInstructions.pop_back();
+
+
+	if (this->executedInstructions.size() != 0) {
+		ExecutedInstruction lastInstruction = this->executedInstructions.back();
+		this->opcodeCyclesElapsed = lastInstruction.numOfCycles;
+		this->currentOpcodeCycleLen = lastInstruction.numOfCycles;
+	} else {
+		this->opcodeCyclesElapsed = 0;
+		this->currentOpcodeCycleLen = 0;
+	}
 	return true;
+}
+
+bool CPUDebugger::undoIRQ() {
+	return false;
+}
+
+bool CPUDebugger::undoNMI() {
+	return false;
 }
 
 ExecutedInstruction CPUDebugger::getLastExecutedInstruction() {
@@ -110,6 +180,9 @@ bool CPUDebugger::correspondsWithLog(std::vector<ExecutedOpcodeLogEntry>& log, b
 
 	if (checkLast) {
 		int lastEntryIdx = entriesToCheck - 1;
+		if (lastEntryIdx < 0) {
+			return true;  // If there are no entries to check, default to true.
+		}
 		return log.at(lastEntryIdx) == this->executedInstructions.at(min(lastEntryIdx, this->executedInstructions.size() - 1));
 	}
 
@@ -122,11 +195,37 @@ bool CPUDebugger::correspondsWithLog(std::vector<ExecutedOpcodeLogEntry>& log, b
 	return true;
 }
 
+std::vector<CycleAction> CPUDebugger::getCycleActions() {
+	return this->getCycleActions(this->cycleActions.size());
+}
+
+// Returns vector of executed instructions, from least recent to most/
+std::vector<CycleAction> CPUDebugger::getCycleActions(unsigned int lastN) {
+	std::vector<CycleAction> cycleActions;
+
+	// How far back the first element is.
+	int firstElementOffset = lastN < this->cycleActions.size() ? lastN : this->cycleActions.size();
+
+	if (this->cycleActions.size()) {
+		for (unsigned int i = 0; i < firstElementOffset; ++i) {
+			cycleActions.push_back(this->cycleActions.at(this->cycleActions.size() - firstElementOffset + i));
+		}
+	}
+
+	return cycleActions;
+}
+
+void CPUDebugger::clearExecutedInstructions() {
+	this->cycleActions = std::vector<CycleAction>();
+	this->executedInstructions = std::vector<ExecutedInstruction>();
+	this->databus->clearRecordedActions();
+}
+
+
 std::vector<ExecutedInstruction> CPUDebugger::getExecutedInstructions() {
 	return this->getExecutedInstructions(this->executedInstructions.size());
 }
 
-// Returns vector of executed instructions, from least recent to most/
 std::vector<ExecutedInstruction> CPUDebugger::getExecutedInstructions(unsigned int lastN) {
 	std::vector<ExecutedInstruction> executedInstructions;
 
@@ -140,11 +239,6 @@ std::vector<ExecutedInstruction> CPUDebugger::getExecutedInstructions(unsigned i
 	}
 
 	return executedInstructions;
-}
-
-void CPUDebugger::clearExecutedInstructions() {
-	this->executedInstructions = std::vector<ExecutedInstruction>();
-	this->databus->clearRecordedActions();
 }
 
 std::vector<uint8_t> CPUDebugger::memDump(uint16_t startAddr, uint16_t endAddr) {
@@ -225,98 +319,4 @@ std::array<uint8_t, 0x100> CPUDebugger::dumpStack() {
 
 	this->databus->setRecordActions(oldRecActionFlag);
 	return stack;
-}
-
-// 
-void CPUDebuggerTest() {
-	Memory memory;
-	DebugDatabus databus{ &memory };
-	DebugDatabus* databusPtr = &databus;
-	CPUDebugger cpu{ databusPtr };
-	cpu.setStdMemValue(0xcd);
-	cpu.memPoke(RESET_VECTOR_ADDRESS, 0x00);
-	cpu.memPoke(RESET_VECTOR_ADDRESS + 1, 0x02);
-	cpu.powerOn();
-	// Loading in a basic test program starting from 0x0200:
-	uint8_t program[16] = {
-		0xa9, 0x01,
-		0x8d, 0x00, 0x07,
-		0xa9, 0x05,
-		0x8d, 0x01, 0x07,
-		0xa9, 0x08,
-		0x8d, 0x02, 0x07 };
-	/*	In assembly:
-	LDA #$01
-	STA $0700
-	LDA #$05
-	STA $0701
-	LDA #$08
-	STA $0702  */
-	for (int i = 0; i < 16; ++i) {
-		cpu.memPoke(0x0200 + i, program[i]);
-	}
-	// Dumping the initial values:
-	std::vector<uint8_t> testValues = cpu.memDump(0x0700, 0x0705);
-	std::cout << "Memory before execution at 0x0700: ";
-	for (int i = 0; i < testValues.size(); ++i) {
-		std::cout << "0x" << std::hex << std::setfill('0') << std::setw(2) << (int)testValues.at(i);
-		if (i != testValues.size() - 1) {
-			std::cout << ", ";
-		}
-	}
-	std::cout << std::endl;
-	// Execute program
-	for (int i = 0; i < 6; ++i) {
-		cpu.executeCycle();
-	}
-	testValues = cpu.memDump(0x0700, 0x0705);
-	std::cout << "Memory after execution at 0x0700: ";
-	for (int i = 0; i < testValues.size(); ++i) {
-		std::cout << "0x" << std::hex << std::setfill('0') << std::setw(2) << (int)testValues.at(i);
-		if (i != testValues.size() - 1) {
-			std::cout << ", ";
-		}
-	}
-	std::cout << std::endl;
-	// Undo execution (testing out user input as well)
-	CommandlineInput input;
-	ExecutedInstruction execInstr;
-	Registers r;
-	execInstr = cpu.getLastExecutedInstruction();
-	std::cout << std::setfill('-') << std::setw(20) << '-' << std::endl;
-	execInstr.print();
-	char inputChar = '0';
-	while (inputChar != 'q') {
-		std::cout << std::setfill('-') << std::setw(20) << '-' << std::endl;
-		inputChar = input.getUserChar("What to perform (q: quit, u: undo the last instruction, d: dump registers and 0x0700 to 0x0705): ");
-		std::cout << std::endl;
-		switch (inputChar) {
-		case('u'):
-			cpu.undoInstruction();
-			execInstr = cpu.getLastExecutedInstruction();
-			execInstr.print();
-			std::cout << std::endl;
-			break;
-		case('d'):
-			testValues = cpu.memDump(0x0700, 0x0705);
-			r = cpu.registersPeek();
-			std::cout << "Register values: A = 0x" << std::hex << std::setfill('0') << std::setw(2) << (int)r.A <<
-				", S = 0x" << std::hex << std::setfill('0') << std::setw(2) << (int)r.S <<
-				", SP = 0x" << std::hex << std::setfill('0') << std::setw(2) << (int)r.SP <<
-				", X = 0x" << std::hex << std::setfill('0') << std::setw(2) << (int)r.X <<
-				", Y = 0x" << std::hex << std::setfill('0') << std::setw(2) << (int)r.Y <<
-				", PC = 0x" << std::hex << std::setfill('0') << std::setw(4) << (int)r.PC << std::endl;
-			std::cout << "Memory (0x0700 to 0x0705 inclusive): ";
-			for (int i = 0; i < testValues.size(); ++i) {
-				std::cout << "0x" << std::hex << std::setfill('0') << std::setw(2) << (int)testValues.at(i);
-				if (i != testValues.size() - 1) {
-					std::cout << ", ";
-				}
-			}
-			std::cout << std::endl;
-			break;
-		default:
-			break;
-		}
-	}
 }

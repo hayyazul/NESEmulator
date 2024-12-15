@@ -16,25 +16,32 @@ void _6502_CPU::attach(DataBus* databus) {
 	this->databus = databus;
 }
 
-bool _6502_CPU::executeCycle() {
+CPUCycleOutcomes _6502_CPU::executeCycle() {
 	// First check if the number of cycles elapsed corresponds with the number of cycles the instruction takes up. If so, execute the next instruction.
+	CPUCycleOutcomes outcome = PASS;
+
+	if (this->performInterrupt) {
+		this->performInterruptActions();
+	}
+	else if (this->nmiRequested) {
+		this->performNMIActions();
+	}
+	
 	if (this->opcodeCyclesElapsed == this->currentOpcodeCycleLen) {
+
+		outcome = INSTRUCTION_EXECUTED;
 		this->opcodeCyclesElapsed = 0;
 
-		if (this->performInterrupt) {
-			this->performInterruptActions();
-		} else if (this->nmiRequested) {
-			this->performNMIActions();
-		}
+		
 
 		uint8_t opcode = this->databus->read(this->registers.PC);  // Get the next opcode.
 
 		// Check if this opcode exists.
 		if (!INSTRUCTION_SET.contains(opcode)) {
-			return false;
+			return FAIL;
 		};
 		Instruction& instruction = INSTRUCTION_SET[opcode];
-		if (opcode == 0x49) {
+		if (opcode == 0x10) {
 			int a = 0;
 		}
 
@@ -46,11 +53,12 @@ bool _6502_CPU::executeCycle() {
 		}
 
 		this->registers.PC += instruction.numBytes * !instruction.modifiesPC;  // Only move the program counter forward if the instruction does not modify the PC.
-	
+		
 	}
+
+	++this->totalCyclesElapsed;
 	++this->opcodeCyclesElapsed;
-	this->totalCyclesElapsed += this->currentOpcodeCycleLen;
-	return true;
+	return outcome;
 }
 
 void _6502_CPU::requestInterrupt() {
@@ -60,7 +68,7 @@ void _6502_CPU::requestInterrupt() {
 }
 
 void _6502_CPU::requestNMI() {
-	this->interruptRequested = true;	
+	this->nmiRequested = true;	
 }
 
 void _6502_CPU::reset() {

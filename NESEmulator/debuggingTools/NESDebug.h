@@ -4,6 +4,7 @@
 #include "../6502Chip/CPU.h"
 #include "../NESEmulator.h"
 #include "../debuggingTools/CPUAnalyzer.h"
+#include "../debuggingTools/PPUDebug.h"
 
 #include <string>
 #include <vector>
@@ -11,8 +12,30 @@
 #include <iostream>
 #include <algorithm>
 
+
 inline uint32_t memAddrToiNESAddr(uint16_t memAddr) {
 	return (memAddr - 0x8000 + 0x10) % 0x4000;
+};
+
+// Struct describing what happened in a single machine cycle (made equal to 1 PPU cycle).
+struct MachineAction {  // NOTE: 48 bytes is a lot.
+	long int cycle;
+	bool NMIRequested;
+	bool instructionExecuted;  // Whether an instruction has been executed.
+	// A PPU cycle always has occured.
+
+	std::stack<PPUActions> ppuActions;  // NOTE: For now, this has nothing.
+	//std::stack<DatabusAction> databusActions;
+
+	MachineAction() : cycle(-1), NMIRequested(false), instructionExecuted(false) {};
+	MachineAction(long int cycle, bool NMIRequested, bool instructionExecuted, std::stack<PPUActions> ppuActions) : cycle(cycle), NMIRequested(NMIRequested), instructionExecuted(instructionExecuted), ppuActions(ppuActions) {};
+
+	void print() {
+		std::cout << "Cycle: " << std::dec << this->cycle << std::endl;
+		std::cout << "   CPU Cycle (rounded down): " << std::dec << this->cycle / 3 << std::endl;
+		std::cout << "NMI Requested: " << btos(this->NMIRequested) << std::endl;
+		std::cout << "Instruction Executed: " << btos(this->instructionExecuted) << std::endl;
+	}
 };
 
 class NESDebug : public NES {
@@ -20,44 +43,42 @@ public:
 	NESDebug();
 	~NESDebug();
 
-	// Cartridge ROM usually though not always starts at this address.
-	const uint16_t CART_ROM_START_ADDR = 0x8000;  // CART = Cartridge, ADDR = Address
+	// Executes machine cycles until either a failure or an instruction is executed.
+	NESCycleOutcomes executeInstruction();
+	MachineAction undoInstruction();  // Undos machine cycles until either a failure or an instruction is undone.
 
-	// Debug variables
-	unsigned long int totalMachineCycles = 0;
-	unsigned long int CYCLE_LIMIT = 100000;  // Referring to the machine cycle.
+	NESCycleOutcomes executeMachineCycle() override;
+	MachineAction undoMachineCycle();  // Undos the last machine cycle; returns it.
 
-	// Sets the CPU and Databus recorders to the given value; returns the old value.
-	bool setRecord(bool record);
-	// Sets the CPU and Databus recorders to the given value; returns the old value.
-	bool getRecord(bool record) const;
+	std::vector<MachineAction> getMachineActions();
+	std::vector<MachineAction> getMachineActions(int numOfActions);
 
+	bool setRecord(bool record);  // Sets the CPU and Databus recorders to the given value; returns the old value.
+	bool getRecord() const;  // Gets the values of the record flags.
 	void clearRecord();  // Deletes the store executed instructions vector and memops stack.
 
 	void setStdValue(uint8_t val);  // Initializes all memory values to the one given here.
 
 	CPUDebugger* getCPUPtr();
+	PPUDebug* getPPUPtr();
 
 	// Direct memory operations. Peek = Getter, Poke = Setter, mem = memory. Serve a purely debug role.
 	uint8_t memPeek(uint16_t memoryAddress);
 
-	// TODO: output a dump of the memory.
-	//void memDump(const char* filename);
-	/*  TODO: reimplement w/ the Debug CPU.
-	// TODO: directly affect memory instead of using the CPU's debugger poke/peek functions.
-	Registers registersPeek();
-	bool registersPeek(char c);
-
-	void registersPoke(Registers registers);
-
-	void memPoke(uint16_t memoryAddress, uint8_t val);
-
-	// Searches for a memory value and gets the first address which satisifies this condition. Returns true if found, false if not.
-	// Range (optional) is inclusive.
-	bool memFind(uint8_t value, uint16_t& address, int lowerBound = -1, int upperBound = -1);
-	*/
 private:
+	void performMachineAction(MachineAction machineAction, bool reverseOrder=false);
+
+	std::vector<MachineAction> machineActions;
+
 	// Instances of the debugger versions of the databus and CPU.
 	DebugDatabus databusInstance;
 	CPUDebugger cpuInstance;
+	PPUDebug ppuInstance;
+
+	// Cartridge ROM usually though not always starts at this address.
+	const uint16_t CART_ROM_START_ADDR = 0x8000;  // CART = Cartridge, ADDR = Address
+
+	// Debug variables
+	unsigned long int CYCLE_LIMIT = 1000000000;  // Referring to the machine cycle.
+
 };

@@ -5,6 +5,20 @@
 
 #include "../memory/memory.h"
 
+const int VRAM_SIZE = 0x800;  // The size of the internal VRAM that the NES has in bytes.
+
+// Lines are 0-based indexed from 0 to 260; lines 0 to 239 are visible, 240 is the post-render line, 241 to 260 are the VBlank lines, and 261 is the pre-render line.
+// The following values are the lines where each respective scanline group STARTS.
+const int VISIBLE_LINE = 0;
+const int POST_RENDER_LINE = 240;
+const int VBLANK_LINE = 241;
+const int PRE_RENDER_LINE = 261;
+
+const int TOTAL_LINES = 262;
+const int LINES_BETWEEN_VBLANKS = TOTAL_LINES;  // There are 262 lines total, so the interval between Vblanks is 262.
+const int PPU_CYCLES_PER_LINE = 341;  // Self-explanatory.
+
+
 struct PPURegisters {
 	// W - Write Only; R - Read Only; RW - Read and Write; xN - Times you need to read/write to go through the entire register.
 	/* W 0x2000
@@ -41,6 +55,8 @@ struct PPURegisters {
 //  - Implement the following PPU register writes/reads.
 //     - PPUMASK
 //     - PPUSTATUS
+//		  - PPU open bus or 2C05 PPU identifier; see nesdev for more info; this only affects first 5 bits.
+//		  - Sprite overflow and Sprite 0 hit flags.
 //     - OAMADDR
 //     - OAMDATA
 //     - PPUSCROLL
@@ -61,7 +77,8 @@ public:
 
 	// NOTE: Might move these into PPURegisters.
 	// Using the address and data given, writes to and performs some operations relating to a given PPU register.
-	void writeToRegister(uint16_t address, uint8_t data);
+	// Returns the old value of the byte written to; for values w/ >8 bits, the portion written to is returned.
+	uint8_t writeToRegister(uint16_t address, uint8_t data);
 	// Using the address given, reads from and performs some operations relating to a given PPU register.
 	uint8_t readRegister(uint16_t address);
 
@@ -70,11 +87,26 @@ public:
 
 	// Debug Methods
 	
-	// Displays the nametable from VRAM using the given table id; displays nothing upon
+	// Displays the nametable and its attribute table from VRAM using the given table id; displays nothing upon
 	// invalid input.
 	void displayNametable(int table = 0);
 
-private:
+//private:
+
+	// reachedVblank returns whether the PPU is at dot 1 (0BI) of line 241 (this is when vblank starts).
+	bool reachedVblank() const;
+
+	// reached Prerender returns whether the PPU is at dot 1 (0BI) of the pre-render line.
+	bool reachedPrerender() const;
+
+	void updatePPUSTATUS();
+
+	// Gets the scanline the PPU is on; NOTE: might make this protected or even public.
+	int getLineOn() const;
+
+	// Gets the dot the PPU is on; NOTE: this is subject to change in the future; the current method of finding the dot is not based on the wiki.
+	int getDotOn() const;
+
 	/*
 	VERY IMPORTANT NOTE FOR INES FILES!!!
 	 
@@ -84,7 +116,7 @@ private:
 	initialized by the program itself, because it's all RAM.
 	*/
 	
-	int cycleCount;
+	int cycleCount;  // NOTE: there might be issues with overflow; look into this risk more.
 
 	// VRAM (NOTE: for now) should contain 2kb (or 0x800 bytes) which span 0x1000 addresses.
 	// CHRDATA is mapped to some rom or ram data.

@@ -294,7 +294,10 @@ struct ExecutedInstruction {
 	unsigned int numOfActionsInvolved;
 	Registers oldRegisters;
 
-	ExecutedInstruction() {};
+	ExecutedInstruction() : instructionName("NO INSTRT"), opcodeExecuted(0), instructionExecuted(nullptr), executedIndex(-1), numOfOperands(0), numOfCycles(-1), lastCycleCount(-1), numOfActionsInvolved(0), oldRegisters(Registers()) {
+		this->operands[0] = 0;
+		this->operands[0] = 0;
+	};
 	ExecutedInstruction(uint8_t opcode, Instruction* instruction, unsigned int numActions, Registers registers, uint8_t operands[2], unsigned int idx, int lastCycleCount) :
 		opcodeExecuted(opcode),
 		instructionExecuted(instruction),
@@ -349,6 +352,17 @@ struct ExecutedInstruction {
 	
 };
 
+// Describes what happened in a given cycle.
+struct CycleAction {
+	bool instructionExecuted;  // Whether an instruction was executed this cycle.
+	ExecutedInstruction* executedInstruction;  // Pointer to the info regarding the instruction executed this cycle (if one was executed this cycle).
+
+	CycleAction() : instructionExecuted(false), executedInstruction(nullptr) {}
+	CycleAction(bool instructionExecuted, ExecutedInstruction* executedInstruction) : instructionExecuted(instructionExecuted), executedInstruction(executedInstruction) {}
+
+	~CycleAction() {}
+
+};
 
 // TODO: Give this a better name.
 class CPUDebugger : public _6502_CPU {
@@ -357,15 +371,23 @@ public:
 	CPUDebugger(DebugDatabus* databus);
 	~CPUDebugger();
 
+	// Gets value of recordActions.
+	bool getRecordActions();
+
+	// Sets recordActions; returns its old value.
+	bool setRecordActions(bool recordActions);
+
 	// Note: Currently one cycle = one instruction, but in reality it is different and depends on the specific instruction.
-	bool executeCycle() override;
+	CPUCycleOutcomes executeCycle() override;
 
 	bool pcAt(uint16_t address);  // Tells you when the PC has reached a certain value; useful for breakpoints.
 
 	void attach(DebugDatabus* databus);
 
-	// Undos an instruction in the stack.
-	bool undoInstruction();
+	CPUCycleOutcomes undoCPUCycle();
+
+	//bool undoCyclesUntilInstruction();  // Undos CPU cycles until 
+
 	// Returns the last executed instruction
 	ExecutedInstruction getLastExecutedInstruction();
 	
@@ -375,8 +397,12 @@ public:
 
 	// Gets a fill list, in order, of the executed instructions this CPU has performed.
 	// You almost never want a full dump.
+	std::vector<CycleAction> getCycleActions();
+	std::vector<CycleAction> getCycleActions(unsigned int lastN);
+
 	std::vector<ExecutedInstruction> getExecutedInstructions();
 	std::vector<ExecutedInstruction> getExecutedInstructions(unsigned int lastN);
+
 	void clearExecutedInstructions();
 
 public:
@@ -401,13 +427,23 @@ public:
 	// Outputs all the values in the stack.
 	std::array<uint8_t, 0x100> dumpStack();
 private:
+
+	// Undos an instruction in the stack.
+	bool undoInstruction(ExecutedInstruction instruction);
+
+	bool undoIRQ();
+
+	bool undoNMI();
+
+	bool recordActions;  // Whether to record actions; also decides whether to record executed instructions, though that vector should be deprecated.
+
 	DebugDatabus* databus;
 	
-	// NOTE: Might change from a stack to a vector, just because other debugger functions may find that structure more useful.
-	// Stack containing the instructions executed in order.
+	// Stack containing the cycle actions executed in order.
+	std::vector<CycleAction> cycleActions;
+
+	// NOTE: This is a legacy variable to be depricated. It is here to allow functions which expect a stack of executed instructions to still work.
 	std::vector<ExecutedInstruction> executedInstructions;
+
 };
 
-
-// A collection of code which performs a simple test of the above; put inside this function for cleanliness.
-void CPUDebuggerTest();

@@ -47,11 +47,12 @@ uint8_t NESDatabus::write(uint16_t address, uint8_t value) {
 		return DataBus::write(address, value);
 		break;
 	case(AddressingSpace::PPU_REGISTERS):
-		this->ppu->writeToRegister(address, value);
-		return 0;  // TODO: A lot of debugging code utilizes a return from a write; I will need to introduce the PPU to these debuggings tools.
+		return this->ppu->writeToRegister(address, value);
+		// TODO: A lot of debugging code utilizes a return from a write; I will need to introduce the PPU to these debuggings tools.
 		break;
 	default:
 		std::cout << "nesDatabus.cpp, NESDatabus::write; Failed to resolve AddressingSpace." << std::endl;
+		return 0;
 		break;
 	}
 	
