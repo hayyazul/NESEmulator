@@ -51,15 +51,17 @@ int main() {
 	}*/
 
 	SDL_Init(SDL_INIT_EVERYTHING);
-	Graphics graphics;
+	Graphics graphics{10, 20};
 
-	SDL_Window* window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1600, 900, 0);
+	SDL_Window* window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 450, SDL_WINDOW_RESIZABLE);
 	SDL_Surface* windowSurface = SDL_GetWindowSurface(window);
 
 	graphics.lockDisplay();
-	for (int row = 0; row < PICTURE_REGION_HEIGHT; ++row) {
-		for (int col = 0; col < PICTURE_REGION_WIDTH; ++col) {
-			graphics.drawPixel(100, 0, 100);
+	for (int row = 0; row < graphics.h * (3.0 / 4.0); ++row) {
+		for (int col = 0; col < graphics.w * (3.0 / 4.0); ++col) {
+			graphics.drawPixel((137 * (row * 25 + col) + 26) % 256, 
+							   (137 * (row * 25 + col) + 52) % 256, 
+							   (137 * (row * 25 + col) + 78) % 256, col, row);
 		}
 	}
 	graphics.unlockDisplay();
@@ -74,6 +76,12 @@ int main() {
 			case(SDL_QUIT):
 				quit = true;
 				break;
+			case(SDL_WINDOWEVENT):
+				if (event.window.event == SDL_WINDOWEVENT_RESIZED) {  // Resizing a window invalidates its surface, so we get the surface again.
+					SDL_DestroyWindowSurface(window);
+					windowSurface = SDL_GetWindowSurface(window);
+				}
+				break;
 			default:
 				break;
 			}
@@ -81,13 +89,8 @@ int main() {
 
 		graphics.blitDisplay(windowSurface);
 		SDL_UpdateWindowSurface(window);
-		for (int row = 0; row < PICTURE_REGION_HEIGHT; ++row) {
-			for (int col = 0; col < PICTURE_REGION_WIDTH; ++col) {
-				graphics.drawPixel(a, 0, 100);
-			}
-		}
 
-		SDL_Delay(200);
+		SDL_Delay(1.0 / 60.0);
 	}
 
 	SDL_Quit();

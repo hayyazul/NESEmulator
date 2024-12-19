@@ -61,7 +61,7 @@ uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 		this->registers.PPUADDR &= w * 0x3f00 | !w * 0xff;  // Clear first (upper) 6 bits or last (lower) 8 bits, depending on the value of w.
 		
 		this->registers.PPUADDR += static_cast<uint16_t>(data) << (!w * 8);  // NOTE: I think I shouldn't make it add; rather, set the appropriate bits or set those bits to 0 before adding.
-		this->registers.PPUADDR &= 0x3fff;  // Clear the last 2 bits because PPUADDR is 14 bits, not 16. 
+		this->registers.PPUADDR &= 0x7fff;  // Clear the 16th bit because PPUADDR is 15 bits, not 16. (though the last bit is unused for addressing)
 
 		w = !w;  // NOTE: This changes 'w' from first to second byte write; I don't know if writes to 0x2006 should change second to first byte write too. For now it does.
 		break;
