@@ -9,6 +9,7 @@
 
 #include "debuggingTools/NESDebug.h"
 #include "debuggingTools/PPUDebug.h"
+#include "debuggingTools/debugDisplays/nametableWatch.h"
 #include "ppu/ppu.h"
 
 #include "graphics/graphics.h"
@@ -51,11 +52,11 @@ int main() {
 
 //	std::cout << "PPU Cycle Count: " << ppu.cycleCount << std::endl;
 	
-	for (int i = 0; i < 4; ++i) {
-		std::cout << "Nametable " << i << ": " << std::endl << std::endl;
-		ppu.displayNametable(i);
-		std::cout << std::endl << " --- " << std::endl;
-	}
+	//for (int i = 0; i < 4; ++i) {
+	//	std::cout << "Nametable " << i << ": " << std::endl << std::endl;
+//		ppu.displayNametable(i);
+		//std::cout << std::endl << " --- " << std::endl;
+	//}
 	
 	std::array<uint8_t, TABLE_SIZE_IN_BYTES> nametableData = ppu.getNametable(0);
 
@@ -70,18 +71,7 @@ int main() {
 	const unsigned int displayScale = 5;
 	unsigned int x = 10;
 	unsigned int y = 10;
-	uint32_t rgba;
-	for (uint16_t i = 0; i < TABLE_HEIGHT * TABLE_WIDTH; ++i) {
-		if (i % TABLE_WIDTH == 0) {
-			++y;
-			x = 10;
-		}
-		rgba = nametableData.at(i);
-		rgba = rgba == 0x24 ? 0xff101010 : 0xffffffff;
-		
-		graphics.drawSquare(rgba, x * displayScale, y * displayScale, displayScale);
-		++x;
-	}
+	displayNametable(graphics, ppu, 0, x, y);
 	graphics.unlockDisplay();
 
 	bool quit = false;
