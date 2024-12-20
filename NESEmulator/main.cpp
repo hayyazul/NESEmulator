@@ -52,13 +52,14 @@ int main() {
 	}*/
 
 	SDL_Init(SDL_INIT_EVERYTHING);
-	Graphics graphics{480, 270};
+	Graphics graphics{800, 450};
 
 	SDL_Window* window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 450, SDL_WINDOW_RESIZABLE);
 	SDL_Surface* windowSurface = SDL_GetWindowSurface(window);
 
 	graphics.lockDisplay();
-	renderText(graphics, "abcdefghijklmnopqrstuvwxyz", 4, 4, 2);
+	renderText(graphics, "THEQUICKBROWNFOXJUMPEDOVERTHELAZYDOG", 4, 28, 2);
+	renderText(graphics, "0123456789 !,.-", 4, 44, 3);
 	graphics.unlockDisplay();
 
 	bool quit = false;
