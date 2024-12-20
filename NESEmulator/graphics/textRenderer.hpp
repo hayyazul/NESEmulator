@@ -1,7 +1,7 @@
 #pragma once
 
 // Renders text on a given Graphics object.
-// TOOO
+// TOOO - Make a way to clear text, or make it easy to 
 
 #include "graphics/graphics.h"
 
@@ -418,7 +418,7 @@ namespace LetterRendering {
                 yPx = y + j * scale;
 
                 if (letterData.at(pxIdx)) {  // If there is a pixel there, draw it.
-                    graphics.drawPixel(r, g, b, xPx, yPx, scale);
+                    graphics.drawSquare(r, g, b, xPx, yPx, scale);
                 }
             }
         }

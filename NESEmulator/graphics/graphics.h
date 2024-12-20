@@ -25,9 +25,14 @@ public:
 	// Copies the visual display to the window and updates it. NOTE: Might rename the function to make the updating-the-screen part more clear.
 	void blitDisplay(SDL_Surface* windowSurface);
 
+	// Clears the display surface by replacing it with a default color value (which can be specified).
+	void clear(uint8_t r = 0, uint8_t g = 0, uint8_t b = 0);
+
 	// NOTE: Might replace r, g, b input w/ a single 32-bit ARGB value to prevent constant conversions to it.
-	// Draws a pixel with the given color at the specified location and scale; coordinates will not be scaled.
-	void drawPixel(uint8_t r, uint8_t g, uint8_t b, unsigned int x, unsigned int y, unsigned int scale);
+	// Draws a rect with the given color at the specified location and scale; coordinates will not be scaled.
+	void drawRect(uint8_t r, uint8_t g, uint8_t b, unsigned int x, unsigned int y, unsigned int scaleX, unsigned int scaleY);
+	void drawSquare(uint8_t r, uint8_t g, uint8_t b, unsigned int x, unsigned int y, unsigned int scale);
+
 	// Draws a pixel with the given color at the specified location; does not update the current location, will apply module to out of bounds inputs to make it within bounds.
 	void drawPixel(uint8_t r, uint8_t g, uint8_t b, unsigned int x, unsigned int y);
 	// Draws a pixel with the given color values and at the current location (of the "scanning beam"), then advances the location.
