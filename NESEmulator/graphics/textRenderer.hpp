@@ -401,7 +401,7 @@ namespace LetterRendering {
         {'-', DASH}
     };
 
-    void renderLetter(Graphics& graphics, char c, unsigned int x, unsigned int y, unsigned int scale = 1, uint8_t r = 255, uint8_t g = 255, uint8_t b = 255) {
+    void renderLetter(Graphics& graphics, char c, unsigned int x, unsigned int y, unsigned int scale = 1, uint32_t rgb = 0xffffffff) {
         // First get the letter data.
         c = isalpha(c) ? toupper(c) : c;
         
@@ -411,6 +411,13 @@ namespace LetterRendering {
         // Then we render the letter.
         int pxIdx;  // Index into LetterData.
         int xPx, yPx;  // Coordinates of where to draw a pixel of a given letter.
+
+        // Before rendering, check if we will stay within bounds.
+        bool withinBounds = (x + letterW * scale < graphics.w) && (y + letterH * scale < graphics.h);
+        if (!withinBounds) {  // If we aren't, don't render the letter.
+            return;
+        }
+
         for (unsigned int i = 0; i < letterH; ++i) {
             for (unsigned int j = 0; j < letterW; ++j) {
                 pxIdx = j * letterW + i;  // This translates the xy coordinates (i, j) into an index into the LetterData.
@@ -418,7 +425,7 @@ namespace LetterRendering {
                 yPx = y + j * scale;
 
                 if (letterData.at(pxIdx)) {  // If there is a pixel there, draw it.
-                    graphics.drawSquare(r, g, b, xPx, yPx, scale);
+                    graphics.drawSquare(rgb, xPx, yPx, scale);
                 }
             }
         }
@@ -429,10 +436,10 @@ namespace LetterRendering {
 /* Renders a line of text in a simple small font at the specified scale.Emphasis on line; this function does not go onto new lines.
 Supported characters: ABCDEFGHIJKLMNOPQRSTUVWXYZ!, .-
 */
-void renderText(Graphics& graphics, std::string txt, unsigned int x, unsigned int y, unsigned int scale = 1, uint8_t r = 255, uint8_t g = 255, uint8_t b = 255) {
+void renderText(Graphics& graphics, std::string txt, unsigned int x, unsigned int y, unsigned int scale = 1, uint32_t rgb = 0xfffffffff) {
     char c;
     for (unsigned int i = 0; i < txt.size(); ++i) {
         c = txt.at(i);
-        LetterRendering::renderLetter(graphics, c, x + (i * LetterRendering::letterW * scale), y, scale, r, g, b);
+        LetterRendering::renderLetter(graphics, c, x + (i * LetterRendering::letterW * scale), y, scale, rgb);
     }
 };

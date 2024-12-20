@@ -104,7 +104,6 @@ int main() {
 		SDL_LockTexture(displayTexture, nullptr, &pixels, &pitch);
 
 		memcpy(pixels, displaySurface->pixels, displaySurface->pitch * displaySurface->h);
-
 		SDL_UnlockTexture(displayTexture);
 
 		SDL_RenderCopy(renderer, displayTexture, nullptr, nullptr);

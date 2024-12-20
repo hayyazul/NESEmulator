@@ -25,30 +25,30 @@ public:
 	// Copies the visual display to the window and updates it. NOTE: Might rename the function to make the updating-the-screen part more clear.
 	void blitDisplay(SDL_Surface* windowSurface);
 
+	// TEST
+	SDL_Surface* getDisplaySurface();
+
+	uint32_t getRGB(uint8_t r, uint8_t g, uint8_t b);
+
 	// Clears the display surface by replacing it with a default color value (which can be specified).
-	void clear(uint8_t r = 0, uint8_t g = 0, uint8_t b = 0);
+	void clear(uint32_t rgb = 0xff000000);
 
-	// NOTE: Might replace r, g, b input w/ a single 32-bit ARGB value to prevent constant conversions to it.
 	// Draws a rect with the given color at the specified location and scale; coordinates will not be scaled.
-	void drawRect(uint8_t r, uint8_t g, uint8_t b, unsigned int x, unsigned int y, unsigned int scaleX, unsigned int scaleY);
-	void drawSquare(uint8_t r, uint8_t g, uint8_t b, unsigned int x, unsigned int y, unsigned int scale);
+	void drawRect(uint32_t rgb, unsigned int x, unsigned int y, unsigned int scaleX, unsigned int scaleY);
+	void drawSquare(uint32_t, unsigned int x, unsigned int y, unsigned int scale);
 
-	// Draws a pixel with the given color at the specified location; does not update the current location, will apply module to out of bounds inputs to make it within bounds.
-	void drawPixel(uint8_t r, uint8_t g, uint8_t b, unsigned int x, unsigned int y);
+	// Draws a pixel with the given color at the specified location; does not update the current location. Performs no bounds checking; be weary where you draw.
+	void drawPixel(uint32_t rgb, unsigned int x, unsigned int y);
 	// Draws a pixel with the given color values and at the current location (of the "scanning beam"), then advances the location.
-	void drawPixel(uint8_t r, uint8_t g, uint8_t b);  // NOTE: The NES does not output RGB, so this function may change.
+	void drawPixel(uint32_t rgb);  // NOTE: The NES does not output RGB, so this function may change.
 
 	int getPxIdx() const;  // Gets the current value of pxIdx, which is the location of the "scanning beam".
 
-	void setPxIdx(int newPxIdx);  // Sets the value of pxIdx, which is the location of the "scanning beam". Applies a modulo to ensure it is within the display range.
+	void setPxIdx(int newPxIdx);  // Sets the value of pxIdx, which is the location of the "scanning beam". If out of bounds, defaults to maximum allowed value.
 
-	const int w, h;  // Width and height of the surface; immutable.
+	const int w, h, totalPx;  // Width, height, and total pixels of the surface; immutable.
 
 private:
-
-	int convertXYToIdx(unsigned int x, unsigned int y) const;  // Converts (x, y) coordinates (0-based indexing) to an int to index the pixels array. Applies modulo to ensure the return value is within bounds.
-
-	uint32_t getRGBValue(uint8_t r, uint8_t g, uint8_t b);  // Gets the single 32 bit value from a given trio of R, G, and B values.
 
 	bool isBoundsValid(SDL_Rect displayBounds) const;  // Checks if a given displayBounds is sound (the rect does not go out of bounds of the display surface dimensions).
 
