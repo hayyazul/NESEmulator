@@ -40,6 +40,15 @@ void Graphics::blitDisplay(SDL_Surface* windowSurface) {
 	SDL_BlitScaled(this->display, &this->displayBounds, windowSurface, nullptr);
 }
 
+void Graphics::drawPixel(uint8_t r, uint8_t g, uint8_t b, unsigned int x, unsigned int y, unsigned int scale) {
+	// This draws a square w/ its top-left corner at the given coordinates w/ side length (in pixels) equal to the scale.
+	for (unsigned int i = 0; i < scale; ++i) {
+		for (unsigned int j = 0; j < scale; ++j) {
+			this->drawPixel(r, g, b, x + i, y + j);
+		}
+	}
+}
+
 void Graphics::drawPixel(uint8_t r, uint8_t g, uint8_t b, unsigned int x, unsigned int y) {
 	uint32_t color = this->getRGBValue(r, g, b);
 	int idx = this->convertXYToIdx(x, y);

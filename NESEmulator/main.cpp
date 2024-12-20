@@ -11,6 +11,7 @@
 #include "ppu/ppu.h"
 
 #include "graphics/graphics.h"
+#include "graphics/textRenderer.hpp"
 
 #include <SDL.h>
 
@@ -51,19 +52,13 @@ int main() {
 	}*/
 
 	SDL_Init(SDL_INIT_EVERYTHING);
-	Graphics graphics{10, 20};
+	Graphics graphics{480, 270};
 
 	SDL_Window* window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 450, SDL_WINDOW_RESIZABLE);
 	SDL_Surface* windowSurface = SDL_GetWindowSurface(window);
 
 	graphics.lockDisplay();
-	for (int row = 0; row < graphics.h * (3.0 / 4.0); ++row) {
-		for (int col = 0; col < graphics.w * (3.0 / 4.0); ++col) {
-			graphics.drawPixel((137 * (row * 25 + col) + 26) % 256, 
-							   (137 * (row * 25 + col) + 52) % 256, 
-							   (137 * (row * 25 + col) + 78) % 256, col, row);
-		}
-	}
+	renderText(graphics, "abcdefghijklmnopqrstuvwxyz", 4, 4, 2);
 	graphics.unlockDisplay();
 
 	bool quit = false;
