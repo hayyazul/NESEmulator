@@ -8,6 +8,9 @@ constexpr SDL_Rect DISPLAY_BOUNDS{16, 0, 256, 240};
 
 /* A class to display a mutable surface; the PPU will write to this surface(or use some intermediary) and this class will display it to the user.
  This does NOT emulate NTSC video.
+
+ NOTE: This implementation is very poor at streaming data; this is fine for now as it will just do debug views, but I want to change this when integrating everything together.
+
 */
 class Graphics {
 public:
@@ -25,10 +28,10 @@ public:
 	// Copies the visual display to the window and updates it. NOTE: Might rename the function to make the updating-the-screen part more clear.
 	void blitDisplay(SDL_Surface* windowSurface);
 
-	// TEST
-	SDL_Surface* getDisplaySurface();
+	// Returns the display format of the display surface.
+	const SDL_PixelFormat* getDisplayFormat() const;
 
-	uint32_t getRGB(uint8_t r, uint8_t g, uint8_t b);
+	uint32_t getRGB(uint8_t r, uint8_t g, uint8_t b) const;
 
 	// Clears the display surface by replacing it with a default color value (which can be specified).
 	void clear(uint32_t rgb = 0xff000000);

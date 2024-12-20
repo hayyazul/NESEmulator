@@ -84,13 +84,7 @@ public:
 	// When the PPU wants to request an NMI, this function returns true.
 	bool requestingNMI() const;
 
-	// Debug Methods
-	
-	// Displays the nametable and its attribute table from VRAM using the given table id; displays nothing upon
-	// invalid input.
-	void displayNametable(int table = 0);
-
-//private:
+protected:
 
 	// reachedVblank returns whether the PPU is at dot 1 (0BI) of line 241 (this is when vblank starts).
 	bool reachedVblank() const;
@@ -133,6 +127,8 @@ public:
 	uint8_t PPUDATABuffer;  // A buffer to hold the value at the last VRAM address; used in conjunction w/ reads on PPUDATA.
 
 	/*
+	TODO: Make the nametables memory mappings.
+	
 	$0000-1FFF is normally mapped by the cartridge to a CHR-ROM or CHR-RAM, often with a bank switching mechanism.
 	$2000-2FFF is normally mapped to the 2kB NES internal VRAM, providing 2 nametables with a mirroring configuration controlled by the cartridge, but it can be partly or fully remapped to ROM or RAM on the cartridge, allowing up to 4 simultaneous nametables.
 	$3000-3EFF is usually a mirror of the 2kB region from $2000-2EFF. The PPU does not render from this address range, so this space has negligible utility.

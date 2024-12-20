@@ -122,31 +122,7 @@ bool PPU::requestingNMI() const {
 	return a;
 }
 
-void PPU::displayNametable(int table) {
-	if (table < 0 || table > 3) {
-		return;
-	}
 
-	const int TABLE_WIDTH = 32;  // In tiles.
-	const int TABLE_HEIGHT = 30;  // In tiles.
-	const uint16_t TABLE_SIZE_IN_BYTES = 0x400;
-
-	uint16_t startAddr = TABLE_SIZE_IN_BYTES * table;
-
-	for (uint16_t i = startAddr; i < startAddr + TABLE_WIDTH * TABLE_HEIGHT; ++i) {
-		if (i % TABLE_WIDTH == 0) {
-			std::cout << std::endl;
-		}
-		std::cout << std::hex << std::setfill('0') << std::setw(2) << (int)this->VRAM->getByte(i) << ' ';
-	}
-	std::cout << std::endl << "--- Attribute Table ---" << std::endl;
-	for (uint16_t i = startAddr + TABLE_WIDTH * TABLE_HEIGHT; i < startAddr + TABLE_SIZE_IN_BYTES; ++i) {
-		if (i % 8 == 0) {
-			std::cout << std::endl;
-		}
-		std::cout << std::hex << std::setfill('0') << std::setw(2) << (int)this->VRAM->getByte(i) << ' ';
-	}
-}
 
 bool PPU::reachedVblank() const {
 	// We reach Vblank when we are on dot 1 of the VBlank line.

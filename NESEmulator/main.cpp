@@ -8,6 +8,7 @@
 #include "debuggingTools/suites/basicDebugSuite.hpp"
 
 #include "debuggingTools/NESDebug.h"
+#include "debuggingTools/PPUDebug.h"
 #include "ppu/ppu.h"
 
 #include "graphics/graphics.h"
@@ -15,11 +16,16 @@
 
 #include <SDL.h>
 
+
+uint32_t rgbaToUint32(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+	return (a << 24) | (r << 16) | (g << 8) | b;
+};
+
 #undef main  // Deals w/ the definition of main in SDL.
 int main() { 
-	/*
+	
 	Memory VRAM{ 0x800 };
-	PPU ppu;
+	PPUDebug ppu;
 
 	NESDatabus databus;
 	RAM ram;
@@ -43,28 +49,44 @@ int main() {
 		}
 	}
 
-	std::cout << "PPU Cycle Count: " << ppu.cycleCount << std::endl;
+//	std::cout << "PPU Cycle Count: " << ppu.cycleCount << std::endl;
 	
 	for (int i = 0; i < 4; ++i) {
 		std::cout << "Nametable " << i << ": " << std::endl << std::endl;
 		ppu.displayNametable(i);
 		std::cout << std::endl << " --- " << std::endl;
-	}*/
+	}
+	
+	std::array<uint8_t, TABLE_SIZE_IN_BYTES> nametableData = ppu.getNametable(0);
 
 	SDL_Init(SDL_INIT_EVERYTHING);
-	Graphics graphics{800, 450};
+	Graphics graphics{450, 225};
 
 	SDL_Window* window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 450, SDL_WINDOW_RESIZABLE);
+	SDL_Renderer* renderer = SDL_CreateRenderer(window, 0, 0);
 	SDL_Surface* windowSurface = SDL_GetWindowSurface(window);
 
 	graphics.lockDisplay();
-	renderText(graphics, "THEQUICKBROWNFOXJUMPEDOVERTHELAZYDOG", 4, 28, 2);
-	renderText(graphics, "0123456789 !,.-", 4, 44, 3);
+	const unsigned int displayScale = 5;
+	unsigned int x = 10;
+	unsigned int y = 10;
+	uint32_t rgba;
+	for (uint16_t i = 0; i < TABLE_HEIGHT * TABLE_WIDTH; ++i) {
+		if (i % TABLE_WIDTH == 0) {
+			++y;
+			x = 10;
+		}
+		rgba = nametableData.at(i);
+		rgba = rgba == 0x24 ? 0xff101010 : 0xffffffff;
+		
+		graphics.drawSquare(rgba, x * displayScale, y * displayScale, displayScale);
+		++x;
+	}
 	graphics.unlockDisplay();
 
 	bool quit = false;
 
-	int a = 100;
+	uint8_t a = 0, oldA = 0;
 	SDL_Event event;
 	while (!quit) {
 		while (SDL_PollEvent(&event)) {
@@ -86,11 +108,17 @@ int main() {
 		graphics.blitDisplay(windowSurface);
 		SDL_UpdateWindowSurface(window);
 
-		SDL_Delay(1.0 / 60.0);
+		//graphics.lockDisplay();
+		//graphics.clear();
+		//renderText(graphics, "THEQUICKBROWNFOXJUMPEDOVERTHELAZYDOG", 4 + a, 28, 2);
+		//renderText(graphics, "0123456789 !,.-", 4, 44 + a, 3);
+		//graphics.unlockDisplay();
+
+		SDL_Delay(1.0 / 30.0);
 	}
 
 	SDL_Quit();
-
+	//*/
 
 	return 0;
 }

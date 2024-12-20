@@ -82,12 +82,11 @@ void Graphics::setPxIdx(int newPxIdx) {
 
 // Private methods
 
-
-SDL_Surface* Graphics::getDisplaySurface() {
-	return this->display;
+const SDL_PixelFormat* Graphics::getDisplayFormat() const {
+	return this->display->format;
 }
 
-uint32_t Graphics::getRGB(uint8_t r, uint8_t g, uint8_t b) {
+uint32_t Graphics::getRGB(uint8_t r, uint8_t g, uint8_t b) const {
 	return SDL_MapRGB(this->display->format, r, g, b);;
 }
 
