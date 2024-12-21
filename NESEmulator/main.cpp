@@ -49,6 +49,7 @@ int main() {
 		
 	
 	PatternTableDisplayer PTDisplayer;
+	NametableDisplayer NTDisplayer;
 	
 	SDL_Init(SDL_INIT_EVERYTHING);
 	Graphics graphics{600, 338};
@@ -58,7 +59,13 @@ int main() {
 	SDL_Surface* windowSurface = SDL_GetWindowSurface(window);
 
 	graphics.lockDisplay();
-	PTDisplayer.displayPatternTable(graphics, ppu, 1, 10, 10, 2);
+	// Width in px 
+	// (which is equal to the height in px due to this being a square)
+	// = width (in patterns) * width (of a pattern) * scale
+	// = 16 * 8 * scale = 128 * scale
+	PTDisplayer.displayPatternTable(graphics, ppu, 1, 10, 10, 1);
+	NTDisplayer.displayNametable(graphics, ppu, 0, 154, 10, 1, 1);
+
 	graphics.unlockDisplay();
 
 	bool quit = false;

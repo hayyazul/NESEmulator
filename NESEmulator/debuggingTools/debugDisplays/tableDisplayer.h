@@ -9,32 +9,33 @@
 // TODO: add a 1px border around a nametable and pattern display.
 // NOTE: I might just make these functions as I don't see how them being objects helps.
 
-class NametableDisplayer {
-public:
-	NametableDisplayer();
-	~NametableDisplayer();
-
-	void displayNametable(Graphics& graphics, PPUDebug& ppu, unsigned int table = 0, unsigned int x = 0, unsigned int y = 0, unsigned int scale = 1);
-
-private:
-
-	// Displays a tile based on the pattern table.
-	void displayTile(Graphics& graphics, PPUDebug& ppu, uint8_t tileId, unsigned int x, unsigned int y, unsigned int scale);
-
-};
-
 class PatternTableDisplayer {
 public:
 	PatternTableDisplayer();
 	~PatternTableDisplayer();
 
 	// Displays a pseudocolor pattern table.
-	void displayPatternTable(Graphics& graphics, PPUDebug& ppu, unsigned int table = 0, unsigned int x = 0, unsigned int y = 0, unsigned int scale = 1);
+	void displayPatternTable(Graphics& graphics, PPUDebug& ppu, bool table = false, unsigned int x = 0, unsigned int y = 0, unsigned int scale = 1);
 
 	// Displays a single pattern, either when given an array of bytes defining a pattern, or a reference to a debug PPU and a pattern ID.
 	void displayPattern(Graphics& graphics, std::array<uint8_t, PATTERN_SIZE_IN_BYTES> pattern, unsigned int x, unsigned int y, unsigned int scale);
 	void displayPattern(Graphics& graphics, PPUDebug& ppu, uint8_t patternId, bool table, unsigned int x, unsigned int y, unsigned int scale);
 
 private:
+
+};
+
+class NametableDisplayer {
+public:
+	NametableDisplayer();
+	~NametableDisplayer();
+
+	void displayNametable(Graphics& graphics, PPUDebug& ppu, unsigned int table = 0, unsigned int x = 0, unsigned int y = 0, unsigned int scale = 1, bool patternTable = false);
+
+private:
+
+	PatternTableDisplayer PTDisplayer;
+
+	// Displays a tile based on the pattern table.
 
 };

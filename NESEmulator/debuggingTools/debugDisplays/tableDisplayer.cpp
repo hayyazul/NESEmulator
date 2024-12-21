@@ -4,44 +4,31 @@
 #include <map>
 #include "../../globals/helpers.hpp"
 
-NametableDisplayer::NametableDisplayer()
-{
-}
+NametableDisplayer::NametableDisplayer() {}
 
-NametableDisplayer::~NametableDisplayer()
-{
-}
+NametableDisplayer::~NametableDisplayer() {}
 
-void NametableDisplayer::displayNametable(Graphics& graphics, PPUDebug& ppu, unsigned int table, unsigned int x, unsigned int y, unsigned int scale) {
+void NametableDisplayer::displayNametable(Graphics& graphics, PPUDebug& ppu, unsigned int table, unsigned int x, unsigned int y, unsigned int scale, bool patternTable) {
     std::array<uint8_t, TABLE_SIZE_IN_BYTES> nametable = ppu.getNametable(table);  // First get nametable data
 
+    const int patternWidth = 8, patternHeight = 8;  // In px
+
     // Then draw the name table, looping over the data.
-    for (uint16_t i = x; i < x + TABLE_WIDTH; ++i) {
-        for (uint16_t j = y; j < y + TABLE_HEIGHT; ++j) {
-            int nametableIdx = i - x + (j - y) * TABLE_WIDTH;
-            this->displayTile(graphics, ppu, nametable.at(nametableIdx), i, j, scale);
+    for (uint16_t i = 0; i < TABLE_HEIGHT; ++i) {
+        for (uint16_t j = 0; j < TABLE_WIDTH; ++j) {
+            int nametableIdx = j + i * TABLE_WIDTH;
+            PTDisplayer.displayPattern(graphics, ppu, nametable.at(nametableIdx), patternTable, x + (j * patternWidth * scale), y + (i * patternHeight * scale), scale);
         }
     }
 
 }
 
-void NametableDisplayer::displayTile(Graphics& graphics, PPUDebug& ppu, uint8_t tileId, unsigned int x, unsigned int y, unsigned int scale) {
-    /* Display rules :
-    00 - Transparent (black)
-    01 - Red
-    10 - Blue
-    11 - White
-    */
-    const uint32_t BLACK = 0xff000000, RED = 0xffff0000, BLUE = 0xff0000ff, WHITE = 0xffffffff;
-
-
-}
 
 PatternTableDisplayer::PatternTableDisplayer() {}
 
 PatternTableDisplayer::~PatternTableDisplayer() {}
 
-void PatternTableDisplayer::displayPatternTable(Graphics& graphics, PPUDebug& ppu, unsigned int table, unsigned int x, unsigned int y, unsigned int scale) {
+void PatternTableDisplayer::displayPatternTable(Graphics& graphics, PPUDebug& ppu, bool table, unsigned int x, unsigned int y, unsigned int scale) {
     const int numOfPatterns = 0x100;
     const int rowSize = 16, colSize = numOfPatterns / rowSize;  // Note: If rowSize does not perfectly divide numOfPatterns, this function will fail to display the whole pattern table.
     const int patternW = 8, patternH = 8;  // These constants can not be modified; a pattern is invariably 8x8 pixels. They are defined for semantics.
