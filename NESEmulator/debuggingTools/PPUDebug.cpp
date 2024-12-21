@@ -47,22 +47,19 @@ std::array<uint8_t, TABLE_SIZE_IN_BYTES> PPUDebug::getNametable(int table) const
 	return nametableData;
 }
 
-void PPUDebug::displayPattern(bool patternTable, uint8_t pattern) const {
-	// First, get the address of the pattern.
-	uint16_t patternAddr = (uint16_t)patternTable << 12;
-	patternAddr += (uint16_t)pattern << 4;
-	// The address will be of the form 0tppn
-	// t = pattern table (0 or 1); pp = pattern id; n = 0-7: lower bits of pattern, 8-f upper bits of pattern.
+void PPUDebug::displayPattern(uint8_t patternId, bool patternTable) const {
+	// First, get the pattern.
+	std::array<uint8_t, PATTERN_SIZE_IN_BYTES> pattern = this->getPattern(patternId, patternTable);
 
 	unsigned int pixel;  // Can be 0, 1, 2, or 3.
 	uint8_t lowerBitPlane, upperBitPlane;
 	// Iterate through the 8 byte-pairs.
 	for (unsigned int i = 0; i < 8; ++i) {
-		lowerBitPlane = this->CHRDATA->getByte(i);
-		upperBitPlane = this->CHRDATA->getByte(i + 0x8);
+		lowerBitPlane = pattern.at(i);
+		upperBitPlane = pattern.at(i + 0x8);
 		// Then, iterate through the 8 bit-pairs in these.
-		for (unsigned int j = 0; j < 8; ++j) {
-			pixel = getBit(lowerBitPlane, i) + (getBit(upperBitPlane, i) << 1);
+		for (int j = 7; j >= 0; --j) {
+			pixel = getBit(lowerBitPlane, j) + (getBit(upperBitPlane, j) << 1);
 
 			// Lastly, display the pixel.
 			std::cout << std::dec << pixel << ' ';
@@ -71,4 +68,41 @@ void PPUDebug::displayPattern(bool patternTable, uint8_t pattern) const {
 		// Go to the next row after finishing the current one.
 		std::cout << std::endl;
 	}
+}
+
+std::array<uint8_t, PATTERN_TABLE_SIZE_IN_BYTES> PPUDebug::getPatternTable(bool table) const {
+	// First, get the address of the pattern table.
+	uint16_t patternTableAddr = (uint16_t)table << 12;
+	uint16_t patternAddr;
+	
+	std::array<uint8_t, PATTERN_TABLE_SIZE_IN_BYTES> patternTableData{};
+
+	unsigned int pixel;  // Can be 0, 1, 2, or 3.
+	uint8_t bitPlane;  // A row of 8 bits indicating the color of a pixel (can either be a low or high bit; two bit planes decide the color).
+	// Iterate through the 256 patterns.
+	for (unsigned int i = 0; i < 256; ++i) {
+		patternAddr = patternTableAddr + (i * PATTERN_SIZE_IN_BYTES);
+		for (unsigned int j = 0; j < 16; ++j) {
+			bitPlane = this->CHRDATA->getByte(patternAddr + j);
+			auto a = i * 16 + j;
+			patternTableData.at(i * 16 + j) = bitPlane;
+		}
+	}
+
+	return patternTableData;
+}
+
+std::array<uint8_t, PATTERN_SIZE_IN_BYTES> PPUDebug::getPattern(uint8_t patternId, bool table) const {
+	uint16_t patternTableAddr = (uint16_t)table << 12;
+	uint16_t patternAddr = patternTableAddr + (patternId * PATTERN_SIZE_IN_BYTES);
+	std::array<uint8_t, PATTERN_SIZE_IN_BYTES> pattern;
+
+	// Loop through the rows of the pattern at the given address.
+	uint8_t bitPlane;  // A row of 8 bits indicating the color of a pixel (can either be a low or high bit; two bit planes decide the color).
+	for (unsigned int i = 0; i < 16; ++i) {
+		bitPlane = this->CHRDATA->getByte(patternAddr + i);
+		pattern.at(i) = bitPlane;
+	}
+
+	return pattern;
 }

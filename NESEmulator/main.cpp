@@ -9,7 +9,7 @@
 
 #include "debuggingTools/NESDebug.h"
 #include "debuggingTools/PPUDebug.h"
-#include "debuggingTools/debugDisplays/nametableWatch.h"
+#include "debuggingTools/debugDisplays/tableDisplayer.h"
 #include "ppu/ppu.h"
 
 #include "graphics/graphics.h"
@@ -40,39 +40,25 @@ int main() {
 	nes.attachCartridgeMemory(&cartirdgeMemory);
 	nes.loadROM("testROMS/donkey kong.nes");
 	nes.powerOn();
-	for (int i = 0; i < 3'000'000; ++i) {
-		if (i == 600000) {
-			int a = 0;
-		}
+	for (int i = 0; i < 1'000'000; ++i) {
 		if (!nes.executeMachineCycle()) {
 			std::cout << "Illegal opcode encountered!" << std::endl;
 			break;
 		}
 	}
-
-	ppu.displayPattern(1, 0x12);
-
-//	for (int i = 0; i < 4; ++i) {
-		//std::cout << "Nametable " << i << ": " << std::endl << std::endl;
-	//	ppu.displayNametable(i);
-//		std::cout << std::endl << " --- " << std::endl;
-	//}
-
+		
 	
+	PatternTableDisplayer PTDisplayer;
 	
-	std::array<uint8_t, TABLE_SIZE_IN_BYTES> nametableData = ppu.getNametable(0);
-	/*
 	SDL_Init(SDL_INIT_EVERYTHING);
-	Graphics graphics{450, 225};
+	Graphics graphics{600, 338};
 
 	SDL_Window* window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 450, SDL_WINDOW_RESIZABLE);
 	SDL_Renderer* renderer = SDL_CreateRenderer(window, 0, 0);
 	SDL_Surface* windowSurface = SDL_GetWindowSurface(window);
 
 	graphics.lockDisplay();
-	const unsigned int displayScale = 5;
-	unsigned int x = 10;
-	unsigned int y = 10;
+	PTDisplayer.displayPatternTable(graphics, ppu, 1, 10, 10, 2);
 	graphics.unlockDisplay();
 
 	bool quit = false;
@@ -99,17 +85,11 @@ int main() {
 		graphics.blitDisplay(windowSurface);
 		SDL_UpdateWindowSurface(window);
 
-		//graphics.lockDisplay();
-		//graphics.clear();
-		//renderText(graphics, "THEQUICKBROWNFOXJUMPEDOVERTHELAZYDOG", 4 + a, 28, 2);
-		//renderText(graphics, "0123456789 !,.-", 4, 44 + a, 3);
-		//graphics.unlockDisplay();
-
 		SDL_Delay(1.0 / 30.0);
 	}
 
 	SDL_Quit();
-	*/
+	
 
 	return 0;
 }

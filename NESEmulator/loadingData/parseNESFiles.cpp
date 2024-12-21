@@ -55,7 +55,8 @@ Result parseiNESFile(const char* filename, NESFileData& gameData) {
 			}
 			else if (i < gameData.programDataSize + gameData.characterDataSize + HEADER_SIZE) {
 				gameData.characterData.push_back(data);
-				gameData.CHRDATA->setByte(data, i - CHRDATA_START_ADDR);
+				// NOTE: This only works for the NROM mapper; mappers with bigger CHR ROM or CHR RAM will go out of bounds; they will need to be handled by the mapper.
+				gameData.CHRDATA->setByte(i - CHRDATA_START_ADDR, data);
 			}
 		}
 
