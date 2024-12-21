@@ -53,7 +53,7 @@ protected:
 	// Cartridge ROM usually though not always starts at this address.
 	const uint16_t CART_ROM_START_ADDR = 0x8000;  // CART = Cartridge, ADDR = Address
 
-	// Initialized by NES; TODO: make it attach/deattachable.
+	// Initialized by NES; 
 	Memory* memory;  // Contains cartridge data, etc.
 	
 	_6502_CPU* CPU;

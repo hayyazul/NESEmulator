@@ -1,5 +1,7 @@
 // parseNESFiles.h - A set of functions to decode iNES files and put them in a formatted struct.
 #pragma once
+
+#include "../memory/memory.h"
 #include <stdint.h>
 #include <vector>
 #include <fstream>
@@ -34,8 +36,13 @@ struct NESFileData {
 
 	std::vector<uint8_t> programData;
 	std::vector<uint8_t> characterData;
+	Memory* CHRDATA;  // NOTE: I am putting the CHRDATA here because NES cartridges store their CHRDATA on the cartridge.
+	// I do not know if doing this code-wise is the best approach, but I am doing it for now to see how it goes.
+	// Alternatively, I coould create a pointer to CHRDATA in NESEmulator.
 
-	NESFileData() {};
+	NESFileData() : CHRDATA(nullptr) {
+		this->CHRDATA = new Memory(0x2000);  // TODO: Implement bank-switching for CHRDATA.
+	};
 	~NESFileData() {};
 
 	// Checks if the size of the program and character data correspond to the program and character size indicated in the header.

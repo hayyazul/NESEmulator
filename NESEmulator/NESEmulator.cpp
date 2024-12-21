@@ -137,4 +137,7 @@ void NES::loadData(NESFileData file) {
 		//}
 		++j;
 	}
+
+	// Attaching CHRDATA to the PPU.
+	ppu->attachCHRDATA(file.CHRDATA);
 }

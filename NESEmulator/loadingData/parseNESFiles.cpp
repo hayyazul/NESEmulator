@@ -46,6 +46,8 @@ Result parseiNESFile(const char* filename, NESFileData& gameData) {
 			break;
 		}
 
+		const int CHRDATA_START_ADDR = gameData.programDataSize + HEADER_SIZE;
+
 		if (i > 0xf) {
 			// In the standard case, we check if the current byte index is within bounds as given by the program and character data.
 			if (i < gameData.programDataSize + HEADER_SIZE) {  // Program data comes before character data, so if this is true, i being less than the address at where character data is stored is guaranteed.
@@ -53,6 +55,7 @@ Result parseiNESFile(const char* filename, NESFileData& gameData) {
 			}
 			else if (i < gameData.programDataSize + gameData.characterDataSize + HEADER_SIZE) {
 				gameData.characterData.push_back(data);
+				gameData.CHRDATA->setByte(data, i - CHRDATA_START_ADDR);
 			}
 		}
 

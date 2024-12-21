@@ -50,16 +50,18 @@ int main() {
 		}
 	}
 
-//	std::cout << "PPU Cycle Count: " << ppu.cycleCount << std::endl;
-	
-	//for (int i = 0; i < 4; ++i) {
-	//	std::cout << "Nametable " << i << ": " << std::endl << std::endl;
-//		ppu.displayNametable(i);
-		//std::cout << std::endl << " --- " << std::endl;
+	ppu.displayPattern(1, 0x12);
+
+//	for (int i = 0; i < 4; ++i) {
+		//std::cout << "Nametable " << i << ": " << std::endl << std::endl;
+	//	ppu.displayNametable(i);
+//		std::cout << std::endl << " --- " << std::endl;
 	//}
+
+	
 	
 	std::array<uint8_t, TABLE_SIZE_IN_BYTES> nametableData = ppu.getNametable(0);
-
+	/*
 	SDL_Init(SDL_INIT_EVERYTHING);
 	Graphics graphics{450, 225};
 
@@ -71,7 +73,6 @@ int main() {
 	const unsigned int displayScale = 5;
 	unsigned int x = 10;
 	unsigned int y = 10;
-	displayNametable(graphics, ppu, 0, x, y);
 	graphics.unlockDisplay();
 
 	bool quit = false;
@@ -108,7 +109,7 @@ int main() {
 	}
 
 	SDL_Quit();
-	//*/
+	*/
 
 	return 0;
 }
