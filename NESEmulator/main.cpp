@@ -15,16 +15,16 @@
 #include "graphics/graphics.h"
 #include "graphics/textRenderer.hpp"
 
+
+
 #include <SDL.h>
-
-
-uint32_t rgbaToUint32(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
-	return (a << 24) | (r << 16) | (g << 8) | b;
-};
 
 #undef main  // Deals w/ the definition of main in SDL.
 int main() { 
-	
+
+	debuggingSuite();
+
+	/*
 	Memory VRAM{ 0x800 };
 	PPUDebug ppu;
 
@@ -46,7 +46,8 @@ int main() {
 			break;
 		}
 	}
-		
+	*/
+	/*
 	
 	PatternTableDisplayer PTDisplayer;
 	NametableDisplayer NTDisplayer;
@@ -100,7 +101,7 @@ int main() {
 	}
 
 	SDL_Quit();
-	
+	*/
 
 	return 0;
 }

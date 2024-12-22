@@ -20,14 +20,13 @@ CPUCycleOutcomes _6502_CPU::executeCycle() {
 	// First check if the number of cycles elapsed corresponds with the number of cycles the instruction takes up. If so, execute the next instruction.
 	CPUCycleOutcomes outcome = PASS;
 
-	if (this->performInterrupt) {
-		this->performInterruptActions();
-	}
-	else if (this->nmiRequested) {
-		this->performNMIActions();
-	}
-	
 	if (this->opcodeCyclesElapsed == this->currentOpcodeCycleLen) {
+
+		if (this->nmiRequested) {
+			this->performNMIActions();
+		} else if (this->performInterrupt) {
+			this->performInterruptActions();
+		}
 
 		outcome = INSTRUCTION_EXECUTED;
 		this->opcodeCyclesElapsed = 0;
@@ -92,8 +91,8 @@ void _6502_CPU::performInterruptActions() {
 	// First, push the PC + 2 and Status Flags in the stack.
 	// NOTE: I don't know if I need to push the current PC, +1, or +2 onto the stack.
 	// NOTE: This code is duplicated in instructions.cpp; maybe I can fix that?
-	this->databus->write(STACK_END_ADDR + this->registers.SP, this->registers.PC);  // Store LB of PC (PCL)
-	this->databus->write(STACK_END_ADDR + this->registers.SP - 1, this->registers.PC >> 8);  // Store UB of PC (PCH)
+	this->databus->write(STACK_END_ADDR + this->registers.SP, this->registers.PC >> 8);  // Store UB of PC (PCH)
+	this->databus->write(STACK_END_ADDR + this->registers.SP - 1, this->registers.PC);  // Store LB of PC (PCL), the latter byte is truncated by the cast to uint8_t.
 	this->databus->write(STACK_END_ADDR + this->registers.SP - 2, this->registers.S);
 
 	// Then, get the IRQ Interrupt Vector
@@ -113,15 +112,14 @@ void _6502_CPU::performInterruptActions() {
 }
 
 void _6502_CPU::performNMIActions() {
-
 	// First, push the PC + 2 and Status Flags in the stack.
 	// NOTE: I don't know if I need to push the current PC, +1, or +2 onto the stack.
 	// NOTE: This code is duplicated in instructions.cpp; maybe I can fix that?
-	this->databus->write(STACK_END_ADDR + this->registers.SP, this->registers.PC);  // Store LB of PC (PCL)
-	this->databus->write(STACK_END_ADDR + this->registers.SP - 1, this->registers.PC >> 8);  // Store UB of PC (PCH)
+	this->databus->write(STACK_END_ADDR + this->registers.SP, this->registers.PC >> 8);  // Store UB of PC (PCH)
+	this->databus->write(STACK_END_ADDR + this->registers.SP - 1, this->registers.PC);  // Store LB of PC (PCL), the latter byte is truncated by the cast to uint8_t.
 	this->databus->write(STACK_END_ADDR + this->registers.SP - 2, this->registers.S);
 
-	// Then, get the IRQ Interrupt Vector
+	// Then, get the NMI Interrupt Vector
 	// TODO: Get rid of magic numbers.
 	// Magic numbers: 0xfffe and 0xffff are the addresses where the IRQ vector is located.
 	// lb = lower byte; ub = upper byte.
