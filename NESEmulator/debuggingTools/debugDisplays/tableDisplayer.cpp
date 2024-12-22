@@ -55,10 +55,10 @@ void PatternTableDisplayer::displayPattern(Graphics& graphics, std::array<uint8_
     const unsigned int numRows = 8, numBits = 8;
     
     /* Display rules :
-    00 - Transparent (black)
+    00 - Transparent (gray)
     01 - Red
-    10 - Blue
-    11 - White
+    10 - Green
+    11 - Blue
     */
     const uint32_t GRAY = 0x1f1f1fff, GREEN = 0x00ff00ff, RED = 0xff0000ff, BLUE = 0x0000ffff;
     const std::map<uint8_t, uint32_t> pxIdToColor{ {0b00, GRAY}, {0b01, RED}, {0b10, GREEN}, {0b11, BLUE} };

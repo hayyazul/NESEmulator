@@ -63,8 +63,12 @@ int main() {
 	// (which is equal to the height in px due to this being a square)
 	// = width (in patterns) * width (of a pattern) * scale
 	// = 16 * 8 * scale = 128 * scale
-	PTDisplayer.displayPatternTable(graphics, ppu, 1, 10, 10, 1);
-	NTDisplayer.displayNametable(graphics, ppu, 0, 154, 10, 1, 1);
+	bool patternTable = true;
+	unsigned int nameTable = 0;
+	unsigned int x = 10, y = 10;
+
+	PTDisplayer.displayPatternTable(graphics, ppu, 1, x, y, 1);
+	NTDisplayer.displayNametable(graphics, ppu, nameTable, x + 144, y, 1, patternTable);
 
 	graphics.unlockDisplay();
 

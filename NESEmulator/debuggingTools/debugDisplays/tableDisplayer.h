@@ -11,6 +11,13 @@
 
 class PatternTableDisplayer {
 public:
+	/* Display rules :
+	00 - Transparent (gray)
+	01 - Red
+	10 - Green
+	11 - Blue
+	*/
+
 	PatternTableDisplayer();
 	~PatternTableDisplayer();
 
