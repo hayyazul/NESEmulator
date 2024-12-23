@@ -130,8 +130,8 @@ public:
 	// Makes a request for an IRQ interrupt; ignored if the Interrupt Disable Flag (I) is set to 1.
 	virtual void requestInterrupt();
 
-	// Makes a request for an NMI; unignorable.
-	virtual void requestNMI();
+	// Makes a request for an NMI; unignorable. This only makes a request if the parameter is true AND the previous value of the parameter when it was last called was false.
+	virtual void requestNMI(bool request);
 
 	/* void reset
 	Resets the CPU, which involves setting the PC to the location indicated by the reset vector and decrementing the stack pointer by 3.
@@ -162,6 +162,7 @@ protected:
 	bool performInterrupt;  // Whether to PERFORM an interrupt in the current cpu cycle.
 
 	bool nmiRequested;  // Whether a REQUEST for an NMI has been made.
+	bool lastNMISignal;  // The last NMI signal; so if the PPU is on Vblank, this gets set to true. This also prevents another NMI from being requested (assuming the PPU's Vblank status is still true).
 
 	long unsigned int totalCyclesElapsed = 0;  // Total CPU cycles elapsed since startup. 
 	unsigned int opcodeCyclesElapsed = 0;  // A cycle counter that is present since the CPU began executing a given instruction. Resets when it reaches the number of cycles for a given instruction.

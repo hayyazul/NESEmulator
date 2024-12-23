@@ -110,29 +110,38 @@ uint8_t PPU::readRegister(uint16_t address) {
 }
 
 bool PPU::requestingNMI() const {
-	// Renders 262 scanlines, each scanline takes 341 PPU cycles.
-	// Since VBlank happens at scanline 240 (0-indexed), we will request an NMI whenever cycleCount % (262 * 341) == 240 * 341
-	// TODO: clean up this code.
-	const int PPU_CYCLES_BETWEEN_VBLANKS = 262 * 341;
-	const int VBLANK_FIRST_CYCLE_COUNT = 240 * 341;
-
-	bool c = this->cycleCount % PPU_CYCLES_BETWEEN_VBLANKS == VBLANK_FIRST_CYCLE_COUNT;
-	bool a = (getBit(this->registers.PPUCTRL, 7)) && c;
+	// We request an NMI when we are in Vblank AND the 7th bit in PPUCTRL is set.
+	bool requestNMI = (getBit(this->registers.PPUCTRL, 7)) && this->inVblank();
 	
-	return a;
+	return requestNMI;
 }
 
 
 
+bool PPU::inVblank() const {
+	// We reach Vblank when we are on dot 1 of the first VBlank line and end on dot 340 of the last Vblank line (line 260).
+	int currentLine = this->getLineOn();
+	bool onVblank = currentLine > FIRST_VBLANK_LINE && currentLine <= LAST_VBLANK_LINE;  // First check if we are inbetween the first and last vblank (exclusive, inclusive)
+	// Return true if we know we are on vblank.
+	if (onVblank) {
+		return onVblank;
+	}
+	// If not, check if we are on the first vblank line; if so, check if we are on or past the first dot (dot 0 on the first vblank line should not count).
+	onVblank = currentLine == FIRST_VBLANK_LINE && this->getDotOn() >= 1;
+	return onVblank;
+}
+
 bool PPU::reachedVblank() const {
-	// We reach Vblank when we are on dot 1 of the VBlank line.
-	bool vblankStarted = this->getLineOn() == VBLANK_LINE && this->getDotOn() == 1;
+	int currentLine = this->getLineOn();
+	bool beganVblank = currentLine == FIRST_VBLANK_LINE && this->getDotOn() == 1;
+
 	auto a = this->getDotOn();  // DEBUG: Remove when done debugging vblank detection via PPUSTATUS.
 	auto b = this->getLineOn();
 	if (a == 1 && b == 0xf1) {
 		int c = 0;
 	}
-	return vblankStarted;
+
+	return beganVblank;
 }
 
 bool PPU::reachedPrerender() const {

@@ -1,8 +1,8 @@
 #include "NESEmulator.h"
 
 // MAIN TODO: 
+// - Work on the PPU's pixel-by-pixel display.
 // - Connect PPU to Graphics module.
-//    - Write a stand-in method to output pixels.
 // - Implement PPU Registers.
 
 #include "debuggingTools/suites/basicDebugSuite.hpp"
@@ -22,22 +22,21 @@
 #undef main  // Deals w/ the definition of main in SDL.
 int main() { 
 
-	debuggingSuite();
+	//debuggingSuite();
 
-	/*
+	///*
 	Memory VRAM{ 0x800 };
 	PPUDebug ppu;
-
 	NESDatabus databus;
 	RAM ram;
-	Memory cartirdgeMemory{ 0x10000 };
+	Memory cartridgeMemory{ 0x10000 };
 	_6502_CPU CPU;
 
 	NES nes;
 	nes.attachPPU(&ppu);
 	nes.attachVRAM(&VRAM);
 	nes.attachRAM(&ram);
-	nes.attachCartridgeMemory(&cartirdgeMemory);
+	nes.attachCartridgeMemory(&cartridgeMemory);
 	nes.loadROM("testROMS/donkey kong.nes");
 	nes.powerOn();
 	for (int i = 0; i < 1'000'000; ++i) {
@@ -46,7 +45,9 @@ int main() {
 			break;
 		}
 	}
-	*/
+	//*/
+
+
 	/*
 	
 	PatternTableDisplayer PTDisplayer;

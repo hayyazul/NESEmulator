@@ -11,7 +11,8 @@ const int VRAM_SIZE = 0x800;  // The size of the internal VRAM that the NES has 
 // The following values are the lines where each respective scanline group STARTS.
 const int VISIBLE_LINE = 0;
 const int POST_RENDER_LINE = 240;
-const int VBLANK_LINE = 241;
+const int FIRST_VBLANK_LINE = 241;
+const int LAST_VBLANK_LINE = 260;
 const int PRE_RENDER_LINE = 261;
 
 const int TOTAL_LINES = 262;
@@ -86,12 +87,14 @@ public:
 
 protected:
 
-	// reachedVblank returns whether the PPU is at dot 1 (0BI) of line 241 (this is when vblank starts).
-	bool reachedVblank() const;
+	// inVblank returns whether the PPU is inbetween dot 1 (0BI) of line 241 (this is when vblank starts) and dot 340 of line 260.
+	bool inVblank() const;
+	bool reachedVblank() const;  // This instead only checks whether the PPU is exactly on dot 1 of line 241.
 
 	// reached Prerender returns whether the PPU is at dot 1 (0BI) of the pre-render line.
 	bool reachedPrerender() const;
 
+	// Updates the PPUSTATUS register; should be called every PPU cycle.
 	void updatePPUSTATUS();
 
 	// Gets the scanline the PPU is on; NOTE: might make this protected or even public.
@@ -110,14 +113,15 @@ protected:
 	*/
 	
 	int cycleCount;  // NOTE: there might be issues with overflow; look into this risk more.
-
-	// VRAM (NOTE: for now) should contain 2kb (or 0x800 bytes) which span 0x1000 addresses.
-	// CHRDATA is mapped to some rom or ram data.
+	
+	// VRAM (NOTE: for now) should contain 2kb (or 0x800 bytes) which span 0x1000 addresses (0x2000 to 0x2fff)
+	// CHRDATA is mapped to some rom or ram data spanning from 0x0000 to 0x2000 (they are the two pattern tables; each of which is 0x1000 bytes big).
 	// 0x3000 to 0x3eff mirror 0x2000 to 0x2eff; it goes unused.
 	// 0x3f00 to 0x3fff maps to the palette control.
 
 	Memory* VRAM;  // TODO: replace memory w/ a specific child of it designed for VRAM; allow this to be remapped by the cartridge.
 	Memory* CHRDATA;  // TODO: implement
+	Memory* paletteControl;
 	PPURegisters registers;  // External/shared registers.
 	// Internal registers.
 	bool w;  // 1 bit
