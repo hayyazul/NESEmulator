@@ -9,7 +9,8 @@ const int VRAM_SIZE = 0x800;  // The size of the internal VRAM that the NES has 
 
 // Lines are 0-based indexed from 0 to 260; lines 0 to 239 are visible, 240 is the post-render line, 241 to 260 are the VBlank lines, and 261 is the pre-render line.
 // The following values are the lines where each respective scanline group STARTS.
-const int VISIBLE_LINE = 0;
+const int VISIBLE_LINE = 0;  // AKA the first render line.
+const int LAST_RENDER_LINE = 239;
 const int POST_RENDER_LINE = 240;
 const int FIRST_VBLANK_LINE = 241;
 const int LAST_VBLANK_LINE = 260;
@@ -20,7 +21,7 @@ const int LINES_BETWEEN_VBLANKS = TOTAL_LINES;  // There are 262 lines total, so
 const int PPU_CYCLES_PER_LINE = 341;  // Self-explanatory.
 
 
-struct PPURegisters {
+struct PPURegisters {  // NOTE: Some of these registers are not modified in the read/write operations of the PPU.
 	// W - Write Only; R - Read Only; RW - Read and Write; xN - Times you need to read/write to go through the entire register.
 	/* W 0x2000
 	7  bit  0
@@ -91,8 +92,13 @@ protected:
 	bool inVblank() const;
 	bool reachedVblank() const;  // This instead only checks whether the PPU is exactly on dot 1 of line 241.
 
-	// reached Prerender returns whether the PPU is at dot 1 (0BI) of the pre-render line.
+	// reachedPrerender returns whether the PPU is at dot 1 (0BI) of the pre-render line.
 	bool reachedPrerender() const;
+
+	// Whether the PPU
+
+	// Whether the PPU is currently rendering.
+	bool inRendering() const;
 
 	// Updates the PPUSTATUS register; should be called every PPU cycle.
 	void updatePPUSTATUS();
@@ -122,6 +128,7 @@ protected:
 	Memory* VRAM;  // TODO: replace memory w/ a specific child of it designed for VRAM; allow this to be remapped by the cartridge.
 	Memory* CHRDATA;  // TODO: implement
 	Memory* paletteControl;
+	Memory OAM;  // Internal memory inside the PPU which contains 256 bytes, 4 bytes defining 1 sprite for 64 sprites.
 	PPURegisters registers;  // External/shared registers.
 	// Internal registers.
 	bool w;  // 1 bit

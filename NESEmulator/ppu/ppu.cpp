@@ -1,12 +1,13 @@
 #include "ppu.h"
 
-#include <iostream>
-#include <iomanip>
 #include "../globals/helpers.hpp"
+#include <iomanip>
+#include <iostream>
 
 PPU::PPU() : 
 	VRAM(nullptr), 
 	CHRDATA(nullptr), 
+	OAM(Memory{0x100}),
 	registers(PPURegisters()), 
 	cycleCount(0),
 	PPUDATABuffer(0),
@@ -19,6 +20,7 @@ PPU::PPU() :
 PPU::PPU(Memory* VRAM, Memory* CHRDATA) :
 	VRAM(VRAM),
 	CHRDATA(CHRDATA),
+	OAM(Memory{ 0x100 }),
 	registers(PPURegisters()),
 	cycleCount(0),
 	PPUDATABuffer(0),
@@ -61,7 +63,43 @@ uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 	case(0x2001):  // PPUMASK
 		this->registers.PPUMASK = data;
 		break;
-	case(0x2006):  // TODO: there is a quirk regarding internal-t I don't fully understand yet relating to PPUADDR; read nesdev for more info.
+	case(0x2003):  // OAMADDR - The addressing space for OAM is only 0x100 bytes long.
+		this->registers.OAMADDR = data;
+		break;
+	case(0x2004):  // OAMDATA - Increments OAMADDR
+		/* Note: from Nesdev:
+		Writes to OAMDATA during rendering (on the pre-render line and the visible lines 0–239, 
+		provided either sprite or background rendering is enabled) do not modify values in OAM, 
+		but do perform a glitchy increment of OAMADDR, bumping only the high 6 bits 
+		(i.e., it bumps the [n] value in PPU sprite evaluation – it's plausible that it could 
+		bump the low bits instead depending on the current status of sprite evaluation). 
+		This extends to DMA transfers via OAMDMA, since that uses writes to $2004. 
+		For emulation purposes, it is probably best to completely ignore writes during rendering.
+		-----
+		*/
+		// Following the above note's advice, this write is ignored during rendering.
+		if (!this->inRendering()) {
+			this->OAM.setByte(this->registers.OAMADDR, data);
+			++this->registers.OAMADDR;  // OAMADDR is incremented only on writes to OAMDATA, not reads.
+		}
+		break;
+	case(0x2005):  // PPUSCROLL - Writes to the x scroll when the write latch is 0, writes to y scroll when the latch is 1.
+		// Both scrolls are located in the internal t and v register--- the lower 3 bits of the y scroll is also located in these but 
+		// the lower 3 bits for the x scroll is in another internal register.
+		if (!w) {  // x scroll write
+			// Put the upper 5 bits of the write in the lower 5 bits of t.
+			copyBits(this->t, 0, 4, (uint16_t)data, 3, 7);
+			// Then put the lower 3 bits of the write into the fine x scroll register
+			copyBits(this->x, 0, 2, data, 0, 2);
+		} else {  // y scroll write
+			// Put the upper 5 bits of the write to bits 5 through 9 inclusive of t.
+			copyBits(this->t, 5, 9, (uint16_t)data, 3, 7);
+			// Then out the lowest 3 of the write to the highest 3 of t.
+			copyBits(this->t, 12, 14, (uint16_t)data, 0, 2);
+		}
+		w = !w;
+		break;
+	case(0x2006):  // PPUADDR // TODO: there is a quirk regarding internal-t I don't fully understand yet relating to PPUADDR; read nesdev for more info.
 		// Here, the internal register 'w' tracks whether we are writing the first (w = 0) or second (w = 1) 
 		// byte to PPUADDR. Note that unlike most >8-bit values in the NES, these writes operate on a
 		// big-endian basis.
@@ -70,10 +108,15 @@ uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 		
 		this->registers.PPUADDR += static_cast<uint16_t>(data) << (!w * 8);  // NOTE: I think I shouldn't make it add; rather, set the appropriate bits or set those bits to 0 before adding.
 		this->registers.PPUADDR &= 0x7fff;  // Clear the 16th bit because PPUADDR is 15 bits, not 16. (though the last bit is unused for addressing)
+		
+		this->t = this->registers.PPUADDR;  // Copy this over to the internal register.
+		if (w) {  // If we are on the second write, copy from the t internal register to the v internal register.
+			this->v = this->t;
+		}
 
 		w = !w;  // NOTE: This changes 'w' from first to second byte write; I don't know if writes to 0x2006 should change second to first byte write too. For now it does.
 		break;
-	case(0x2007):
+	case(0x2007):  // PPUDATA
 		// Modify VRAM.
 		oldValue = this->VRAM->getByte(this->registers.PPUADDR);
 		if (data != 0x24 && data != 0x00) {
@@ -84,8 +127,19 @@ uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 		// Otherwise, we increment PPUADDR by 1 (going right).
 		this->registers.PPUADDR += 1 << (5 * getBit(this->registers.PPUCTRL, 2));
 		break;
+	case(0x4014):  // OAMDMA  // TODO: Very important TODO; a write to this address makes the CPU do a lot of stuff.
+		// It essentially copies over a page of memory from the CPU into OAM. This process:
+		// 1. Takes 513-514 cycles 
+		// 2. Requires some connection w/ the CPU to copy the data here OR should make the CPU suspend itself to copy the data (through some specialized functions).
+		// For (2), the former approach would be a "burst" approach (doing all the actions at once, then waiting for timing purposes)
+		// while the latter would lend itself better for a more continuous approach, at the cost of software complexity.
+		// For now, this just fills OAM with 0x3c, a debug value.
+		for (int i = 0; i < 0x100; ++i) {
+			this->OAM.setByte(i, 0x3c);
+		}
+		break;
 	default:
-		oldValue = 0;  // This condition should never occur.
+		oldValue = 0;  // This condition should never occur (unless some bug in the NES game itself results in a write to a read-only register).
 		break;
 	}
 
@@ -94,15 +148,19 @@ uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 
 uint8_t PPU::readRegister(uint16_t address) {
 	// Returns I/O bus after setting some bits based on the register being read; some parts of the bus may be untouched and returned anyway (open bus).
+	// Example: a read on PPUMASK, a write-only register, will result in the open bus being read.
 	switch (address) {
-	case(0x2002):
+	case(0x2002):  // PPUSTATUS
 		this->w = 0;  // w is cleared upon reading PPUSTATUS.
 		// When we want to return PPUSTATUS, we have to return the I/O bus w/ the last 3 bits changed based
 		// on some flags.
 		this->ioBus &= 0b00011111;  // First, clear out the last 3 bits of ioBus.
 		this->ioBus += this->registers.PPUSTATUS;  // Then, add the last 3 bits of PPUSTATUS to it (the other btis in PPUSTATUS should be 0).
 		break;
-	case(0x2007):
+	case(0x2004):  // OAMDATA
+		this->ioBus = this->OAM.getByte(this->registers.OAMADDR);  // Simply gets the value from OAM at OAMADDR.
+		break;
+	case(0x2007):  // PPUDATA
 		// Instead of returning the value at the given address, we actually return a value in a buffer;
 		// we then update the buffer with the value at the given address. This effectively delays PPUDATA
 		// reads by 1.
@@ -158,6 +216,17 @@ bool PPU::reachedVblank() const {
 
 bool PPU::reachedPrerender() const {
 	return false;
+}
+
+bool PPU::inRendering() const {
+	// The PPU is rendering if 1. either background OR sprite rendering is on, 2. it is inbetween scanlines 0 and 239 inclusive.
+	bool backgroundRendering = getBit(this->registers.PPUMASK, 3);
+	bool spriteRendering = getBit(this->registers.PPUMASK, 4);
+	
+	int scanline = this->getLineOn();
+	bool onRenderLines = scanline >= VISIBLE_LINE && scanline <= LAST_RENDER_LINE;
+
+	return (backgroundRendering || spriteRendering) && onRenderLines;
 }
 
 void PPU::updatePPUSTATUS() {  // TODO: Implement sprite overflow and sprite 0 hit flags.

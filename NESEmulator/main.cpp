@@ -18,13 +18,14 @@
 
 
 #include <SDL.h>
+#include <bitset>
 
 #undef main  // Deals w/ the definition of main in SDL.
 int main() { 
 
 	//debuggingSuite();
 
-	///*
+	
 	Memory VRAM{ 0x800 };
 	PPUDebug ppu;
 	NESDatabus databus;
@@ -45,11 +46,10 @@ int main() {
 			break;
 		}
 	}
-	//*/
 
+	int a = 0;
 
-	
-	
+	/*
 	PatternTableDisplayer PTDisplayer;
 	NametableDisplayer NTDisplayer;
 	
@@ -102,7 +102,7 @@ int main() {
 	}
 
 	SDL_Quit();
-	
+	*/
 
 	return 0;
 }

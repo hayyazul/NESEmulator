@@ -60,7 +60,7 @@ uint8_t NESDatabus::write(uint16_t address, uint8_t value) {
 AddressingSpace::AddressingSpace getAddressingSpace(uint16_t address) {
 	if (address < 0x2000) {
 		return AddressingSpace::RAM;
-	} else if (address >= 0x2000 && address < 0x2008) {  // TODO: Implement the PPU registers located in the 0x4000s
+	} else if ((address >= 0x2000 && address < 0x2008) || address == 0x4014) {  // TODO: Implement the PPU registers located in the 0x4000s
 		return AddressingSpace::PPU_REGISTERS;
 	} else {
 		return AddressingSpace::MEMORY;
