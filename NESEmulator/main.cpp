@@ -48,7 +48,7 @@ int main() {
 	//*/
 
 
-	/*
+	
 	
 	PatternTableDisplayer PTDisplayer;
 	NametableDisplayer NTDisplayer;
@@ -102,7 +102,7 @@ int main() {
 	}
 
 	SDL_Quit();
-	*/
+	
 
 	return 0;
 }

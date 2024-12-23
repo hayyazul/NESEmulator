@@ -45,13 +45,21 @@ void PPU::executePPUCycle() {
 
 
 uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
+	// Deduces what register the operation should occur on, then performs the appropriate operation.
+	
+	// All writes, even to read-only registers, change the I/O bus. (NOTE: doublecheck this)
+	this->ioBus = data;
+
 	uint8_t oldValue = 0;
 	switch (address) {
-	case(0x2000):
+	case(0x2000):  // PPUCTRL
 		oldValue = this->registers.PPUCTRL;
 		if (this->cycleCount >= PRE_RENDER_LINE * PPU_CYCLES_PER_LINE) {  // Ignore writes to PPUCTRL until pre-render line is reached.
 			this->registers.PPUCTRL = data;
 		}
+		break;
+	case(0x2001):  // PPUMASK
+		this->registers.PPUMASK = data;
 		break;
 	case(0x2006):  // TODO: there is a quirk regarding internal-t I don't fully understand yet relating to PPUADDR; read nesdev for more info.
 		// Here, the internal register 'w' tracks whether we are writing the first (w = 0) or second (w = 1) 
@@ -85,34 +93,38 @@ uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 }
 
 uint8_t PPU::readRegister(uint16_t address) {
-	uint8_t returnValue;
+	// Returns I/O bus after setting some bits based on the register being read; some parts of the bus may be untouched and returned anyway (open bus).
 	switch (address) {
 	case(0x2002):
 		this->w = 0;  // w is cleared upon reading PPUSTATUS.
-		return this->registers.PPUSTATUS;
+		// When we want to return PPUSTATUS, we have to return the I/O bus w/ the last 3 bits changed based
+		// on some flags.
+		this->ioBus &= 0b00011111;  // First, clear out the last 3 bits of ioBus.
+		this->ioBus += this->registers.PPUSTATUS;  // Then, add the last 3 bits of PPUSTATUS to it (the other btis in PPUSTATUS should be 0).
 		break;
 	case(0x2007):
 		// Instead of returning the value at the given address, we actually return a value in a buffer;
 		// we then update the buffer with the value at the given address. This effectively delays PPUDATA
 		// reads by 1.
-		returnValue = this->PPUDATABuffer;
+		this->ioBus = this->PPUDATABuffer;  // NOTE: There is some open-bus behavior when reading from palette RAM, however I do not know enough to emulate it at the moment.
 		this->PPUDATABuffer = this->VRAM->getByte(this->registers.PPUADDR);
 		// Now we increment PPUADDR by 32 if bit 2 of PPUCTRL is set (the nametable is 32 bytes long, so this essentially goes down).
 		// Otherwise, we increment PPUADDR by 1 (going right).
 		this->registers.PPUADDR += 1 << (5 * getBit(this->registers.PPUCTRL, 2));
-		
-		return returnValue;
 		break;
-	default:
-		return 0;
+	default:  // This catches the reads to write-only registers.
 		break;
 	}
+
+	return this->ioBus;
 }
 
 bool PPU::requestingNMI() const {
 	// We request an NMI when we are in Vblank AND the 7th bit in PPUCTRL is set.
 	bool requestNMI = (getBit(this->registers.PPUCTRL, 7)) && this->inVblank();
-	
+	if (requestNMI) {
+		int a = 0;
+	}
 	return requestNMI;
 }
 
@@ -148,7 +160,7 @@ bool PPU::reachedPrerender() const {
 	return false;
 }
 
-void PPU::updatePPUSTATUS() {
+void PPU::updatePPUSTATUS() {  // TODO: Implement sprite overflow and sprite 0 hit flags.
 	if (this->reachedVblank()) {
 		setBit(this->registers.PPUSTATUS, 7);
 	} else if (this->reachedPrerender()) {

@@ -65,7 +65,8 @@ void _6502_CPU::requestInterrupt() {
 }
 
 void _6502_CPU::requestNMI(bool request) {
-	this->nmiRequested = request && !this->lastNMISignal;  // The NMI request is only taken if the request was false last time and is true this time (to prevent an NMI being requested over and over).
+	this->nmiRequested = this->nmiRequested || request && !this->lastNMISignal;  // The NMI request is only taken if the request was false last time and is true this time (to prevent an NMI being requested over and over).
+	// The or request is used so that an nmiRequest isn't "canceled" i.e. when it becomes true, don't set it to false.
 	this->lastNMISignal = request;
 }
 

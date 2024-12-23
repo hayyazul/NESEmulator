@@ -129,6 +129,23 @@ protected:
 	uint8_t x;  // 3 bits
 	// Misc.
 	uint8_t PPUDATABuffer;  // A buffer to hold the value at the last VRAM address; used in conjunction w/ reads on PPUDATA.
+	uint8_t ioBus;  // The I/O data bus; this must be at least partly emulated to make some PPU register read/write operations work.
+	/* This is mainly because of 1. reads to write - only registers should return the I / O bus value; 2. PPUSTATUS returns the first 5 bits of this bus.
+	 On the actual console, the values in this bus decay, but I won't emulate that (for now?).
+	
+	"PPU open bus holds the last value the CPU wrote to or read from any PPU register (CPU $2000-3FFF). Even if writing to a read-only PPU register, 
+	the PPU's internal bus is still updated with that value. When you read from a PPU register, you get this open bus value in these 3 cases:
+
+	1. Reading from $2000, $2001, $2003, $2004 (except on the 2C02G-0 and H-0), $2005, or $2006
+	2. In bits 4-0 when reading from $2002
+	3. In bits 7-6 when reading from palette RAM ($3F00-3FFF) via $2007 on 2C02G-0 and H-0.
+
+	PPU open bus eventually decays, but it takes at least a few milliseconds after the value was last set. Reading PPU open bus does not set the value, 
+	so for example, repeatedly reading $2002 will keep bits 7-5 active while bits 4-0 eventually decay."
+
+	 - Fiskbit, NesDev forums admin
+
+	*/
 
 	/*
 	TODO: Make the nametables memory mappings.
