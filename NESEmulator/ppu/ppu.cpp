@@ -14,7 +14,8 @@ PPU::PPU() :
 	w(0),
 	t(0),
 	v(0),
-	x(0)
+	x(0),
+	requestingOAMDMA(false)
 {}
 
 PPU::PPU(Memory* VRAM, Memory* CHRDATA) :
@@ -27,7 +28,8 @@ PPU::PPU(Memory* VRAM, Memory* CHRDATA) :
 	w(0),
 	t(0),
 	v(0),
-	x(0)
+	x(0),
+	requestingOAMDMA(false)
 {}
 
 PPU::~PPU() {}
@@ -130,13 +132,18 @@ uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 	case(0x4014):  // OAMDMA  // TODO: Very important TODO; a write to this address makes the CPU do a lot of stuff.
 		// It essentially copies over a page of memory from the CPU into OAM. This process:
 		// 1. Takes 513-514 cycles 
-		// 2. Requires some connection w/ the CPU to copy the data here OR should make the CPU suspend itself to copy the data (through some specialized functions).
-		// For (2), the former approach would be a "burst" approach (doing all the actions at once, then waiting for timing purposes)
-		// while the latter would lend itself better for a more continuous approach, at the cost of software complexity.
-		// For now, this just fills OAM with 0x3c, a debug value.
-		for (int i = 0; i < 0x100; ++i) {
-			this->OAM.setByte(i, 0x3c);
-		}
+		// 2. suspends the CPU for those amount of cycles.
+
+		/* NOTE: The following are some pieces of information which might be relevant:
+		 - OAM DMA will copy from the page most recently written to $4014. This means that read-modify-write instructions such as INC $4014, which are able to 
+		perform a second write before the CPU can be halted, will copy from the second page written, not the first.	
+		
+		 - OAM DMA has a lower priority than DMC DMA. If a DMC DMA get occurs during OAM DMA, OAM DMA is briefly paused. (See DMC DMA during OAM DMA)
+		    - Only need to worry about this when implementing the APU.
+		*/
+		this->requestingOAMDMA = true;
+		this->dmaPage = data;
+		oldValue = 0xff;  // There is no specific old value associated w/ OAMDMA. Defaut to 0xff.
 		break;
 	default:
 		oldValue = 0;  // This condition should never occur (unless some bug in the NES game itself results in a write to a read-only register).
@@ -184,6 +191,18 @@ bool PPU::requestingNMI() const {
 		int a = 0;
 	}
 	return requestNMI;
+}
+
+bool PPU::reqeuestingDMA() {
+	if (this->requestingOAMDMA) { 
+		this->requestingOAMDMA = false;  // Remember to set the request to false when it is true.
+		return true;
+	}
+	return false;
+}
+
+uint8_t PPU::GetDMAPage() const {
+	return this->dmaPage;
 }
 
 

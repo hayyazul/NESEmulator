@@ -2,11 +2,25 @@
 #include <iostream>
 #include <iomanip>
 
-_6502_CPU::_6502_CPU() : databus(nullptr), interruptRequested(false), performInterrupt(false), nmiRequested(false) {
+_6502_CPU::_6502_CPU() : databus(nullptr), 
+						 interruptRequested(false), 
+					 	 performInterrupt(false), 
+						 nmiRequested(false), 
+						 requestedOAMDMA(false), 
+						 inDMA(false),  
+						 getOrPutCycle(false)  // NOTE: I don't know whether the CPU starts on a get or put cycle--- for now I am assuming it is on a get cycle.
+{
 	this->setupInstructionSet();
 }
 
-_6502_CPU::_6502_CPU(DataBus* databus) : databus(databus), interruptRequested(false), performInterrupt(false), nmiRequested(false) {
+_6502_CPU::_6502_CPU(DataBus* databus) : databus(databus), 
+									 	 interruptRequested(false), 
+									 	 performInterrupt(false), 
+										 nmiRequested(false), 
+										 requestedOAMDMA(false), 
+										 inDMA(false),
+										 getOrPutCycle(false)
+{
 	this->setupInstructionSet();
 }
 
@@ -17,11 +31,19 @@ void _6502_CPU::attach(DataBus* databus) {
 }
 
 CPUCycleOutcomes _6502_CPU::executeCycle() {
-	// First check if the number of cycles elapsed corresponds with the number of cycles the instruction takes up. If so, execute the next instruction.
+	// Outdated comment // First check if the number of cycles elapsed corresponds with the number of cycles the instruction takes up. If so, execute the next instruction.
 	CPUCycleOutcomes outcome = PASS;
 
-	if (this->opcodeCyclesElapsed == this->currentOpcodeCycleLen) {
-
+	// First, check if we need to perform DMA
+	if (this->opcodeCyclesElapsed == this->currentOpcodeCycleLen && this->requestedOAMDMA) {
+		this->inDMA = true;
+		this->requestedOAMDMA = false;
+	} else if (this->inDMA) {  // If the CPU is in DMA (for OAM), then it should suspend normal operation and complete the DMA first (lasts 513 or 514 cycles).
+		this->performDMACycle();
+		if (!this->inDMA) {
+			--this->opcodeCyclesElapsed;
+		}
+	} else if (this->opcodeCyclesElapsed == this->currentOpcodeCycleLen) {  // Performs the actions for an instruction in a CPU cycle.
 		if (this->nmiRequested) {
 			this->performNMIActions();
 		} else if (this->performInterrupt) {
@@ -50,11 +72,16 @@ CPUCycleOutcomes _6502_CPU::executeCycle() {
 		}
 
 		this->registers.PC += instruction.numBytes * !instruction.modifiesPC;  // Only move the program counter forward if the instruction does not modify the PC.
-		
+	} else if (this->opcodeCyclesElapsed > this->currentOpcodeCycleLen) {
+		std::cout << "Warning: opcode cycles elapsed has exceeded the current length of the opcode (in cycles): elapsed = " << this->opcodeCyclesElapsed << ", length = " << this->currentOpcodeCycleLen << std::endl;
+		outcome = FAIL;
 	}
 
+	this->getOrPutCycle = !this->getOrPutCycle;
 	++this->totalCyclesElapsed;
-	++this->opcodeCyclesElapsed;
+	if (!this->inDMA) {
+		++this->opcodeCyclesElapsed;
+	}
 	return outcome;
 }
 
@@ -68,6 +95,14 @@ void _6502_CPU::requestNMI(bool request) {
 	this->nmiRequested = this->nmiRequested || request && !this->lastNMISignal;  // The NMI request is only taken if the request was false last time and is true this time (to prevent an NMI being requested over and over).
 	// The or request is used so that an nmiRequest isn't "canceled" i.e. when it becomes true, don't set it to false.
 	this->lastNMISignal = request;
+}
+
+void _6502_CPU::scheduleOAMDMA(uint8_t page) {
+	this->dmaPage = page;
+	this->dmaLowerByteAddr = 0x00;
+	this->dmaData = 0x00;
+	this->readOrWriteDMA = false;  // Set to read.
+	this->requestedOAMDMA = true;
 }
 
 void _6502_CPU::reset() {
@@ -134,6 +169,36 @@ void _6502_CPU::performNMIActions() {
 
 	this->registers.setStatus('I', true);
 	this->nmiRequested = false;
+}
+
+void _6502_CPU::performDMACycle() {
+	// 512 or 513 cycles should be executed here (1 cycle, the DMA halt cycle, has already been executed).
+	// Ordering will be based on this fact, so when I say "first" here, it is actually the second cycle the CPU has been halted.
+
+	const uint16_t OAMDATA = 0x2004;  // PPU register for OAMDATA.
+
+	// First, check for allignment when it is the first cycle (when the LB is 0x00 and on a DMA read) (are we on a get (false) cycle?).
+	if ((this->dmaLowerByteAddr == 0x00 && !this->readOrWriteDMA) && this->getOrPutCycle) {  // This condition checks if we are on the first DMA read on LB 0x00, then only checks if we are alligned.
+		// If this condition was true, we were not alligned. Try again next cycle.
+		return;
+	}
+
+	// If allignment is ok, then read/write the appropriate bytes.
+	if (this->readOrWriteDMA) {  // Write
+		// write to OAM
+		this->databus->write(OAMDATA, this->dmaData);
+		this->dmaLowerByteAddr = this->dmaLowerByteAddr != 0xff ? this->dmaLowerByteAddr + 1 : this->dmaLowerByteAddr;  // If the LB is on 0xff, then we are on the last cycle; do not increment it for the final if statement to work.
+	} else {  // Read
+		uint16_t readAddr = ((uint16_t)this->dmaPage << 8) + this->dmaLowerByteAddr;  // First, we form the address.
+		this->dmaData = this->databus->read(readAddr);
+	}
+	// If on read, set to write; if on write, set to read.
+	this->readOrWriteDMA = !this->readOrWriteDMA;
+
+	// Lastly, check if we are done w/ the DMA (when we have written on lower byte 0xff).
+	if (this->dmaLowerByteAddr == 0xff && this->readOrWriteDMA) {
+		this->inDMA = false;
+	}
 }
 
 void _6502_CPU::executeOpcode(uint8_t opcode) {

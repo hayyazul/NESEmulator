@@ -100,9 +100,8 @@ NESCycleOutcomes NES::executeMachineCycle() {
 	}
 	this->ppu->executePPUCycle();
 	
-	// NMI request logic; this is done when the Vertical-blanking interval is reached.
-	if (this->ppu->requestingNMI()) {
-		int a = 0;
+	if (this->ppu->reqeuestingDMA()) {
+		this->CPU->scheduleOAMDMA(this->ppu->GetDMAPage());
 	}
 	this->CPU->requestNMI(this->ppu->requestingNMI());
 	

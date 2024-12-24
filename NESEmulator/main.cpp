@@ -40,16 +40,14 @@ int main() {
 	nes.attachCartridgeMemory(&cartridgeMemory);
 	nes.loadROM("testROMS/donkey kong.nes");
 	nes.powerOn();
-	for (int i = 0; i < 1'000'000; ++i) {
+	for (int i = 0; i < 3'000'000; ++i) {
 		if (!nes.executeMachineCycle()) {
 			std::cout << "Illegal opcode encountered!" << std::endl;
 			break;
 		}
 	}
 
-	int a = 0;
-
-	/*
+	
 	PatternTableDisplayer PTDisplayer;
 	NametableDisplayer NTDisplayer;
 	
@@ -69,8 +67,8 @@ int main() {
 	unsigned int nameTable = 0;
 	unsigned int x = 10, y = 10;
 
-	PTDisplayer.displayPatternTable(graphics, ppu, 1, x, y, 1);
-	NTDisplayer.displayNametable(graphics, ppu, nameTable, x + 144, y, 1, patternTable);
+	PTDisplayer.displayPatternTable(graphics, ppu, 1, x, y, 2);
+	NTDisplayer.displayNametable(graphics, ppu, nameTable, x + 288, y, 1, patternTable);
 
 	graphics.unlockDisplay();
 
@@ -102,7 +100,7 @@ int main() {
 	}
 
 	SDL_Quit();
-	*/
+	//*/
 
 	return 0;
 }
