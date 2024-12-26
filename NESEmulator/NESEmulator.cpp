@@ -1,6 +1,6 @@
 ﻿#include "NESEmulator.h"
 
-NES::NES() {  // Not recommended to initialize w/ this; this will cause a memory leak later. NOTE: Might just make these nullptrs.
+NES::NES() : DMAUnit(nullptr), haltCPUOAM(false), scheduleHalt(false) {  // Not recommended to initialize w/ this; this will cause a memory leak later. NOTE: Might just make these nullptrs.
 	this->memory = new Memory(0x10000);  // 0x10000 is the size of the addressing space.
 	this->ram = new RAM();
 	this->databus = new NESDatabus(this->memory);
@@ -9,10 +9,12 @@ NES::NES() {  // Not recommended to initialize w/ this; this will cause a memory
 	this->VRAM = new Memory(0x800);
 	this->ppu = new PPU(this->VRAM, nullptr);
 	
+	this->DMAUnit.attachDatabus(this->databus);
+
 	this->CPU->powerOn();
 }
 
-NES::NES(NESDatabus* databus, _6502_CPU* CPU, RAM* ram, Memory* vram, PPU* ppu) {
+NES::NES(NESDatabus* databus, _6502_CPU* CPU, RAM* ram, Memory* vram, PPU* ppu) : DMAUnit(databus), haltCPUOAM(false), scheduleHalt(false) {
 	this->ram = ram;
 	this->ppu = ppu;
 	this->VRAM = vram;
@@ -46,6 +48,8 @@ void NES::attachDataBus(NESDatabus* databus) {
 	this->databus->attach(this->memory);
 	this->databus->attach(this->ppu);
 	this->databus->attach(this->memory);
+	
+	this->DMAUnit.attachDatabus(this->databus);
 }
 
 void NES::attachPPU(PPU* ppu) {
@@ -82,31 +86,68 @@ void NES::loadROM(const char* fileName) {  // Remember to reset the NES after lo
 	}
 }
 
+NESCycleOutcomes NES::performCPUCycle() {
+	NESCycleOutcomes nesResult = PPU_CYCLE;
+	CPUCycleOutcomes cpuResult = PASS;
+
+	// Execute a CPU cycle.
+	if (!this->haltCPUOAM) {  // First, check if the CPU is halted or not for DMA.
+		cpuResult = this->CPU->executeCycle();
+
+		switch (cpuResult) {
+		case(INSTRUCTION_EXECUTED):
+			nesResult = INSTRUCTION_AND_PPU_CYCLE;
+			break;
+		case(FAIL):
+			nesResult = FAIL_CYCLE;
+			break;
+		default:
+			nesResult = BOTH_CYCLE;
+			break;
+		}
+	} else {  // If it is halted, then perform the appropriate DMA action. NOTE: I will need to later expand this to work with the APU's DMA.
+		this->haltCPUOAM = this->DMAUnit.performDMACycle(this->CPU->getCycleType());
+	}
+
+	// Then check if we have scheduled an OAM DMA.
+	if (this->scheduleHalt) {
+		this->haltCPUOAM = true;
+		this->scheduleHalt = false;
+	}
+
+	// Lastly, alternate the CPU cycle type.
+	this->CPU->alternateCycle();
+
+	return nesResult;
+}
+
+void NES::performPPUCycle() {
+	// Performing the PPU cycle
+	this->ppu->executePPUCycle();
+	this->CPU->requestNMI(this->ppu->requestingNMI());
+	
+	if (this->ppu->reqeuestingDMA()) {
+		this->DMAUnit.setPage(this->ppu->getDMAPage());
+		// The check for the CPU not already being halted is to ensure we don't reschedule a halt when it has already happened.
+		if (!this->haltCPUOAM) {
+			this->scheduleHalt = true;  // We want to execute one more CPU cycle before halting it, so we schedule it.
+		}
+	}
+}
+
 NESCycleOutcomes NES::executeMachineCycle() {
 	// NOTE: The master clock on the real NES runs 3x faster, so 1 PPU cycle every 3 master clock cycles. 
 	// This detail won't affect the behavior of this emulator, so we just make 1 machine cycle equal to 1 ppu cycle.
 	NESCycleOutcomes nesResult = PPU_CYCLE;
-	CPUCycleOutcomes cpuResult = FAIL;
+	
+	// Performing the CPU cycle;
 	if (this->totalMachineCycles % 3 == 0) {
-		cpuResult = this->CPU->executeCycle();
-
-		if (cpuResult == INSTRUCTION_EXECUTED) {
-			nesResult = INSTRUCTION_AND_PPU_CYCLE;
-		} else if (cpuResult == FAIL) {
-			nesResult = FAIL_CYCLE;
-		} else {
-			nesResult = BOTH_CYCLE;
-		} 
+		nesResult = this->performCPUCycle();
 	}
-	this->ppu->executePPUCycle();
-	
-	if (this->ppu->reqeuestingDMA()) {
-		this->CPU->scheduleOAMDMA(this->ppu->GetDMAPage());
-	}
-	this->CPU->requestNMI(this->ppu->requestingNMI());
-	
+	this->performPPUCycle();
 
-	++this->totalMachineCycles;
+	++this->totalMachineCycles; 
+	
 	return nesResult;
 }
 

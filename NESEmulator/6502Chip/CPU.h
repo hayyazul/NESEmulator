@@ -133,8 +133,11 @@ public:
 	// Makes a request for an NMI; unignorable. This only makes a request if the parameter is true AND the previous value of the parameter when it was last called was false.
 	virtual void requestNMI(bool request);
 
-	// Halts the CPU for it to perform OAM DMA. Requested by the PPU; this function should be called by the NES class. 
-	void scheduleOAMDMA(uint8_t page);
+	// Gets whether this is a get (false) or put (true) cycle.
+	bool getCycleType() const;
+
+	// Turns the current cycle from get to put or from put to get.
+	void alternateCycle();
 
 	/* void reset
 	Resets the CPU, which involves setting the PC to the location indicated by the reset vector and decrementing the stack pointer by 3.
@@ -167,14 +170,6 @@ protected:
 	bool nmiRequested;  // Whether a REQUEST for an NMI has been made.
 	bool lastNMISignal;  // The last NMI signal; so if the PPU is on Vblank, this gets set to true. This also prevents another NMI from being requested (assuming the PPU's Vblank status is still true).
 
-	// TODO: Refactor the DMA code; a similar things will need to be done w/ the APU, and the current implementation is very rigid and complex.
-	uint8_t dmaPage;  // The page (0x100 byte chunk, from 0xNN00 to 0xNNff inclusive) to copy from.
-	uint8_t dmaLowerByteAddr;  // The lower byte of the address to copy over; starts at 0x00, iterates till 0xff.
-	uint8_t dmaData;  // When the DMA reads from an address, it needs to write the data to OAM later. I think this is the data bus for the CPU, which is not emulated (DataBus functions differently from how a databus would work in hardware).
-	bool readOrWriteDMA;  // Whether the current cycle during DMA is a read (false) or a write (true).
-	bool inDMA;    // Whether the CPU is halted by the PPU (different from IRQ and NMI). 
-	bool requestedOAMDMA;  // Whether the PPU has made a request to halt the CPU; then we wait until the current instruction finishes (i.e. wait until the cycle right after the last one of the current instruction).
-
 	bool getOrPutCycle;  // Bool indicating whether the current cycle is a get (false) or a put (true) cycle. Starts as a get cycle, alternates back and forth every cycle. 
 	long unsigned int totalCyclesElapsed = 0;  // Total CPU cycles elapsed since startup. 
 	unsigned int opcodeCyclesElapsed = 0;  // A cycle counter that is present since the CPU began executing a given instruction. Resets when it reaches the number of cycles for a given instruction.
@@ -185,9 +180,6 @@ protected:
 	void performInterruptActions();
 	
 	void performNMIActions();
-
-	// Performs the actions for DMA in a given CPU cycle.
-	void performDMACycle();
 
 private:
 	DataBus* databus;

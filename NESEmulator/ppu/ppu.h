@@ -88,7 +88,7 @@ public:
 
 	// Whether the PPU wants to halt the CPU and do OAM DMA copying.
 	bool reqeuestingDMA();
-	uint8_t GetDMAPage() const;  // Gets the page to perform the copying on.
+	uint8_t getDMAPage() const;  // Gets the page to perform the copying on.
 
 protected:
 
@@ -132,8 +132,8 @@ protected:
 	Memory* VRAM;  // TODO: replace memory w/ a specific child of it designed for VRAM; allow this to be remapped by the cartridge.
 	Memory* CHRDATA;  // TODO: implement
 	Memory* paletteControl;
-	
 	Memory OAM;  // Internal memory inside the PPU which contains 256 bytes, 4 bytes defining 1 sprite for 64 sprites.
+	
 	bool requestingOAMDMA;  // Whether the PPU is requesting an OAMDMA. This gets set true when a write to OAMDMA occurs and false when the requestingDMA method is called and this is true.
 	uint8_t dmaPage;
 

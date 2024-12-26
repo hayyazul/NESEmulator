@@ -47,7 +47,8 @@ int main() {
 		}
 	}
 
-	
+	ppu.dumpOAMData(16);
+
 	PatternTableDisplayer PTDisplayer;
 	NametableDisplayer NTDisplayer;
 	

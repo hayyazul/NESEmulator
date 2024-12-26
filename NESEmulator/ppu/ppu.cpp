@@ -201,7 +201,7 @@ bool PPU::reqeuestingDMA() {
 	return false;
 }
 
-uint8_t PPU::GetDMAPage() const {
+uint8_t PPU::getDMAPage() const {
 	return this->dmaPage;
 }
 

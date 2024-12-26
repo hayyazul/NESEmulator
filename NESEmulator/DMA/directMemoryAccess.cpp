@@ -1,0 +1,38 @@
+#include "directMemoryAccess.h"
+
+OAMDMAUnit::OAMDMAUnit() : address(0), endAddress(0x100), OAMDataToTransfer(0), readOrWrite(DMACycles::CycleType::READ), databus(nullptr) {}
+OAMDMAUnit::OAMDMAUnit(NESDatabus* CPUDatabus) : address(0), endAddress(0x100), OAMDataToTransfer(0), readOrWrite(DMACycles::CycleType::READ), databus(CPUDatabus) {}
+
+OAMDMAUnit::~OAMDMAUnit() {}
+
+bool OAMDMAUnit::performDMACycle(bool cpuCycleType) {
+	// 512 or 513 cycles should be executed here (1 cycle, the DMA halt cycle, has already been executed by the CPU).
+	// Ordering will be based on this fact, so when I say "first" here, it is actually the second cycle the CPU has been halted.
+
+	const uint16_t OAMDATA = 0x2004;  // PPU register for OAMDATA.
+
+	// Write/read
+	if (this->readOrWrite == DMACycles::CycleType::WRITE && cpuCycleType) {  // Write (put, true)
+		// Write to OAM via OAMDATA. The address in the PPU for OAMDATA increments automatically when OAMDATA is written to.
+		this->databus->write(OAMDATA, this->OAMDataToTransfer);
+		this->readOrWrite = DMACycles::CycleType::READ;
+	}
+	else if (this->readOrWrite == DMACycles::CycleType::READ && !cpuCycleType) {  // Read (get, false)
+		this->OAMDataToTransfer = this->databus->read(this->address);
+		this->readOrWrite = DMACycles::CycleType::WRITE;
+		++this->address;
+	}
+
+	// Lastly, check if we are done w/ the DMA (the last cycle was write and we are on the end address; note that if the last cycle was write, the read/write flag is now read). 
+	bool continueDMA = this->readOrWrite || this->address != this->endAddress;
+	return continueDMA;
+}
+
+void OAMDMAUnit::setPage(uint8_t page) {
+	this->address = (uint16_t)page << 8;  // We offset the page
+	this->endAddress = this->address + 0x100;  // We want to stop on address 0x(NN + 1)00 exclusive. 
+}
+
+void OAMDMAUnit::attachDatabus(NESDatabus* CPUDatabus) {
+	this->databus = CPUDatabus;
+}
