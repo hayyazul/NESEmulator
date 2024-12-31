@@ -21,7 +21,7 @@ public:
 
 	// Basic, fundamental read/write operations.
 	virtual uint8_t read(uint16_t address);  // Returns the memory located at that address.
-	virtual uint8_t write(uint16_t address, uint8_t value);  // Returns the value just written (NOTE: might change this to the previous data value).
+	virtual uint8_t write(uint16_t address, uint8_t value);  // Returns the old value at the given spot.
 
 private:
 	Memory* memory;

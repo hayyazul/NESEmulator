@@ -3,7 +3,7 @@
 // MAIN TODO: 
 // - Work on the PPU's pixel-by-pixel display.
 // - Connect PPU to Graphics module.
-// - Implement PPU Registers.
+// - Fix issues w/ PPU Registers.
 
 #include "debuggingTools/suites/basicDebugSuite.hpp"
 
@@ -68,8 +68,9 @@ int main() {
 	unsigned int nameTable = 0;
 	unsigned int x = 10, y = 10;
 
-	PTDisplayer.displayPatternTable(graphics, ppu, 1, x, y, 2);
+	PTDisplayer.displayPatternTable(graphics, ppu, 0, x, y, 2);
 	NTDisplayer.displayNametable(graphics, ppu, nameTable, x + 288, y, 1, patternTable);
+	graphics.drawSquare(0xffffffff, (x + 288) + 0x38, (y) + 0x7f, 8);
 
 	graphics.unlockDisplay();
 

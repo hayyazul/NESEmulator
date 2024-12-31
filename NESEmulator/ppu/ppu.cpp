@@ -8,6 +8,7 @@ PPU::PPU() :
 	VRAM(nullptr), 
 	CHRDATA(nullptr), 
 	OAM(Memory{0x100}),
+	paletteControl(Memory{0x20}),
 	registers(PPURegisters()), 
 	cycleCount(0),
 	PPUDATABuffer(0),
@@ -15,13 +16,18 @@ PPU::PPU() :
 	t(0),
 	v(0),
 	x(0),
-	requestingOAMDMA(false)
-{}
+	requestingOAMDMA(false),
+	dmaPage(0),
+	ioBus(0)
+{
+	this->databus.attachPalette(&paletteControl);
+}
 
 PPU::PPU(Memory* VRAM, Memory* CHRDATA) :
 	VRAM(VRAM),
 	CHRDATA(CHRDATA),
 	OAM(Memory{ 0x100 }),
+	paletteControl(Memory{ 0x20 }),
 	registers(PPURegisters()),
 	cycleCount(0),
 	PPUDATABuffer(0),
@@ -29,17 +35,23 @@ PPU::PPU(Memory* VRAM, Memory* CHRDATA) :
 	t(0),
 	v(0),
 	x(0),
-	requestingOAMDMA(false)
-{}
+	requestingOAMDMA(false),
+	dmaPage(0),
+	ioBus(0)
+{
+	this->databus.attachPalette(&paletteControl);
+}
 
 PPU::~PPU() {}
 
 void PPU::attachVRAM(Memory* vram) {
 	this->VRAM = vram;
+	this->databus.attachVRAM(vram);
 }
 
 void PPU::attachCHRDATA(Memory* chrdata) {
 	this->CHRDATA = chrdata;
+	this->databus.attachCHRDATA(chrdata);
 }
 
 void PPU::executePPUCycle() {
@@ -120,11 +132,8 @@ uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 		break;
 	case(0x2007):  // PPUDATA
 		// Modify VRAM.
-		oldValue = this->VRAM->getByte(this->registers.PPUADDR);
-		if (data != 0x24 && data != 0x00) {
-			int a = 0;
-		}
-		this->VRAM->setByte(this->registers.PPUADDR, data);
+		//oldValue = this->getByte(this->registers.PPUADDR);
+		oldValue = this->databus.write(this->registers.PPUADDR, data);
 		// Now we increment PPUADDR by 32 if bit 2 of PPUCTRL is set (the nametable is 32 bytes long, so this essentially goes down).
 		// Otherwise, we increment PPUADDR by 1 (going right).
 		this->registers.PPUADDR += 1 << (5 * getBit(this->registers.PPUCTRL, 2));
@@ -172,7 +181,7 @@ uint8_t PPU::readRegister(uint16_t address) {
 		// we then update the buffer with the value at the given address. This effectively delays PPUDATA
 		// reads by 1.
 		this->ioBus = this->PPUDATABuffer;  // NOTE: There is some open-bus behavior when reading from palette RAM, however I do not know enough to emulate it at the moment.
-		this->PPUDATABuffer = this->VRAM->getByte(this->registers.PPUADDR);
+		this->PPUDATABuffer = this->databus.read(this->registers.PPUADDR);
 		// Now we increment PPUADDR by 32 if bit 2 of PPUCTRL is set (the nametable is 32 bytes long, so this essentially goes down).
 		// Otherwise, we increment PPUADDR by 1 (going right).
 		this->registers.PPUADDR += 1 << (5 * getBit(this->registers.PPUCTRL, 2));

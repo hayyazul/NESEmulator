@@ -4,6 +4,7 @@
 #pragma once
 
 #include "../memory/memory.h"
+#include "../databus/ppuDatabus.h"
 
 const int VRAM_SIZE = 0x800;  // The size of the internal VRAM that the NES has in bytes.
 
@@ -21,7 +22,7 @@ const int LINES_BETWEEN_VBLANKS = TOTAL_LINES;  // There are 262 lines total, so
 const int PPU_CYCLES_PER_LINE = 341;  // Self-explanatory.
 
 
-struct PPURegisters {  // NOTE: Some of these registers are not modified in the read/write operations of the PPU.
+struct PPURegisters {  // NOTE: Some of these registers are not modified in the read/write operations of the PPU. Implementation wise, these do not exist, so I will likely remove these.
 	// W - Write Only; R - Read Only; RW - Read and Write; xN - Times you need to read/write to go through the entire register.
 	/* W 0x2000
 	7  bit  0
@@ -129,9 +130,10 @@ protected:
 	// 0x3000 to 0x3eff mirror 0x2000 to 0x2eff; it goes unused.
 	// 0x3f00 to 0x3fff maps to the palette control.
 
+	PPUDatabus databus;
 	Memory* VRAM;  // TODO: replace memory w/ a specific child of it designed for VRAM; allow this to be remapped by the cartridge.
 	Memory* CHRDATA;  // TODO: implement
-	Memory* paletteControl;
+	Memory paletteControl;
 	Memory OAM;  // Internal memory inside the PPU which contains 256 bytes, 4 bytes defining 1 sprite for 64 sprites.
 	
 	bool requestingOAMDMA;  // Whether the PPU is requesting an OAMDMA. This gets set true when a write to OAMDMA occurs and false when the requestingDMA method is called and this is true.
