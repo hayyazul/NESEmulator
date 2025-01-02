@@ -1,6 +1,7 @@
 #include "ppu.h"
 
 #include "../globals/helpers.hpp"
+#include "../loadingData/loadPalette.hpp"
 #include <iomanip>
 #include <iostream>
 
@@ -18,7 +19,12 @@ PPU::PPU() :
 	x(0),
 	requestingOAMDMA(false),
 	dmaPage(0),
-	ioBus(0)
+	ioBus(0),
+	graphics(nullptr),
+	attributeShiftRegister(0),
+	patternShiftRegisterLow(0),
+	patternShiftRegisterHigh(0),
+	paletteMap(loadPalette("resourceFiles/2C02G_wiki.pal"))
 {
 	this->databus.attachPalette(&paletteControl);
 }
@@ -37,12 +43,21 @@ PPU::PPU(Memory* VRAM, Memory* CHRDATA) :
 	x(0),
 	requestingOAMDMA(false),
 	dmaPage(0),
-	ioBus(0)
+	ioBus(0),
+	graphics(nullptr),
+	attributeShiftRegister(0),
+	patternShiftRegisterLow(0),
+	patternShiftRegisterHigh(0),
+	paletteMap(loadPalette("resourceFiles/2C02G_wiki.pal"))
 {
 	this->databus.attachPalette(&paletteControl);
 }
 
 PPU::~PPU() {}
+
+void PPU::attachGraphics(Graphics* graphics) {
+	this->graphics = graphics;
+}
 
 void PPU::attachVRAM(Memory* vram) {
 	this->VRAM = vram;
@@ -56,6 +71,11 @@ void PPU::attachCHRDATA(Memory* chrdata) {
 
 void PPU::executePPUCycle() {
 	this->updatePPUSTATUS();
+	int currentLine = this->getLineOn();
+	if (currentLine >= VISIBLE_LINE && currentLine < POST_RENDER_LINE && getBit(this->registers.PPUMASK, 3)) {
+		this->drawPixel();
+	}
+
 	++this->cycleCount;
 }
 
@@ -235,9 +255,7 @@ bool PPU::reachedVblank() const {
 
 	auto a = this->getDotOn();  // DEBUG: Remove when done debugging vblank detection via PPUSTATUS.
 	auto b = this->getLineOn();
-	if (a == 1 && b == 0xf1) {
-		int c = 0;
-	}
+
 
 	return beganVblank;
 }
@@ -272,4 +290,20 @@ int PPU::getLineOn() const {
 
 int PPU::getDotOn() const {
 	return this->cycleCount % PPU_CYCLES_PER_LINE;  // From what I read so far, I think cycles 1-256 (0BI) draw each dot, so I will use that to determine the dot we are on.
+}
+
+void PPU::drawPixel() {
+	if (this->graphics == nullptr) {
+		return;
+	}
+
+	unsigned int a = this->getDotOn();
+	if (a < 0x100) {
+		uint16_t b = a / 4;
+		if (b > 0x3f) {
+			int c = 0;
+		}
+
+		this->graphics->drawSquare(this->paletteMap.at(b), a, this->getLineOn(), 1);
+	}
 }

@@ -16,7 +16,6 @@
 #include "graphics/textRenderer.hpp"
 
 
-
 #include <SDL.h>
 #include <bitset>
 
@@ -40,26 +39,28 @@ int main() {
 	nes.attachCartridgeMemory(&cartridgeMemory);
 	nes.loadROM("testROMS/donkey kong.nes");
 	nes.powerOn();
-	for (int i = 0; i < 3'000'000; ++i) {
-		if (!nes.executeMachineCycle()) {
-			std::cout << "Illegal opcode encountered!" << std::endl;
-			break;
-		}
-	}
+	//for (int i = 0; i < 3'000'000; ++i) {
+		//if (!nes.executeMachineCycle()) {
+			//std::cout << "Illegal opcode encountered!" << std::endl;
+			//break;
+		//}
+	//}
 
+	
 	ppu.dumpOAMData(16);
 
 	PatternTableDisplayer PTDisplayer;
 	NametableDisplayer NTDisplayer;
 	
 	SDL_Init(SDL_INIT_EVERYTHING);
-	Graphics graphics{600, 338};
+	Graphics graphics;
+	ppu.attachGraphics(&graphics);
 
 	SDL_Window* window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 450, SDL_WINDOW_RESIZABLE);
 	SDL_Renderer* renderer = SDL_CreateRenderer(window, 0, 0);
 	SDL_Surface* windowSurface = SDL_GetWindowSurface(window);
 
-	graphics.lockDisplay();
+	//graphics.lockDisplay();
 	// Width in px 
 	// (which is equal to the height in px due to this being a square)
 	// = width (in patterns) * width (of a pattern) * scale
@@ -68,17 +69,21 @@ int main() {
 	unsigned int nameTable = 0;
 	unsigned int x = 10, y = 10;
 
-	PTDisplayer.displayPatternTable(graphics, ppu, 0, x, y, 2);
-	NTDisplayer.displayNametable(graphics, ppu, nameTable, x + 288, y, 1, patternTable);
-	graphics.drawSquare(0xffffffff, (x + 288) + 0x38, (y) + 0x7f, 8);
+	//PTDisplayer.displayPatternTable(graphics, ppu, 0, x, y, 2);
+	//NTDisplayer.displayNametable(graphics, ppu, nameTable, x + 288, y, 1, patternTable);
+	//graphics.drawSquare(0xffffffff, (x + 288) + 0x38, (y) + 0x7f, 8);
 
-	graphics.unlockDisplay();
+	//graphics.unlockDisplay();
 
 	bool quit = false;
 
 	uint8_t a = 0, oldA = 0;
 	SDL_Event event;
 	while (!quit) {
+		for (int i = 0; i < 357955; ++i) {
+			nes.executeMachineCycle();
+		}
+
 		while (SDL_PollEvent(&event)) {
 			switch(event.type) { 
 			case(SDL_QUIT):
@@ -98,7 +103,7 @@ int main() {
 		graphics.blitDisplay(windowSurface);
 		SDL_UpdateWindowSurface(window);
 
-		SDL_Delay(1.0 / 30.0);
+		SDL_Delay(1.0 / 60.0);
 	}
 
 	SDL_Quit();

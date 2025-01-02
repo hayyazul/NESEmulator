@@ -123,7 +123,7 @@ NESCycleOutcomes NES::performCPUCycle() {
 
 void NES::performPPUCycle() {
 	// Performing the PPU cycle
-	this->ppu->executePPUCycle();
+  	this->ppu->executePPUCycle();
 	this->CPU->requestNMI(this->ppu->requestingNMI());
 	
 	if (this->ppu->reqeuestingDMA()) {

@@ -3,8 +3,12 @@
 // which are connected to the CPU at addresses 0x2000 to 0x2007 inclusive and 0x4014.
 #pragma once
 
+//  TODO: Make the nametables memory mappings.
+
+#include <map>
 #include "../memory/memory.h"
 #include "../databus/ppuDatabus.h"
+#include "../graphics/graphics.h"
 
 const int VRAM_SIZE = 0x800;  // The size of the internal VRAM that the NES has in bytes.
 
@@ -21,6 +25,74 @@ const int TOTAL_LINES = 262;
 const int LINES_BETWEEN_VBLANKS = TOTAL_LINES;  // There are 262 lines total, so the interval between Vblanks is 262.
 const int PPU_CYCLES_PER_LINE = 341;  // Self-explanatory.
 
+// 2C02
+// Map between a byte and an NES RGB value which can be passed into Graphcis::drawPixel. Note that this does not account for the hue argument.
+const std::map<uint8_t, uint32_t> BYTE_TO_COLOR = {
+	{0x00, 0x0},
+	{0x01, 0x0},
+	{0x02, 0x0},
+	{0x03, 0x0},
+	{0x04, 0x0},
+	{0x05, 0x0},
+	{0x06, 0x0},
+	{0x07, 0x0},
+	{0x08, 0x0},
+	{0x09, 0x0},
+	{0x0a, 0x0},
+	{0x0b, 0x0},
+	{0x0c, 0x0},
+	{0x0d, 0x0},
+	{0x0e, 0x0},
+	{0x0f, 0x0},
+	{0x10, 0x0},
+	{0x11, 0x0},
+	{0x12, 0x0},
+	{0x13, 0x0},
+	{0x14, 0x0},
+	{0x15, 0x0},
+	{0x16, 0x0},
+	{0x17, 0x0},
+	{0x18, 0x0},
+	{0x19, 0x0},
+	{0x1a, 0x0},
+	{0x1b, 0x0},
+	{0x1c, 0x0},
+	{0x1d, 0x0},
+	{0x1e, 0x0},
+	{0x1f, 0x0},
+	{0x20, 0x0},
+	{0x21, 0x0},
+	{0x22, 0x0},
+	{0x23, 0x0},
+	{0x24, 0x0},
+	{0x25, 0x0},
+	{0x26, 0x0},
+	{0x27, 0x0},
+	{0x28, 0x0},
+	{0x29, 0x0},
+	{0x2a, 0x0},
+	{0x2b, 0x0},
+	{0x2c, 0x0},
+	{0x2d, 0x0},
+	{0x2e, 0x0},
+	{0x2f, 0x0},
+	{0x30, 0x0},
+	{0x31, 0x0},
+	{0x32, 0x0},
+	{0x33, 0x0},
+	{0x34, 0x0},
+	{0x35, 0x0},
+	{0x36, 0x0},
+	{0x37, 0x0},
+	{0x38, 0x0},
+	{0x39, 0x0},
+	{0x3a, 0x0},
+	{0x3b, 0x0},
+	{0x3c, 0x0},
+	{0x3d, 0x0},
+	{0x3e, 0x0},
+	{0x3f, 0x0}
+};
 
 struct PPURegisters {  // NOTE: Some of these registers are not modified in the read/write operations of the PPU. Implementation wise, these do not exist, so I will likely remove these.
 	// W - Write Only; R - Read Only; RW - Read and Write; xN - Times you need to read/write to go through the entire register.
@@ -71,6 +143,8 @@ public:
 	PPU(Memory* VRAM, Memory* CHRDATA);
 	~PPU();
 
+	void attachGraphics(Graphics* graphics);
+
 	void attachVRAM(Memory* vram);
 	void attachCHRDATA(Memory* chrdata);
 
@@ -99,24 +173,29 @@ protected:
 
 	// reachedPrerender returns whether the PPU is at dot 1 (0BI) of the pre-render line.
 	bool reachedPrerender() const;
-
-	// Whether the PPU
-
-	// Whether the PPU is currently rendering.
-	bool inRendering() const;
+	bool inRendering() const;  	// Whether the PPU is currently rendering.
 
 	// Updates the PPUSTATUS register; should be called every PPU cycle.
 	void updatePPUSTATUS();
 
-	// Gets the scanline the PPU is on; NOTE: might make this protected or even public.
+	// Gets the scanline the PPU is on; NOTE: might make this public.
 	int getLineOn() const;
 
 	// Gets the dot the PPU is on; NOTE: this is subject to change in the future; the current method of finding the dot is not based on the wiki.
 	int getDotOn() const;
 
+	void drawPixel();  // Draws a pixel to graphics depending on the internal
+	
+	const std::map<uint16_t, uint32_t> paletteMap;
+
+	// Internal shift registers relating to drawing.
+	uint16_t patternShiftRegisterLow, patternShiftRegisterHigh;  // Contains appropriate pattern bits.
+	uint8_t attributeShiftRegister;  // Contains the attribute data for the given tile.
+
+	Graphics* graphics;  // A pointer to the graphics object which will be drawn to.
+
 	/*
 	VERY IMPORTANT NOTE FOR INES FILES!!!
-	 
 	...the PPU memory map (look it up in the wiki) is similarly divided into palettes, 
 	pattern, name and attribute tables. Only the pattern tables are "ready to use" 
 	on power up (only if the cart uses CHR-ROM, though!), everything else must be 
@@ -130,7 +209,7 @@ protected:
 	// 0x3000 to 0x3eff mirror 0x2000 to 0x2eff; it goes unused.
 	// 0x3f00 to 0x3fff maps to the palette control.
 
-	PPUDatabus databus;
+	PPUDatabus databus;  // Databus which maps to VRAM, CHRDATA, and palette RAM. This is NOT connected to OAM, which has its own memory.
 	Memory* VRAM;  // TODO: replace memory w/ a specific child of it designed for VRAM; allow this to be remapped by the cartridge.
 	Memory* CHRDATA;  // TODO: implement
 	Memory paletteControl;
@@ -139,7 +218,7 @@ protected:
 	bool requestingOAMDMA;  // Whether the PPU is requesting an OAMDMA. This gets set true when a write to OAMDMA occurs and false when the requestingDMA method is called and this is true.
 	uint8_t dmaPage;
 
-	PPURegisters registers;  // External/shared registers.
+	PPURegisters registers;  // External/shared registers. NOTE: Very likely will be removed.
 	// Internal registers.
 	bool w;  // 1 bit
 	uint16_t v, t;  // 15 bits
@@ -161,16 +240,6 @@ protected:
 	so for example, repeatedly reading $2002 will keep bits 7-5 active while bits 4-0 eventually decay."
 
 	 - Fiskbit, NesDev forums admin
-
-	*/
-
-	/*
-	TODO: Make the nametables memory mappings.
-	
-	$0000-1FFF is normally mapped by the cartridge to a CHR-ROM or CHR-RAM, often with a bank switching mechanism.
-	$2000-2FFF is normally mapped to the 2kB NES internal VRAM, providing 2 nametables with a mirroring configuration controlled by the cartridge, but it can be partly or fully remapped to ROM or RAM on the cartridge, allowing up to 4 simultaneous nametables.
-	$3000-3EFF is usually a mirror of the 2kB region from $2000-2EFF. The PPU does not render from this address range, so this space has negligible utility.
-	$3F00-3FFF is not configurable, always mapped to the internal palette control.
-	*/
+	*/	
 
 };
