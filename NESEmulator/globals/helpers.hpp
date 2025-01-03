@@ -30,6 +30,15 @@ inline constexpr bool getBit(T i, int bitIdx) {
 
 // 0-indexed.
 template <typename T>
+inline constexpr T getBits(T i, int startIdx, int endIdx) {
+	T srcIndexer = ((1 << (endIdx + 1)) - 1) ^ ((1 << startIdx) - 1);
+	i &= srcIndexer;  // Select only the bits in this range.
+
+	return i;
+}
+
+// 0-indexed.
+template <typename T>
 inline constexpr void setBit(T& i, int bitIdx) {
 	T indexer = 1;
 	indexer <<= bitIdx;
@@ -47,7 +56,6 @@ inline constexpr void copyBits(T& dst, T src, int startIdx, int endIdx) {
 	if (endIdx < startIdx) {
 		std::cout << "Warning: copyBits called w/ invalid start (" << std::dec << startIdx << ") and end (" << endIdx << ") indices; unexpected behavior is likely to follow." << std::endl;
 	}
-
 	#endif
 	
 	T srcIndexer = ((1 << (endIdx + 1)) - 1) ^ ((1 << startIdx) - 1);

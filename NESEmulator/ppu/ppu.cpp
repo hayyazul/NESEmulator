@@ -71,9 +71,14 @@ void PPU::attachCHRDATA(Memory* chrdata) {
 
 void PPU::executePPUCycle() {
 	this->updatePPUSTATUS();
+
+	if (this->inRendering()) {
+		this->updateRenderingRegisters();
+	}
+
 	int currentLine = this->getLineOn();
 	if (currentLine >= VISIBLE_LINE && currentLine < POST_RENDER_LINE && getBit(this->registers.PPUMASK, 3)) {
-		this->drawPixel();
+		//this->drawPixel();
 	}
 
 	++this->cycleCount;
@@ -131,6 +136,11 @@ uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 			// Then out the lowest 3 of the write to the highest 3 of t.
 			copyBits(this->t, 12, 14, (uint16_t)data, 0, 2);
 		}
+		// NOTE: I do not know if this is the case, but I am copying t over to v on the second write.
+		if (w) {
+			this->v = this->t;
+		}
+
 		w = !w;
 		break;
 	case(0x2006):  // PPUADDR // TODO: there is a quirk regarding internal-t I don't fully understand yet relating to PPUADDR; read nesdev for more info.
@@ -283,6 +293,89 @@ void PPU::updatePPUSTATUS() {  // TODO: Implement sprite overflow and sprite 0 h
 	}
 }
 
+void PPU::updateRenderingRegisters() {
+	// The PPU will update differently based on the current cycle.
+	uint16_t currentDot = this->getDotOn();
+	if (currentDot == 0) {
+		// Idle cycle.
+	} else if (currentDot < 0x101) {
+		// Datafetching cycles; also the drawing cycles, but drawing is handled outside of this function.
+		this->performDataFetches();
+	}
+}
+
+void PPU::performDataFetches() {
+	// TODO: Give this variable and function a better name.
+	uint8_t cycleCounter = this->cycleCount % 8;  // This variable ranges from 0 to 7 and represents cycles 8, 16, 24... 256.
+	// The shifters are reloaded on cycle counter 0.
+	if (cycleCounter == 0) {
+		this->patternShiftRegisterLow += this->patternLatchLow << 8;
+		this->patternShiftRegisterHigh += this->patternLatchHigh << 8;
+		this->attributeShiftRegister = this->attributeLatch;
+	}
+
+	const uint16_t FIRST_NAMETABLE_ADDR = 0x2000, FIRST_PATTERN_TABLE_ADDR = 0x0000;
+	uint16_t addr;  // Variable to hold addresses which may be used. NOTE: Might be removed.
+	uint16_t a, b, c;
+	// Now, we will load the latches every other cycle.
+	switch (cycleCounter) {
+	case(1):  // Fetching nametable byte.
+		// Using the internal v register to define the scroll.
+		// NOTE: For now, we are only rendering the first nametable w/o proper mirroring or any scrolling.
+		addr = FIRST_NAMETABLE_ADDR + getBits(this->v, 0, 4) + getBits(this->v, 5, 9) * 32;
+		a = getBits(this->v, 0, 4);
+		b = getBits(this->v, 5, 9);
+		b >>= 4;
+		c = b * 32;
+		addr = FIRST_NAMETABLE_ADDR + a + c;
+		this->nametableByteLatch = this->databus.read(addr);
+		// Increment the v register; this has the effect of incrementing coarse X scroll and coarse Y scroll if X's overflows.
+		if ((this->v & 0b1111111111) == 0b1111111111) {
+			this->v ^= 0b1111111111;
+		} else {
+			++this->v;
+		}
+		
+		break;
+	case(3):  // Fetching attribute table byte.
+		addr = FIRST_NAMETABLE_ADDR + 0x3c0; // 0x3c0 = Size of nametable; after this is the attribute table.
+		--this->v;
+		a = getBits(this->v, 0, 4);
+		b = getBits(this->v, 5, 9) >> 5;
+		// a and b form the x, y coordinate for a nametable tile.
+		++this->v;
+
+		if (b == 1) {
+			c = 0;
+		}
+		addr += (a / 4 + (8 * b));  // Offset the address given what part of the nametable we are 
+
+		this->attributeLatch = this->databus.read(addr);  // TODO: Debug; I think there is a bug here but it isn't clear.
+		break;
+	case(5):  // Fetching pattern table tile low.
+		// Using the nametable byte, we will grab the associated pattern.
+		// NOTE: For now, we will use the first pattern table.
+		addr = FIRST_PATTERN_TABLE_ADDR + this->nametableByteLatch * 16;  // Each pattern is 16 bytes large.
+		// We will get a different pair of bytes from the pattern depending on the current line (e.g. get 1st pair on line 0, 2nd pair on line 1...).
+		a = this->getLineOn();
+		b = a % 240;
+		c = 2 * b;
+		if (addr != 0x240) {
+			c = 0;
+		}
+		addr += this->getLineOn() % 240;  // Selecting the line.
+		this->patternLatchLow = this->databus.read(addr);
+		break;
+	case(7):  // Fetching pattern table tile high.
+		addr = FIRST_PATTERN_TABLE_ADDR + this->nametableByteLatch * 16;  // Each pattern is 16 bytes large.
+		addr += this->getLineOn() % 240;  // Selecting the line.
+		this->patternLatchHigh = this->databus.read(addr + 0x8);  // The upper bits are offset by 8 from the low bits.
+		break;
+	default:
+		break;
+	}
+}
+
 int PPU::getLineOn() const {
 	int lineOn = (this->cycleCount / PPU_CYCLES_PER_LINE) % TOTAL_LINES;
 	return lineOn;
@@ -293,17 +386,21 @@ int PPU::getDotOn() const {
 }
 
 void PPU::drawPixel() {
-	if (this->graphics == nullptr) {
+	if (this->graphics == nullptr) {  // If we are not given a graphics object, do not attempt to draw.
 		return;
 	}
 
-	unsigned int a = this->getDotOn();
-	if (a < 0x100) {
-		uint16_t b = a / 4;
-		if (b > 0x3f) {
-			int c = 0;
-		}
+	// Now, figure out the color we need to draw.
+	uint16_t colorKey;
+	// First, copy the emphasis values from PPUMASK to the color key.
+	copyBits(colorKey, 6, 8, (uint16_t)this->registers.PPUMASK, 5, 7);
 
-		this->graphics->drawSquare(this->paletteMap.at(b), a, this->getLineOn(), 1);
+	// Now we have to find the color index for this pixel. TODO.
+
+
+	unsigned int dotX = this->getDotOn(), dotY = this->getLineOn();
+	if (dotX < 0x100) {  // Do not draw past dot 255.
+		// NOTE: Temporary solution; I am not sure why but using Graphics::drawPixel results in a slight barber pole effect.
+		this->graphics->drawSquare(this->paletteMap.at(0), dotX, dotY, 1);
 	}
 }

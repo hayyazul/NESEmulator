@@ -3,7 +3,7 @@
 #include <SDL.h>
 
 // Constants specificially referring to the NES's display parameters.
-constexpr unsigned int DISPLAY_WIDTH = 256, DISPLAY_HEIGHT = 240, PICTURE_REGION_WIDTH = 256/*283*/, PICTURE_REGION_HEIGHT = 240/*242*/;
+constexpr unsigned int DISPLAY_WIDTH = 256, DISPLAY_HEIGHT = 240, PICTURE_REGION_WIDTH = 283, PICTURE_REGION_HEIGHT = 242;
 constexpr SDL_Rect DISPLAY_BOUNDS{16, 0, 256, 240};
 
 /* A class to display a mutable surface; the PPU will write to this surface(or use some intermediary) and this class will display it to the user.

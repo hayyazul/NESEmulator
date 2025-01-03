@@ -53,10 +53,10 @@ int main() {
 	NametableDisplayer NTDisplayer;
 	
 	SDL_Init(SDL_INIT_EVERYTHING);
-	Graphics graphics;
+	Graphics graphics{256, 240};
 	ppu.attachGraphics(&graphics);
 
-	SDL_Window* window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 800, 450, SDL_WINDOW_RESIZABLE);
+	SDL_Window* window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 512, 480, SDL_WINDOW_RESIZABLE);
 	SDL_Renderer* renderer = SDL_CreateRenderer(window, 0, 0);
 	SDL_Surface* windowSurface = SDL_GetWindowSurface(window);
 
@@ -80,7 +80,7 @@ int main() {
 	uint8_t a = 0, oldA = 0;
 	SDL_Event event;
 	while (!quit) {
-		for (int i = 0; i < 357955; ++i) {
+		for (int i = 0; i < 357954; ++++i) {
 			nes.executeMachineCycle();
 		}
 

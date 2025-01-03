@@ -175,18 +175,24 @@ protected:
 	bool reachedPrerender() const;
 	bool inRendering() const;  	// Whether the PPU is currently rendering.
 
-	// Updates the PPUSTATUS register; should be called every PPU cycle.
+	// Updates the PPUSTATUS register; should be called every PPU cycle. This might be removed or put into a larger function which updates the internal states of the PPU.
 	void updatePPUSTATUS();
+
+	void updateRenderingRegisters();  // Updates internal registers for rendering; should only be called if rendering is enabled.
+	void performDataFetches();  // Performs the data fetches associated w/ cycles 1-256 on the rendering lines.
 
 	// Gets the scanline the PPU is on; NOTE: might make this public.
 	int getLineOn() const;
-
 	// Gets the dot the PPU is on; NOTE: this is subject to change in the future; the current method of finding the dot is not based on the wiki.
 	int getDotOn() const;
 
-	void drawPixel();  // Draws a pixel to graphics depending on the internal
+	void drawPixel();  // Draws a pixel to graphics depending on the internal register values. (see the NESdev's page on PPU Rendering for details).
 	
 	const std::map<uint16_t, uint32_t> paletteMap;
+
+	// Internal latches which will transfer to the shift registers every 8 cycles.  
+	uint16_t patternLatchLow, patternLatchHigh;
+	uint8_t attributeLatch, nametableByteLatch;
 
 	// Internal shift registers relating to drawing.
 	uint16_t patternShiftRegisterLow, patternShiftRegisterHigh;  // Contains appropriate pattern bits.
