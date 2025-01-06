@@ -181,6 +181,8 @@ protected:
 	void updateRenderingRegisters();  // Updates internal registers for rendering; should only be called if rendering is enabled.
 	void performDataFetches();  // Performs the data fetches associated w/ cycles 1-256 on the rendering lines.
 
+	// Updates the location of the scanning beam.
+	void updateBeamLocation();
 	// Gets the scanline the PPU is on; NOTE: might make this public.
 	int getLineOn() const;
 	// Gets the dot the PPU is on; NOTE: this is subject to change in the future; the current method of finding the dot is not based on the wiki.
@@ -208,7 +210,8 @@ protected:
 	initialized by the program itself, because it's all RAM.
 	*/
 	
-	int cycleCount;  // NOTE: there might be issues with overflow; look into this risk more.
+	uint16_t dot, scanline;  // Represents the current dot and or scanline 
+	int cycleCount, frameCount;  // NOTE: there might be issues with overflow; look into this risk more.
 	
 	// VRAM (NOTE: for now) should contain 2kb (or 0x800 bytes) which span 0x1000 addresses (0x2000 to 0x2fff)
 	// CHRDATA is mapped to some rom or ram data spanning from 0x0000 to 0x2000 (they are the two pattern tables; each of which is 0x1000 bytes big).

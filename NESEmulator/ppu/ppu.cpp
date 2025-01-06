@@ -24,7 +24,10 @@ PPU::PPU() :
 	attributeShiftRegister(0),
 	patternShiftRegisterLow(0),
 	patternShiftRegisterHigh(0),
-	paletteMap(loadPalette("resourceFiles/2C02G_wiki.pal"))
+	paletteMap(loadPalette("resourceFiles/2C02G_wiki.pal")),
+	dot(0),
+	scanline(0),
+	frameCount(0)
 {
 	this->databus.attachPalette(&paletteControl);
 }
@@ -48,7 +51,10 @@ PPU::PPU(Memory* VRAM, Memory* CHRDATA) :
 	attributeShiftRegister(0),
 	patternShiftRegisterLow(0),
 	patternShiftRegisterHigh(0),
-	paletteMap(loadPalette("resourceFiles/2C02G_wiki.pal"))
+	paletteMap(loadPalette("resourceFiles/2C02G_wiki.pal")),
+	dot(0),
+	scanline(0),
+	frameCount(0)
 {
 	this->databus.attachPalette(&paletteControl);
 }
@@ -82,6 +88,7 @@ void PPU::executePPUCycle() {
 	}
 
 	++this->cycleCount;
+	this->updateBeamLocation();
 }
 
 
@@ -143,7 +150,7 @@ uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 
 		w = !w;
 		break;
-	case(0x2006):  // PPUADDR // TODO: there is a quirk regarding internal-t I don't fully understand yet relating to PPUADDR; read nesdev for more info.
+ 	case(0x2006):  // PPUADDR // TODO: there is a quirk regarding internal-t I don't fully understand yet relating to PPUADDR; read nesdev for more info.
 		// Here, the internal register 'w' tracks whether we are writing the first (w = 0) or second (w = 1) 
 		// byte to PPUADDR. Note that unlike most >8-bit values in the NES, these writes operate on a
 		// big-endian basis.
@@ -304,6 +311,7 @@ void PPU::updateRenderingRegisters() {
 	}
 }
 
+// TODO: Refactor
 void PPU::performDataFetches() {
 	// TODO: Give this variable and function a better name.
 	uint8_t cycleCounter = this->cycleCount % 8;  // This variable ranges from 0 to 7 and represents cycles 8, 16, 24... 256.
@@ -376,13 +384,39 @@ void PPU::performDataFetches() {
 	}
 }
 
+void PPU::updateBeamLocation() {
+	// First, check if we need to skip dot 340, line 261 (only do this on odd frames).
+	if (this->frameCount & 0b1) {  // Check if the frame is odd
+		if (this->dot == 340 && this->scanline == 261) {
+			this->dot = 0;
+			this->scanline = 0;
+			return;
+		}
+	}
+
+	// Then, increment dot and scanline (the latter only if dot > 340).
+	if (++this->dot > 340) {
+		this->dot = 0;
+		if (++this->scanline > 261) {
+			this->scanline = 0;
+			++this->frameCount;
+		}
+	}
+}
+
 int PPU::getLineOn() const {
 	int lineOn = (this->cycleCount / PPU_CYCLES_PER_LINE) % TOTAL_LINES;
-	return lineOn;
+	if (this->scanline == 0) {
+		int a = 0;
+	}
+	//return lineOn;
+	return this->scanline;
 }
 
 int PPU::getDotOn() const {
-	return this->cycleCount % PPU_CYCLES_PER_LINE;  // From what I read so far, I think cycles 1-256 (0BI) draw each dot, so I will use that to determine the dot we are on.
+	auto a = this->cycleCount % PPU_CYCLES_PER_LINE;
+	//return this->cycleCount % PPU_CYCLES_PER_LINE;  // From what I read so far, I think cycles 1-256 (0BI) draw each dot, so I will use that to determine the dot we are on.
+	return this->dot;
 }
 
 void PPU::drawPixel() {
