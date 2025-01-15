@@ -126,17 +126,6 @@ struct PPURegisters {  // NOTE: Some of these registers are not modified in the 
 */
 };
 
-// GENERAL TODO:
-//  - Implement the following PPU register writes/reads.
-//     - PPUMASK
-//     - PPUSTATUS
-//		  - PPU open bus or 2C05 PPU identifier; see nesdev for more info; this only affects first 5 bits.
-//		  - Sprite overflow and Sprite 0 hit flags.
-//     - OAMADDR
-//     - OAMDATA
-//     - PPUSCROLL
-//     - OAMDMA
-
 class PPU {
 public:
 	PPU();
@@ -184,9 +173,11 @@ protected:
 	// Updates the location of the scanning beam.
 	void updateBeamLocation();
 	// Gets the scanline the PPU is on; NOTE: might make this public.
-	int getLineOn() const;
+	int getLineOn() const;  // DEPRECATED
 	// Gets the dot the PPU is on; NOTE: this is subject to change in the future; the current method of finding the dot is not based on the wiki.
-	int getDotOn() const;
+	int getDotOn() const;  // DEPRECATED
+
+	void incrementScrolling(bool axis = false);  // Increments the x and v registers, handling overflow for both appropriately. false - x axis, true - y axis.
 
 	void drawPixel();  // Draws a pixel to graphics depending on the internal register values. (see the NESdev's page on PPU Rendering for details).
 	

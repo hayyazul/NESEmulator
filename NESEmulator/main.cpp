@@ -53,12 +53,16 @@ int main() {
 	NametableDisplayer NTDisplayer;
 	
 	SDL_Init(SDL_INIT_EVERYTHING);
-	Graphics graphics{256, 240};
+	Graphics graphics{512, 256};
 	ppu.attachGraphics(&graphics);
 
-	SDL_Window* window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 512, 480, SDL_WINDOW_RESIZABLE);
+	SDL_Window* window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1024, 480, SDL_WINDOW_RESIZABLE);
 	SDL_Renderer* renderer = SDL_CreateRenderer(window, 0, 0);
 	SDL_Surface* windowSurface = SDL_GetWindowSurface(window);
+
+	for (int i = 0; i < 3570954; ++++i) {
+		nes.executeMachineCycle();
+	}
 
 	//graphics.lockDisplay();
 	// Width in px 
@@ -67,10 +71,10 @@ int main() {
 	// = 16 * 8 * scale = 128 * scale
 	bool patternTable = true;
 	unsigned int nameTable = 0;
-	unsigned int x = 10, y = 10;
+	unsigned int x = 0, y = 0;
 
-	//PTDisplayer.displayPatternTable(graphics, ppu, 0, x, y, 2);
-	//NTDisplayer.displayNametable(graphics, ppu, nameTable, x + 288, y, 1, patternTable);
+	PTDisplayer.displayPatternTable(graphics, ppu, 1, x, y, 2);
+	NTDisplayer.displayNametable(graphics, ppu, nameTable, x + 256, y, 1, patternTable);
 	//graphics.drawSquare(0xffffffff, (x + 288) + 0x38, (y) + 0x7f, 8);
 
 	//graphics.unlockDisplay();

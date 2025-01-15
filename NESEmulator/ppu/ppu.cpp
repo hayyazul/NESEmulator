@@ -305,16 +305,22 @@ void PPU::updateRenderingRegisters() {
 	uint16_t currentDot = this->getDotOn();
 	if (currentDot == 0) {
 		// Idle cycle.
-	} else if (currentDot < 0x101) {
+	} else if (currentDot <= 0x101) {
+		if (currentDot == 0x100) {
+			this->incrementScrolling(true);
+		} else {
+			this->incrementScrolling();
+		}
+
 		// Datafetching cycles; also the drawing cycles, but drawing is handled outside of this function.
 		this->performDataFetches();
-	}
+	} 
 }
 
 // TODO: Refactor
 void PPU::performDataFetches() {
 	// TODO: Give this variable and function a better name.
-	uint8_t cycleCounter = this->cycleCount % 8;  // This variable ranges from 0 to 7 and represents cycles 8, 16, 24... 256.
+	uint8_t cycleCounter = this->dot % 8;  // This variable ranges from 0 to 7 and represents cycles 8, 16, 24... 256.
 	// The shifters are reloaded on cycle counter 0.
 	if (cycleCounter == 0) {
 		this->patternShiftRegisterLow += this->patternLatchLow << 8;
@@ -330,28 +336,26 @@ void PPU::performDataFetches() {
 	case(1):  // Fetching nametable byte.
 		// Using the internal v register to define the scroll.
 		// NOTE: For now, we are only rendering the first nametable w/o proper mirroring or any scrolling.
-		addr = FIRST_NAMETABLE_ADDR + getBits(this->v, 0, 4) + getBits(this->v, 5, 9) * 32;
+		//addr = FIRST_NAMETABLE_ADDR + getBits(this->v, 0, 4) + getBits(this->v, 5, 9) * 32;
 		a = getBits(this->v, 0, 4);
 		b = getBits(this->v, 5, 9);
-		b >>= 4;
-		c = b * 32;
-		addr = FIRST_NAMETABLE_ADDR + a + c;
-		this->nametableByteLatch = this->databus.read(addr);
-		// Increment the v register; this has the effect of incrementing coarse X scroll and coarse Y scroll if X's overflows.
-		if ((this->v & 0b1111111111) == 0b1111111111) {
-			this->v ^= 0b1111111111;
-		} else {
-			++this->v;
+		//c = b << 1;  // When we get the coarse y and store it in b, they are offset by 5, so 0bYYYYY00000. First, we shift it right by 5 to account for this, then multiply by 32
+		// To account for the length (in tiles) of the x-axis. Simplified, this is the same as not shifting at all.
+		addr = FIRST_NAMETABLE_ADDR + a + b;
+		if (this->scanline == 0x10 && b > 0x40) {
+			c = 0;
 		}
-		
+		this->nametableByteLatch = this->databus.read(addr);		
 		break;
 	case(3):  // Fetching attribute table byte.
 		addr = FIRST_NAMETABLE_ADDR + 0x3c0; // 0x3c0 = Size of nametable; after this is the attribute table.
-		--this->v;
+		// We can form the attribute address via the following format:
+		// NN1111YYYXXX; where NN is the nametable select, 1111 a constant offset, YYY and XXX the high bits of their coarse offsets.
+		
+		// NOTE: I am  not 100% sure if this will be a bug, but this uses the new value of v instead of the old one. If buggy behavior arises, look here.
 		a = getBits(this->v, 0, 4);
 		b = getBits(this->v, 5, 9) >> 5;
 		// a and b form the x, y coordinate for a nametable tile.
-		++this->v;
 
 		if (b == 1) {
 			c = 0;
@@ -368,10 +372,10 @@ void PPU::performDataFetches() {
 		a = this->getLineOn();
 		b = a % 240;
 		c = 2 * b;
-		if (addr != 0x240) {
+		if (addr != 0x240 && this->scanline == 32) {
 			c = 0;
 		}
-		addr += this->getLineOn() % 240;  // Selecting the line.
+		addr += this->scanline % 16;  // Selecting the line. TODO: There is almost certainly a better way to fetch pattern table bytes than this.
 		this->patternLatchLow = this->databus.read(addr);
 		break;
 	case(7):  // Fetching pattern table tile high.
@@ -417,6 +421,45 @@ int PPU::getDotOn() const {
 	auto a = this->cycleCount % PPU_CYCLES_PER_LINE;
 	//return this->cycleCount % PPU_CYCLES_PER_LINE;  // From what I read so far, I think cycles 1-256 (0BI) draw each dot, so I will use that to determine the dot we are on.
 	return this->dot;
+}
+
+void PPU::incrementScrolling(bool axis) {  // Increments scrolling
+	// TODO: Clean up code.
+
+	// Format of the v internal register: yyyNNYYYYYXXXXX
+	// y = fine Y scroll; N = nametable; Y = coarse Y scroll; X = coarse X scroll. Fine X scroll is located in the x internal register.
+	// When a fine axis overflows, its coarse portion increments. When the coarse axis overflows, the next nametable corresponding to their axis is selected.
+	
+	// TODO: Implement the nametable incrementing. When I implement this, I will might have to prevent erroneous nametable incrementing (i.e. when scroll = 0).
+
+	if (axis) {  // Increment y
+		if ((this->v & 0b111000000000000) == 0b111000000000000) {  // Increment coarse y; Checks if fine y scroll is overflowing
+			this->v ^= 0b111000000000000;
+
+			if ((this->v & 0b1110100000) == 0b1110100000) {  // Check for overflow in coarse y. Note overflow occurs after coarse row 29.
+				this->v ^= 0b1110100000;
+				
+			} else {
+				this->v += 0b100000;
+			}
+
+		} else { // Increment fine y
+			this->v += 0b001000000000000; 
+		}
+	} else {  // Increment x
+		if (this->x == 0b111) {  // Increment coarse x; Checking if we reached the max value for x.
+			this->x = 0;
+			
+			if ((this->v & 0b11111) == 0b11111) {  // Check for overflow in coarse x.
+				this->v ^= 0b11111;
+			} else {
+				++this->v;
+			}
+
+		} else {  // Increment fine x
+			++this->x;
+		}
+	}
 }
 
 void PPU::drawPixel() {
