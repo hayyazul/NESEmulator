@@ -99,12 +99,16 @@ uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 	this->ioBus = data;
 
 	uint8_t oldValue = 0;
+
+	// For specific behaviors, look at PPU Scrolling.
 	switch (address) {
 	case(0x2000):  // PPUCTRL
 		oldValue = this->registers.PPUCTRL;
 		if (this->cycleCount >= PRE_RENDER_LINE * PPU_CYCLES_PER_LINE) {  // Ignore writes to PPUCTRL until pre-render line is reached.
 			this->registers.PPUCTRL = data;
 		}
+
+		copyBits(this->t, 10, 11, (uint16_t)data, 0, 1);
 		break;
 	case(0x2001):  // PPUMASK
 		this->registers.PPUMASK = data;
@@ -143,37 +147,32 @@ uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 			// Then out the lowest 3 of the write to the highest 3 of t.
 			copyBits(this->t, 12, 14, (uint16_t)data, 0, 2);
 		}
-		// NOTE: I do not know if this is the case, but I am copying t over to v on the second write.
-		if (w) {
-			this->v = this->t;
-		}
-
 		w = !w;
 		break;
  	case(0x2006):  // PPUADDR // TODO: there is a quirk regarding internal-t I don't fully understand yet relating to PPUADDR; read nesdev for more info.
 		// Here, the internal register 'w' tracks whether we are writing the first (w = 0) or second (w = 1) 
 		// byte to PPUADDR. Note that unlike most >8-bit values in the NES, these writes operate on a
 		// big-endian basis.
-		oldValue = this->registers.PPUADDR & (w * 0xff | !w * 0x3f00);  // Gets first (upper) 6 bits or last (lower) 8 bits, depending on the value of w.
-		this->registers.PPUADDR &= w * 0x3f00 | !w * 0xff;  // Clear first (upper) 6 bits or last (lower) 8 bits, depending on the value of w.
+		oldValue = this->t & (w * 0xff | !w * 0x3f00);  // Gets first (upper) 6 bits or last (lower) 8 bits, depending on the value of w.
 		
-		this->registers.PPUADDR += static_cast<uint16_t>(data) << (!w * 8);  // NOTE: I think I shouldn't make it add; rather, set the appropriate bits or set those bits to 0 before adding.
-		this->registers.PPUADDR &= 0x7fff;  // Clear the 16th bit because PPUADDR is 15 bits, not 16. (though the last bit is unused for addressing)
-		
-		this->t = this->registers.PPUADDR;  // Copy this over to the internal register.
-		if (w) {  // If we are on the second write, copy from the t internal register to the v internal register.
+		if (!w) {
+			copyBits(this->t, 8, 13, (uint16_t)data, 0, 5);
+			clrBit(this->t, 14);
+		} else {
+			copyBits(this->t, (uint16_t)data, 0, 7);
 			this->v = this->t;
 		}
 
-		w = !w;  // NOTE: This changes 'w' from first to second byte write; I don't know if writes to 0x2006 should change second to first byte write too. For now it does.
+		w = !w;
 		break;
 	case(0x2007):  // PPUDATA
 		// Modify VRAM.
+		// NOTE: There is some odd behavior regarding writes and reads to PPUDATA during rendering. This is currently not emulated, but some games do make use of such behavior.
 		//oldValue = this->getByte(this->registers.PPUADDR);
-		oldValue = this->databus.write(this->registers.PPUADDR, data);
+		oldValue = this->databus.write(this->v, data);
 		// Now we increment PPUADDR by 32 if bit 2 of PPUCTRL is set (the nametable is 32 bytes long, so this essentially goes down).
 		// Otherwise, we increment PPUADDR by 1 (going right).
-		this->registers.PPUADDR += 1 << (5 * getBit(this->registers.PPUCTRL, 2));
+		this->v += 1 << (5 * getBit(this->registers.PPUCTRL, 2));
 		break;
 	case(0x4014):  // OAMDMA  // TODO: Very important TODO; a write to this address makes the CPU do a lot of stuff.
 		// It essentially copies over a page of memory from the CPU into OAM. This process:
@@ -277,6 +276,10 @@ bool PPU::reachedVblank() const {
 	return beganVblank;
 }
 
+bool PPU::inHBlank() const {
+	return this->dot >= 257;
+}
+
 bool PPU::reachedPrerender() const {
 	return false;
 }
@@ -289,7 +292,7 @@ bool PPU::inRendering() const {
 	int scanline = this->getLineOn();
 	bool onRenderLines = scanline >= VISIBLE_LINE && scanline <= LAST_RENDER_LINE;
 
-	return (backgroundRendering || spriteRendering) && onRenderLines;
+	return (backgroundRendering || spriteRendering); // NOTE: For now, this function will return whether rendering is enabled.
 }
 
 void PPU::updatePPUSTATUS() {  // TODO: Implement sprite overflow and sprite 0 hit flags.
@@ -302,25 +305,40 @@ void PPU::updatePPUSTATUS() {  // TODO: Implement sprite overflow and sprite 0 h
 
 void PPU::updateRenderingRegisters() {
 	// The PPU will update differently based on the current cycle.
-	uint16_t currentDot = this->getDotOn();
+	uint16_t currentDot = this->dot;
+	// TODO: Fix a bug relating to timing; when currentDot is 0x100, this->v's coarse x component is 0x1b.
 	if (currentDot == 0) {
 		// Idle cycle.
-	} else if (currentDot <= 0x101) {
+	} else if (currentDot <= 0x100 && this->scanline < 240) {
 		if (currentDot == 0x100) {
+			this->v;
 			this->incrementScrolling(true);
-		} else {
+		} 
+		if (currentDot % 8 == 0) {
 			this->incrementScrolling();
 		}
 
 		// Datafetching cycles; also the drawing cycles, but drawing is handled outside of this function.
 		this->performDataFetches();
-	} 
+	} else if (currentDot == 0x101) {  // Dot 257
+		// At this point, bits related to horizontal positioning in t is copied to v.
+		copyBits(this->v, this->t, 0, 4);
+		copyBits(this->v, this->t, 10, 10);
+	} else if (currentDot >= 280 && currentDot <= 304 && this->scanline == PRE_RENDER_LINE) {
+		copyBits(this->v, this->t, 5, 9);
+		copyBits(this->v, this->t, 11, 14);
+	}
+	else if (currentDot >= 328) {  // NOTE: I feel like there is an error in this implementation; it offsets the coarse x by 2 every frame.
+		if (currentDot % 8 == 0) {
+			this->incrementScrolling();
+		}
+	}
 }
 
 // TODO: Refactor
 void PPU::performDataFetches() {
 	// TODO: Give this variable and function a better name.
-	uint8_t cycleCounter = this->dot % 8;  // This variable ranges from 0 to 7 and represents cycles 8, 16, 24... 256.
+	uint8_t cycleCounter = (this->dot - 1) % 8;  // This variable ranges from 0 to 7 and represents cycles 8, 16, 24... 256.
 	// The shifters are reloaded on cycle counter 0.
 	if (cycleCounter == 0) {
 		this->patternShiftRegisterLow += this->patternLatchLow << 8;
@@ -328,7 +346,9 @@ void PPU::performDataFetches() {
 		this->attributeShiftRegister = this->attributeLatch;
 	}
 
-	const uint16_t FIRST_NAMETABLE_ADDR = 0x2000, FIRST_PATTERN_TABLE_ADDR = 0x0000;
+	const uint16_t FIRST_NAMETABLE_ADDR = 0x2000, PATTERN_TABLE_ADDR = getBit(this->registers.PPUCTRL, 4) << 12;
+	auto z = getBit(this->registers.PPUCTRL, 4);
+	auto y = z << 12;
 	uint16_t addr;  // Variable to hold addresses which may be used. NOTE: Might be removed.
 	uint16_t a, b, c;
 	// Now, we will load the latches every other cycle.
@@ -346,6 +366,9 @@ void PPU::performDataFetches() {
 			c = 0;
 		}
 		this->nametableByteLatch = this->databus.read(addr);		
+		if (this->nametableByteLatch != 0x24) {  // TODO: Fix weird bug where VRAM has some erroneous values (such as 0x3f at 0x2a).
+			c = 0;
+		}
 		break;
 	case(3):  // Fetching attribute table byte.
 		addr = FIRST_NAMETABLE_ADDR + 0x3c0; // 0x3c0 = Size of nametable; after this is the attribute table.
@@ -366,20 +389,20 @@ void PPU::performDataFetches() {
 		break;
 	case(5):  // Fetching pattern table tile low.
 		// Using the nametable byte, we will grab the associated pattern.
-		// NOTE: For now, we will use the first pattern table.
-		addr = FIRST_PATTERN_TABLE_ADDR + this->nametableByteLatch * 16;  // Each pattern is 16 bytes large.
+		// NOTE: For now, we will use a specific pattern table.
+		addr = PATTERN_TABLE_ADDR + this->nametableByteLatch * 16;  // Each pattern is 16 bytes large.
 		// We will get a different pair of bytes from the pattern depending on the current line (e.g. get 1st pair on line 0, 2nd pair on line 1...).
 		a = this->getLineOn();
 		b = a % 240;
 		c = 2 * b;
-		if (addr != 0x240 && this->scanline == 32) {
+		if (this->nametableByteLatch != 0x24) {
 			c = 0;
 		}
-		addr += this->scanline % 16;  // Selecting the line. TODO: There is almost certainly a better way to fetch pattern table bytes than this.
+		addr += this->scanline % 8;  // Selecting the line. TODO: There is almost certainly a better way to fetch pattern table bytes than this.
 		this->patternLatchLow = this->databus.read(addr);
 		break;
 	case(7):  // Fetching pattern table tile high.
-		addr = FIRST_PATTERN_TABLE_ADDR + this->nametableByteLatch * 16;  // Each pattern is 16 bytes large.
+		addr = PATTERN_TABLE_ADDR + this->nametableByteLatch * 16;  // Each pattern is 16 bytes large.
 		addr += this->getLineOn() % 240;  // Selecting the line.
 		this->patternLatchHigh = this->databus.read(addr + 0x8);  // The upper bits are offset by 8 from the low bits.
 		break;
@@ -446,18 +469,11 @@ void PPU::incrementScrolling(bool axis) {  // Increments scrolling
 		} else { // Increment fine y
 			this->v += 0b001000000000000; 
 		}
-	} else {  // Increment x
-		if (this->x == 0b111) {  // Increment coarse x; Checking if we reached the max value for x.
-			this->x = 0;
-			
-			if ((this->v & 0b11111) == 0b11111) {  // Check for overflow in coarse x.
-				this->v ^= 0b11111;
-			} else {
-				++this->v;
-			}
-
-		} else {  // Increment fine x
-			++this->x;
+	} else {  // Increment coarse x; fine x is not incremented during rendering.
+		if ((this->v & 0b11111) == 0b11111) {  // Check for overflow in coarse x.
+			this->v ^= 0b11111;
+		} else {
+			++this->v;
 		}
 	}
 }

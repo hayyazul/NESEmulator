@@ -4,6 +4,7 @@
 #pragma once
 
 //  TODO: Make the nametables memory mappings.
+//  TODO: Fix and organize timing control.
 
 #include <map>
 #include "../memory/memory.h"
@@ -159,6 +160,8 @@ protected:
 	// inVblank returns whether the PPU is inbetween dot 1 (0BI) of line 241 (this is when vblank starts) and dot 340 of line 260.
 	bool inVblank() const;
 	bool reachedVblank() const;  // This instead only checks whether the PPU is exactly on dot 1 of line 241.
+
+	bool inHBlank() const;
 
 	// reachedPrerender returns whether the PPU is at dot 1 (0BI) of the pre-render line.
 	bool reachedPrerender() const;

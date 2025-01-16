@@ -73,7 +73,7 @@ int main() {
 	unsigned int nameTable = 0;
 	unsigned int x = 0, y = 0;
 
-	PTDisplayer.displayPatternTable(graphics, ppu, 1, x, y, 2);
+	PTDisplayer.displayPatternTable(graphics, ppu, patternTable, x, y, 2);
 	NTDisplayer.displayNametable(graphics, ppu, nameTable, x + 256, y, 1, patternTable);
 	//graphics.drawSquare(0xffffffff, (x + 288) + 0x38, (y) + 0x7f, 8);
 
