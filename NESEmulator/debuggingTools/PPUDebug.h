@@ -16,7 +16,9 @@ constexpr unsigned int TABLE_HEIGHT = 30;  // In tiles.
 // Size and dimensions of a single pattern table.
 constexpr uint16_t PATTERN_TABLE_SIZE_IN_BYTES = 0x1000;
 // Size and dimensions of a single pattern.
-constexpr uint8_t PATTERN_SIZE_IN_BYTES = 16;
+constexpr uint8_t PATTERN_SIZE_IN_BYTES = 0x10;
+// Size of RAM Palette
+constexpr uint8_t PALETTE_RAM_SIZE_IN_BYTES = 0x20;
 
 class PPUDebug : public PPU {
 public:
@@ -41,6 +43,8 @@ public:
 
 	std::array<uint8_t, PATTERN_SIZE_IN_BYTES> getPattern(uint8_t patternId, bool table = 0) const;
 
+	std::array<uint8_t, PALETTE_RAM_SIZE_IN_BYTES> getPalette();
+		
 	void dumpOAMData(unsigned int lineSize = 4) const;  // Prints out OAM bytes in a string of bytes.
 
 private:

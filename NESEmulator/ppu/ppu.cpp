@@ -1,7 +1,7 @@
 #include "ppu.h"
 
 #include "../globals/helpers.hpp"
-#include "../loadingData/loadPalette.hpp"
+#include "../loadingData/loadPalette.h"
 #include <iomanip>
 #include <iostream>
 
@@ -339,6 +339,10 @@ void PPU::updateRenderingRegisters() {
 void PPU::performDataFetches() {
 	// TODO: Give this variable and function a better name.
 	uint8_t cycleCounter = (this->dot - 1) % 8;  // This variable ranges from 0 to 7 and represents cycles 8, 16, 24... 256.
+
+	this->patternShiftRegisterLow >>= 1;
+	this->patternShiftRegisterHigh >>= 1;
+
 	// The shifters are reloaded on cycle counter 0.
 	if (cycleCounter == 0) {
 		this->patternShiftRegisterLow += this->patternLatchLow << 8;
@@ -480,6 +484,7 @@ void PPU::incrementScrolling(bool axis) {  // Increments scrolling
 
 void PPU::drawPixel() {
 	if (this->graphics == nullptr) {  // If we are not given a graphics object, do not attempt to draw.
+		std::cout << "Warning: No graphics object provided for PPU; no output will be displayed." << std::endl;
 		return;
 	}
 
@@ -488,12 +493,18 @@ void PPU::drawPixel() {
 	// First, copy the emphasis values from PPUMASK to the color key.
 	copyBits(colorKey, 6, 8, (uint16_t)this->registers.PPUMASK, 5, 7);
 
-	// Now we have to find the color index for this pixel. TODO.
+	// Now we have to find the color index for this pixel. For now, we will find out the color index for the background.
+	
+	// Getting the high and low bits of the pattern at the appropriate point.
+	const uint16_t backgroundPaletteAddress = 0x3f00;  // The starting address for the background palette.
+	getBit(this->patternShiftRegisterHigh, (7 - this->x));
+	getBit(this->patternShiftRegisterLow, (7 - this->x));
 
+	this->attributeShiftRegister;
 
-	unsigned int dotX = this->getDotOn(), dotY = this->getLineOn();
-	if (dotX < 0x100) {  // Do not draw past dot 255.
-		// NOTE: Temporary solution; I am not sure why but using Graphics::drawPixel results in a slight barber pole effect.
-		this->graphics->drawSquare(this->paletteMap.at(0), dotX, dotY, 1);
+	if (this->dot < 0x100 && this->scanline < 0xf0) {  // Do not draw past dot 255 or scanline 240
+		// NOTE: Temporary solution; I am not sure why but using Graphics::drawPixel results in a slight barber pole effect instead of a stable picture.
+
+		this->graphics->drawSquare(this->paletteMap.at(0), this->dot, this->scanline, 1);
 	}
 }

@@ -107,6 +107,16 @@ std::array<uint8_t, PATTERN_SIZE_IN_BYTES> PPUDebug::getPattern(uint8_t patternI
 	return pattern;
 }
 
+std::array<uint8_t, PALETTE_RAM_SIZE_IN_BYTES> PPUDebug::getPalette() {
+	const uint16_t paletteAddress = 0x3f00;
+	std::array<uint8_t, PALETTE_RAM_SIZE_IN_BYTES> paletteData;
+	for (uint8_t i = 0; i < PALETTE_RAM_SIZE_IN_BYTES; ++i) {
+		paletteData.at(i) = this->databus.read(paletteAddress + i);
+	}
+
+	return paletteData;
+}
+
 void PPUDebug::dumpOAMData(unsigned int lineSize) const {
 	const int sizeOfOAMData = 0x100;  // There are 256 bytes in OAM data representing 64 sprites each defined w/ 4 bytes.
 	uint8_t OAMByte;

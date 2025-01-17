@@ -28,7 +28,7 @@ const int PPU_CYCLES_PER_LINE = 341;  // Self-explanatory.
 
 // 2C02
 // Map between a byte and an NES RGB value which can be passed into Graphcis::drawPixel. Note that this does not account for the hue argument.
-const std::map<uint8_t, uint32_t> BYTE_TO_COLOR = {
+/* const std::map<uint8_t, uint32_t> BYTE_TO_COLOR = {
 	{0x00, 0x0},
 	{0x01, 0x0},
 	{0x02, 0x0},
@@ -93,7 +93,7 @@ const std::map<uint8_t, uint32_t> BYTE_TO_COLOR = {
 	{0x3d, 0x0},
 	{0x3e, 0x0},
 	{0x3f, 0x0}
-};
+};*/
 
 struct PPURegisters {  // NOTE: Some of these registers are not modified in the read/write operations of the PPU. Implementation wise, these do not exist, so I will likely remove these.
 	// W - Write Only; R - Read Only; RW - Read and Write; xN - Times you need to read/write to go through the entire register.

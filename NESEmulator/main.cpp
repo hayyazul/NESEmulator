@@ -10,6 +10,7 @@
 #include "debuggingTools/NESDebug.h"
 #include "debuggingTools/PPUDebug.h"
 #include "debuggingTools/debugDisplays/tableDisplayer.h"
+#include "debuggingTools/debugDisplays/paletteDisplayer.h"
 #include "ppu/ppu.h"
 
 #include "graphics/graphics.h"
@@ -75,6 +76,7 @@ int main() {
 
 	PTDisplayer.displayPatternTable(graphics, ppu, patternTable, x, y, 2);
 	NTDisplayer.displayNametable(graphics, ppu, nameTable, x + 256, y, 1, patternTable);
+	displayPalette(graphics, ppu, 256, 240, 8);
 	//graphics.drawSquare(0xffffffff, (x + 288) + 0x38, (y) + 0x7f, 8);
 
 	//graphics.unlockDisplay();
