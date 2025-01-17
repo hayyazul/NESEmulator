@@ -30,9 +30,14 @@ inline constexpr bool getBit(T i, int bitIdx) {
 
 // 0-indexed.
 template <typename T>
-inline constexpr T getBits(T i, int startIdx, int endIdx) {
+inline constexpr T getBits(T i, int startIdx, int endIdx, bool keepPositions=true) {
 	T srcIndexer = ((1 << (endIdx + 1)) - 1) ^ ((1 << startIdx) - 1);
 	i &= srcIndexer;  // Select only the bits in this range.
+
+	if (!keepPositions) {  // Normally, this function will preserve location, e.g. grabbing bits 2&3 from 0b1101 would give you 0b1100.
+		// But if keep positions is disabled, the above would return 0b11 instead.
+		i >>= startIdx;
+	}
 
 	return i;
 }

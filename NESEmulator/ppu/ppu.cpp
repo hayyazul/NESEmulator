@@ -21,9 +21,15 @@ PPU::PPU() :
 	dmaPage(0),
 	ioBus(0),
 	graphics(nullptr),
-	attributeShiftRegister(0),
+	attributeShiftRegisterLow(0),
+	attributeShiftRegisterHigh(0),
 	patternShiftRegisterLow(0),
 	patternShiftRegisterHigh(0),
+	attributeLatchLow(0),
+	attributeLatchHigh(0),
+	nametableByteLatch(0),
+	patternLatchLow(0),
+	patternLatchHigh(0),
 	paletteMap(loadPalette("resourceFiles/2C02G_wiki.pal")),
 	dot(0),
 	scanline(0),
@@ -48,9 +54,15 @@ PPU::PPU(Memory* VRAM, Memory* CHRDATA) :
 	dmaPage(0),
 	ioBus(0),
 	graphics(nullptr),
-	attributeShiftRegister(0),
+	attributeShiftRegisterLow(0),
+	attributeShiftRegisterHigh(0),
 	patternShiftRegisterLow(0),
 	patternShiftRegisterHigh(0),
+	attributeLatchLow(0),
+	attributeLatchHigh(0),
+	nametableByteLatch(0),
+	patternLatchLow(0),
+	patternLatchHigh(0),
 	paletteMap(loadPalette("resourceFiles/2C02G_wiki.pal")),
 	dot(0),
 	scanline(0),
@@ -84,7 +96,7 @@ void PPU::executePPUCycle() {
 
 	int currentLine = this->getLineOn();
 	if (currentLine >= VISIBLE_LINE && currentLine < POST_RENDER_LINE && getBit(this->registers.PPUMASK, 3)) {
-		//this->drawPixel();
+		this->drawPixel();
 	}
 
 	++this->cycleCount;
@@ -340,14 +352,18 @@ void PPU::performDataFetches() {
 	// TODO: Give this variable and function a better name.
 	uint8_t cycleCounter = (this->dot - 1) % 8;  // This variable ranges from 0 to 7 and represents cycles 8, 16, 24... 256.
 
+	// The shift registers are shifted to the right by 1 every data-fetching cycle.
 	this->patternShiftRegisterLow >>= 1;
 	this->patternShiftRegisterHigh >>= 1;
+	this->attributeShiftRegisterLow >>= 1;
+	this->attributeShiftRegisterHigh >>= 1;
 
-	// The shifters are reloaded on cycle counter 0.
+	// The pattern and attribute shifters are reloaded on cycle counter 0. (NOTE: It might transfer on cycleCounter 7, judging from frame timing diagram.)
 	if (cycleCounter == 0) {
 		this->patternShiftRegisterLow += this->patternLatchLow << 8;
 		this->patternShiftRegisterHigh += this->patternLatchHigh << 8;
-		this->attributeShiftRegister = this->attributeLatch;
+		this->attributeShiftRegisterLow |= this->attributeLatchLow * 0xff;
+		this->attributeShiftRegisterHigh |= this->attributeLatchHigh * 0xff;
 	}
 
 	const uint16_t FIRST_NAMETABLE_ADDR = 0x2000, PATTERN_TABLE_ADDR = getBit(this->registers.PPUCTRL, 4) << 12;
@@ -384,12 +400,48 @@ void PPU::performDataFetches() {
 		b = getBits(this->v, 5, 9) >> 5;
 		// a and b form the x, y coordinate for a nametable tile.
 
-		if (b == 1) {
-			c = 0;
-		}
 		addr += (a / 4 + (8 * b));  // Offset the address given what part of the nametable we are 
+		c = this->databus.read(addr);  // TODO: Debug; I think there is a bug here but it isn't clear.
+		
+		/* Once we have the attribute byte, we select two bits given the 2x2 quadrant in the 4x4 block we are in.
+		A block is divided into 4 pieces like so:
+			
+			01
+			23
 
-		this->attributeLatch = this->databus.read(addr);  // TODO: Debug; I think there is a bug here but it isn't clear.
+		Where 0, 1, 2, 3 represent the 2 bits in the attribute byte (0 - 1st 2 bits, 1 - bits 2 & 3 (0BI), etc.)
+		
+		The quadrant is determined by bit 1 of the x and y coarse offsets.
+
+		  0 1 x
+		0 0 1
+		1 2 3
+		y
+
+		Or expanded to include the 0th coarse bit:
+
+		   00 01 10 11 x
+		00  0  0  1  1
+		01  0  0  1  1
+		10  2  2  3  3
+		11  2  2  3  3
+		 y
+
+		 So the formula, w/ y1 representing bit 1 of coarse y and x1 bit 1 of coarse x is:
+
+		 a = (y1 << 1) + x1
+
+		 And the bit indexing formula is:
+		 upper bit = 2 * a + 1
+		 lower bit = 2 * a
+
+		*/
+
+		a = getBit(this->v, 6) << 1 + getBit(this->v, 1);  
+		
+		// Finally we move the bits into the appropriate latches.
+		this->attributeLatchLow = getBit(c, 2 * a);
+		this->attributeLatchHigh = getBit(c, 2 * a + 1);
 		break;
 	case(5):  // Fetching pattern table tile low.
 		// Using the nametable byte, we will grab the associated pattern.
@@ -489,7 +541,7 @@ void PPU::drawPixel() {
 	}
 
 	// Now, figure out the color we need to draw.
-	uint16_t colorKey;
+	uint16_t colorKey = 0;
 	// First, copy the emphasis values from PPUMASK to the color key.
 	copyBits(colorKey, 6, 8, (uint16_t)this->registers.PPUMASK, 5, 7);
 
@@ -497,14 +549,19 @@ void PPU::drawPixel() {
 	
 	// Getting the high and low bits of the pattern at the appropriate point.
 	const uint16_t backgroundPaletteAddress = 0x3f00;  // The starting address for the background palette.
-	getBit(this->patternShiftRegisterHigh, (7 - this->x));
-	getBit(this->patternShiftRegisterLow, (7 - this->x));
-
-	this->attributeShiftRegister;
+	uint16_t addr = backgroundPaletteAddress;
+	// Indexing the palette.
+	addr += getBit(this->patternShiftRegisterHigh, (7 - this->x)) << 1;
+	addr += getBit(this->patternShiftRegisterLow, (7 - this->x));
+	// Indexing which palette we want.
+	addr += 4 * (getBit(this->attributeLatchLow, (7 - this->x)) + getBit(this->attributeLatchHigh, (7 - this->x)) << 1);
+	
+	// Now, using this addr, we will get the color located at that addr.
+	colorKey |= this->databus.read(addr);
 
 	if (this->dot < 0x100 && this->scanline < 0xf0) {  // Do not draw past dot 255 or scanline 240
 		// NOTE: Temporary solution; I am not sure why but using Graphics::drawPixel results in a slight barber pole effect instead of a stable picture.
 
-		this->graphics->drawSquare(this->paletteMap.at(0), this->dot, this->scanline, 1);
+		this->graphics->drawSquare(this->paletteMap.at(colorKey), this->dot, this->scanline, 1);
 	}
 }
