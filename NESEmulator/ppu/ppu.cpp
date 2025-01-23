@@ -358,10 +358,18 @@ void PPU::performDataFetches() {
 	this->attributeShiftRegisterLow >>= 1;
 	this->attributeShiftRegisterHigh >>= 1;
 
+	/* TEST: transfering attribute shifters every cycle. (didnt seem to work)
+	if (this->attributeLatchLow) {
+		int c = 0;
+	}
+	this->attributeShiftRegisterLow |= this->attributeLatchLow << 8;
+	this->attributeShiftRegisterHigh |= this->attributeLatchHigh << 8;
+	*/
+
 	// The pattern and attribute shifters are reloaded on cycle counter 0. (NOTE: It might transfer on cycleCounter 7, judging from frame timing diagram.)
 	if (cycleCounter == 0) {
-		this->patternShiftRegisterLow += this->patternLatchLow << 8;
-		this->patternShiftRegisterHigh += this->patternLatchHigh << 8;
+		this->patternShiftRegisterLow |= this->patternLatchLow << 8;
+		this->patternShiftRegisterHigh |= this->patternLatchHigh << 8;
 		this->attributeShiftRegisterLow |= this->attributeLatchLow * 0xff;
 		this->attributeShiftRegisterHigh |= this->attributeLatchHigh * 0xff;
 	}
@@ -442,7 +450,7 @@ void PPU::performDataFetches() {
 			a = 0;
 		}
 		a = getBit(this->v, 6) << 1 + getBit(this->v, 1);  // This selects which part of the byte given the quadrant this tile is in.
-		
+	
 		// Finally we move the bits into the appropriate latches.
 		this->attributeLatchLow = getBit(c, 2 * a);
 		this->attributeLatchHigh = getBit(c, 2 * a + 1);
@@ -455,16 +463,19 @@ void PPU::performDataFetches() {
 		a = this->getLineOn();
 		b = a % 240;
 		c = 2 * b;
-		if (this->nametableByteLatch != 0x24) {
-			c = 0;
-		}
 		addr += this->scanline % 8;  // Selecting the line. TODO: There is almost certainly a better way to fetch pattern table bytes than this.
+		// 
 		this->patternLatchLow = this->databus.read(addr);
+
 		break;
 	case(7):  // Fetching pattern table tile high.
 		addr = PATTERN_TABLE_ADDR + this->nametableByteLatch * 16;  // Each pattern is 16 bytes large.
-		addr += this->getLineOn() % 240;  // Selecting the line.
+		addr += this->scanline % 8;  // Selecting the line.
 		this->patternLatchHigh = this->databus.read(addr + 0x8);  // The upper bits are offset by 8 from the low bits.
+
+		if (this->nametableByteLatch == 0x24 && (this->patternLatchLow || this->patternLatchHigh)) {
+			c = 0;
+		}
 		break;
 	default:
 		break;
@@ -555,14 +566,14 @@ void PPU::drawPixel() {
 	const uint16_t backgroundPaletteAddress = 0x3f00;  // The starting address for the background palette.
 	uint16_t addr = backgroundPaletteAddress;
 	// Indexing the palette.
-	if (this->attributeLatchLow) {
+	if (this->scanline == 0x12 * 8 && this->dot == 0x9 * 8) {
 		int c = 0;
 	}
 
 	addr += getBit(this->patternShiftRegisterHigh, (7 - this->x)) << 1;
 	addr += getBit(this->patternShiftRegisterLow, (7 - this->x));
 	// Indexing which palette we want.
-	addr += 4 * (getBit(this->attributeLatchLow, (7 - this->x)) + (getBit(this->attributeLatchHigh, (7 - this->x)) << 1));
+	addr += 4 * (getBit(this->attributeShiftRegisterLow, (7 - this->x)) + (getBit(this->attributeShiftRegisterHigh, (7 - this->x)) << 1));
 	
 	// Now, using this addr, we will get the color located at that addr.
 	colorKey |= this->databus.read(addr);
