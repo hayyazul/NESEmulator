@@ -393,15 +393,15 @@ void PPU::performDataFetches() {
 		// We can form the attribute address via the following format:
 		// NN1111YYYXXX; where NN is the nametable select, 1111 a constant offset, YYY and XXX the high bits of their coarse offsets.
 		// NOTE: I am  not 100% sure if this will be a bug, but this uses the new value of v instead of the old one. If buggy behavior arises, look here.
-		a = getBits(this->v, 0, 4);  // Coarse x
-		b = getBits(this->v, 5, 9) >> 5;  // Coarse y
+		a = getBits(this->v, 2, 4) >> 2;  // Coarse x (ignore lower 2 bits)
+		b = getBits(this->v, 7, 9) >> 7;  // Coarse y (ignore lower 2 bits)
 		// a and b form the x, y coordinate for a nametable tile.
 
-		c = b / 4;  // Note: Do NOT "simplify" this into b * 2; b / 4 truncates decimal values, "snapping" the coarse y to the correct attribute row..
-		c *= 8;
-		b = a / 4;
+		//c = b / 4;  // Note: Do NOT "simplify" this into b * 2; b / 4 truncates decimal values, "snapping" the coarse y to the correct attribute row..
+		b *= 8;
+		//b = a / 4;
 
-		addr += c + b;  // Offset the address given what part of the nametable we are 
+		addr += a + b;  // Offset the address given what part of the nametable we are 
 		c = this->databus.read(addr);  // TODO: Debug; I think there is a bug here but it isn't clear.
 		
 		/* Once we have the attribute byte, we select two bits given the 2x2 quadrant in the 4x4 block we are in.
@@ -441,7 +441,7 @@ void PPU::performDataFetches() {
 		if (this->nametableByteLatch == 0x01) {  // TODO: Fix weird bug where VRAM has some erroneous values (such as 0x3f at 0x2a).
 			a = 0;
 		}
-		a = getBit(this->v, 6) << 1 + getBit(this->v, 1);  
+		a = getBit(this->v, 6) << 1 + getBit(this->v, 1);  // This selects which part of the byte given the quadrant this tile is in.
 		
 		// Finally we move the bits into the appropriate latches.
 		this->attributeLatchLow = getBit(c, 2 * a);
@@ -555,10 +555,14 @@ void PPU::drawPixel() {
 	const uint16_t backgroundPaletteAddress = 0x3f00;  // The starting address for the background palette.
 	uint16_t addr = backgroundPaletteAddress;
 	// Indexing the palette.
+	if (this->attributeLatchLow) {
+		int c = 0;
+	}
+
 	addr += getBit(this->patternShiftRegisterHigh, (7 - this->x)) << 1;
 	addr += getBit(this->patternShiftRegisterLow, (7 - this->x));
 	// Indexing which palette we want.
-	addr += 4 * (getBit(this->attributeLatchLow, (7 - this->x)) + getBit(this->attributeLatchHigh, (7 - this->x)) << 1);
+	addr += 4 * (getBit(this->attributeLatchLow, (7 - this->x)) + (getBit(this->attributeLatchHigh, (7 - this->x)) << 1));
 	
 	// Now, using this addr, we will get the color located at that addr.
 	colorKey |= this->databus.read(addr);
