@@ -54,7 +54,7 @@ int main() {
 	NametableDisplayer NTDisplayer;
 	
 	SDL_Init(SDL_INIT_EVERYTHING);
-	Graphics graphics{512, 256};
+	Graphics graphics{514, 256};
 	ppu.attachGraphics(&graphics);
 
 	SDL_Window* window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1024, 480, SDL_WINDOW_RESIZABLE);
@@ -74,8 +74,8 @@ int main() {
 	unsigned int nameTable = 0;
 	unsigned int x = 0, y = 0;
 
-	PTDisplayer.displayPatternTable(graphics, ppu, patternTable, x, y, 2);
-	NTDisplayer.displayNametable(graphics, ppu, nameTable, x + 256, y, 1, patternTable);
+	PTDisplayer.displayPatternTable(graphics, ppu, patternTable, x + 256, y, 2);
+	//NTDisplayer.displayNametable(graphics, ppu, nameTable, x + 256, y, 1, patternTable);
 	displayPalette(graphics, ppu, 256, 240, 8);
 	//graphics.drawSquare(0xffffffff, (x + 288) + 0x38, (y) + 0x7f, 8);
 
@@ -106,6 +106,8 @@ int main() {
 			}
 		}
 
+		PTDisplayer.displayPatternTable(graphics, ppu, patternTable, x + 256, y, 2);
+		displayPalette(graphics, ppu, 0, 240, 8);
 		graphics.blitDisplay(windowSurface);
 		SDL_UpdateWindowSurface(window);
 

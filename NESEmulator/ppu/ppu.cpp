@@ -370,7 +370,7 @@ void PPU::performDataFetches() {
 	auto z = getBit(this->registers.PPUCTRL, 4);
 	auto y = z << 12;
 	uint16_t addr;  // Variable to hold addresses which may be used. NOTE: Might be removed.
-	uint16_t a, b, c;
+	uint16_t a, b, c;  // TODO: rename these.
 	// Now, we will load the latches every other cycle.
 	switch (cycleCounter) {
 	case(1):  // Fetching nametable byte.
@@ -382,11 +382,9 @@ void PPU::performDataFetches() {
 		//c = b << 1;  // When we get the coarse y and store it in b, they are offset by 5, so 0bYYYYY00000. First, we shift it right by 5 to account for this, then multiply by 32
 		// To account for the length (in tiles) of the x-axis. Simplified, this is the same as not shifting at all.
 		addr = FIRST_NAMETABLE_ADDR + a + b;
-		if (this->scanline == 0x10 && b > 0x40) {
-			c = 0;
-		}
 		this->nametableByteLatch = this->databus.read(addr);		
-		if (this->nametableByteLatch != 0x24) {  // TODO: Fix weird bug where VRAM has some erroneous values (such as 0x3f at 0x2a).
+
+		if (this->nametableByteLatch == 0x01) {  // TODO: Fix weird bug where VRAM has some erroneous values (such as 0x3f at 0x2a).
 			c = 0;
 		}
 		break;
@@ -394,13 +392,16 @@ void PPU::performDataFetches() {
 		addr = FIRST_NAMETABLE_ADDR + 0x3c0; // 0x3c0 = Size of nametable; after this is the attribute table.
 		// We can form the attribute address via the following format:
 		// NN1111YYYXXX; where NN is the nametable select, 1111 a constant offset, YYY and XXX the high bits of their coarse offsets.
-		
 		// NOTE: I am  not 100% sure if this will be a bug, but this uses the new value of v instead of the old one. If buggy behavior arises, look here.
-		a = getBits(this->v, 0, 4);
-		b = getBits(this->v, 5, 9) >> 5;
+		a = getBits(this->v, 0, 4);  // Coarse x
+		b = getBits(this->v, 5, 9) >> 5;  // Coarse y
 		// a and b form the x, y coordinate for a nametable tile.
 
-		addr += (a / 4 + (8 * b));  // Offset the address given what part of the nametable we are 
+		c = b / 4;  // Note: Do NOT "simplify" this into b * 2; b / 4 truncates decimal values, "snapping" the coarse y to the correct attribute row..
+		c *= 8;
+		b = a / 4;
+
+		addr += c + b;  // Offset the address given what part of the nametable we are 
 		c = this->databus.read(addr);  // TODO: Debug; I think there is a bug here but it isn't clear.
 		
 		/* Once we have the attribute byte, we select two bits given the 2x2 quadrant in the 4x4 block we are in.
@@ -437,6 +438,9 @@ void PPU::performDataFetches() {
 
 		*/
 
+		if (this->nametableByteLatch == 0x01) {  // TODO: Fix weird bug where VRAM has some erroneous values (such as 0x3f at 0x2a).
+			a = 0;
+		}
 		a = getBit(this->v, 6) << 1 + getBit(this->v, 1);  
 		
 		// Finally we move the bits into the appropriate latches.
