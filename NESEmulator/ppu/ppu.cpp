@@ -368,8 +368,8 @@ void PPU::performDataFetches() {
 
 	// The pattern and attribute shifters are reloaded on cycle counter 0. (NOTE: It might transfer on cycleCounter 7, judging from frame timing diagram.)
 	if (cycleCounter == 0) {
-		this->patternShiftRegisterLow |= this->patternLatchLow << 8;
-		this->patternShiftRegisterHigh |= this->patternLatchHigh << 8;
+		this->patternShiftRegisterLow |= reverseBits(this->patternLatchLow, 8) << 8;  // The pattern will be fed right-to-left, so mirror the pattern to ensure proper feeding.
+		this->patternShiftRegisterHigh |= reverseBits(this->patternLatchHigh, 8) << 8;
 		this->attributeShiftRegisterLow |= this->attributeLatchLow * 0xff;
 		this->attributeShiftRegisterHigh |= this->attributeLatchHigh * 0xff;
 	}
@@ -398,10 +398,6 @@ void PPU::performDataFetches() {
 		break;
 	case(3):  // Fetching attribute table byte.
 		addr = FIRST_NAMETABLE_ADDR + 0x3c0; // 0x3c0 = Size of nametable; after this is the attribute table.
-		
-		if (this->nametableByteLatch == 0x19 && this->scanline == 0x90) {  // Stops on the first wrongly colored 'P' tile (wrongly colored due to wrong palette selection).
-			c = 0;
-		}
 		
 		// We can form the attribute address via the following format:
 		// NN1111YYYXXX; where NN is the nametable select, 1111 a constant offset, YYY and XXX the high bits of their coarse offsets.
@@ -451,9 +447,8 @@ void PPU::performDataFetches() {
 
 		*/
 		
-		// NOTE: miscoloring bug is LIKELY located here.
 		if (this->nametableByteLatch == 0x19 && this->scanline == 0x90) {  // TODO: Fix weird bug where VRAM has some erroneous values (such as 0x3f at 0x2a).
-			a = 0;
+			a = 0;  // NOTE: Above TODO is probably fixed, but make sure first.
 		}
 		a = getBit(this->v, 6) << 1;  // This selects which part of the byte given the quadrant this tile is in.
 		b = getBit(this->v, 1);
@@ -462,20 +457,6 @@ void PPU::performDataFetches() {
 		// Finally we move the bits into the appropriate latches.
 		this->attributeLatchLow = getBit(c, 2 * a );
 		this->attributeLatchHigh = getBit(c, 2 * a + 1);
-
-		/* This code somehow fixed it.
-		// NOTE: miscoloring bug is LIKELY located here.
-		if (this->nametableByteLatch == 0x19 && this->scanline == 0x90) {  // TODO: Fix weird bug where VRAM has some erroneous values (such as 0x3f at 0x2a).
-			a = 0;
-		}
-		a = getBit(this->v, 6) << 1;  // This selects which part of the byte given the quadrant this tile is in.
-		b = getBit(this->v, 1);
-		a = 2 * (a + b);
-
-		// Finally we move the bits into the appropriate latches.
-		this->attributeLatchLow = getBit(c, a);
-		this->attributeLatchHigh = getBit(c, a + 1);
-		*/
 		break;
 	case(5):  // Fetching pattern table tile low.
 		// Using the nametable byte, we will grab the associated pattern.
@@ -483,7 +464,7 @@ void PPU::performDataFetches() {
 		addr = PATTERN_TABLE_ADDR + this->nametableByteLatch * 16;  // Each pattern is 16 bytes large.
 		// We will get a different pair of bytes from the pattern depending on the current line (e.g. get 1st pair on line 0, 2nd pair on line 1...).
 		addr += this->scanline % 8;  // Selecting the line. TODO: There is almost certainly a better way to fetch pattern table bytes than this.
-		// 
+		
 		this->patternLatchLow = this->databus.read(addr);
 
 		break;

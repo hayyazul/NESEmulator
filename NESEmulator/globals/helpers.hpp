@@ -112,6 +112,37 @@ inline constexpr void clrBit(T& i, int bitIdx) {
 	i &= indexer;
 }
 
+template <typename T>
+inline constexpr T reverseBits(T bits, int numOfBits) {
+	// Reverses the order of bits.
+	T lowerBitIndexer = 0b1;
+	T upperBitIndexer = 1 << (numOfBits - 1);
+	for (int i = 0, j = numOfBits - 1; upperBitIndexer > lowerBitIndexer; ++i, --j) {
+		bool upperBitValue = upperBitIndexer & bits;
+		if (lowerBitIndexer & bits) {
+			setBit(bits, j);
+		} else {
+			clrBit(bits, j);
+		}
+
+		if (upperBitValue) {
+			setBit(bits, i);
+		} else {
+			clrBit(bits, i);
+		}
+		
+		lowerBitIndexer <<= 1;
+		upperBitIndexer >>= 1;
+	}
+
+	return bits;
+};
+
+template <typename T>
+inline constexpr T reverseBits(T bits) {
+	return reverseBits(bits, sizeof(T) * 8);
+}
+
 /* Some terminology and acronyms used in the code:
  - xBI: x-based indexing; e.g. 0BI = 0-based indexing.
 */

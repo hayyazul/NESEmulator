@@ -87,7 +87,7 @@ int main() {
 	SDL_Event event;
 	while (!quit) {
 		for (int i = 0; i < 357954; ++++i) {
-			nes.executeMachineCycle();
+			quit = !nes.executeMachineCycle();
 		}
 
 		while (SDL_PollEvent(&event)) {
