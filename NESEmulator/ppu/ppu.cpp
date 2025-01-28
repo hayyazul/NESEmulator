@@ -398,6 +398,11 @@ void PPU::performDataFetches() {
 		break;
 	case(3):  // Fetching attribute table byte.
 		addr = FIRST_NAMETABLE_ADDR + 0x3c0; // 0x3c0 = Size of nametable; after this is the attribute table.
+		
+		if (this->nametableByteLatch == 0x19 && this->scanline == 0x90) {  // Stops on the first wrongly colored 'P' tile (wrongly colored due to wrong palette selection).
+			c = 0;
+		}
+		
 		// We can form the attribute address via the following format:
 		// NN1111YYYXXX; where NN is the nametable select, 1111 a constant offset, YYY and XXX the high bits of their coarse offsets.
 		// NOTE: I am  not 100% sure if this will be a bug, but this uses the new value of v instead of the old one. If buggy behavior arises, look here.
@@ -445,24 +450,38 @@ void PPU::performDataFetches() {
 		 lower bit = 2 * a
 
 		*/
-
-		if (this->nametableByteLatch == 0x01) {  // TODO: Fix weird bug where VRAM has some erroneous values (such as 0x3f at 0x2a).
+		
+		// NOTE: miscoloring bug is LIKELY located here.
+		if (this->nametableByteLatch == 0x19 && this->scanline == 0x90) {  // TODO: Fix weird bug where VRAM has some erroneous values (such as 0x3f at 0x2a).
 			a = 0;
 		}
-		a = getBit(this->v, 6) << 1 + getBit(this->v, 1);  // This selects which part of the byte given the quadrant this tile is in.
-	
+		a = getBit(this->v, 6) << 1;  // This selects which part of the byte given the quadrant this tile is in.
+		b = getBit(this->v, 1);
+		a += b;
+
 		// Finally we move the bits into the appropriate latches.
-		this->attributeLatchLow = getBit(c, 2 * a);
+		this->attributeLatchLow = getBit(c, 2 * a );
 		this->attributeLatchHigh = getBit(c, 2 * a + 1);
+
+		/* This code somehow fixed it.
+		// NOTE: miscoloring bug is LIKELY located here.
+		if (this->nametableByteLatch == 0x19 && this->scanline == 0x90) {  // TODO: Fix weird bug where VRAM has some erroneous values (such as 0x3f at 0x2a).
+			a = 0;
+		}
+		a = getBit(this->v, 6) << 1;  // This selects which part of the byte given the quadrant this tile is in.
+		b = getBit(this->v, 1);
+		a = 2 * (a + b);
+
+		// Finally we move the bits into the appropriate latches.
+		this->attributeLatchLow = getBit(c, a);
+		this->attributeLatchHigh = getBit(c, a + 1);
+		*/
 		break;
 	case(5):  // Fetching pattern table tile low.
 		// Using the nametable byte, we will grab the associated pattern.
 		// NOTE: For now, we will use a specific pattern table.
 		addr = PATTERN_TABLE_ADDR + this->nametableByteLatch * 16;  // Each pattern is 16 bytes large.
 		// We will get a different pair of bytes from the pattern depending on the current line (e.g. get 1st pair on line 0, 2nd pair on line 1...).
-		a = this->getLineOn();
-		b = a % 240;
-		c = 2 * b;
 		addr += this->scanline % 8;  // Selecting the line. TODO: There is almost certainly a better way to fetch pattern table bytes than this.
 		// 
 		this->patternLatchLow = this->databus.read(addr);
@@ -567,13 +586,23 @@ void PPU::drawPixel() {
 	uint16_t addr = backgroundPaletteAddress;
 	// Indexing the palette.
 	if (this->scanline == 0x12 * 8 && this->dot == 0x9 * 8) {
-		int c = 0;
+		int _ = 0;
+	}
+	if (!(this->patternShiftRegisterLow ^ 0b11111100'00000000)) {
+		int _ = 0;
 	}
 
-	addr += getBit(this->patternShiftRegisterHigh, (7 - this->x)) << 1;
-	addr += getBit(this->patternShiftRegisterLow, (7 - this->x));
+	/*
+	Problems: 
+		- The pattern registers are 1 bit too to the left.
+		- The bottom right of the attribute data is not being read or transfered into the shift registers correctly.
+			- Problem is not located here; likely somewhere in the cycle-by-cycle behavior.
+	*/
+
+	addr += getBit(this->patternShiftRegisterHigh >> 1, (7 - this->x)) << 1;
+	addr += getBit(this->patternShiftRegisterLow >> 1, (7 - this->x));
 	// Indexing which palette we want.
-	addr += 4 * (getBit(this->attributeShiftRegisterLow, (7 - this->x)) + (getBit(this->attributeShiftRegisterHigh, (7 - this->x)) << 1));
+	addr += 4 * (getBit(this->attributeShiftRegisterLow, this->x) + (getBit(this->attributeShiftRegisterHigh, this->x) << 1));
 	
 	// Now, using this addr, we will get the color located at that addr.
 	colorKey |= this->databus.read(addr);
