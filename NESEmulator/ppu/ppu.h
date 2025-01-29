@@ -26,18 +26,29 @@ const int TOTAL_LINES = 262;
 const int LINES_BETWEEN_VBLANKS = TOTAL_LINES;  // There are 262 lines total, so the interval between Vblanks is 262.
 const int PPU_CYCLES_PER_LINE = 341;  // Self-explanatory.
 
-struct ShiftRegisters {
-	uint16_t patternShiftRegisterLow, patternShiftRegisterHigh;  // Contains appropriate pattern bits.
-	uint8_t attributeShiftRegisterLow, attributeShiftRegisterHigh;  // Contains the attribute data for the given tile.
-};
-
 struct Latches {
 	// Internal latches which will transfer to the shift registers every 8 cycles.  
 	uint16_t patternLatchLow, patternLatchHigh;
 	bool attributeLatchLow, attributeLatchHigh;
 	uint8_t nametableByteLatch;
 
+	Latches();
+	~Latches();
 };
+
+struct ShiftRegisters {
+	uint16_t patternShiftRegisterLow, patternShiftRegisterHigh;  // Contains appropriate pattern bits.
+	uint8_t attributeShiftRegisterLow, attributeShiftRegisterHigh;  // Contains the attribute data for the given tile.
+
+	ShiftRegisters();
+
+	~ShiftRegisters();
+
+	ShiftRegisters& operator>>=(const int& n);
+
+	void transferLatches(Latches);
+};
+
 
 // 2C02
 // Map between a byte and an NES RGB value which can be passed into Graphcis::drawPixel. Note that this does not account for the hue argument.
@@ -100,13 +111,10 @@ protected:
 	const std::map<uint16_t, uint32_t> paletteMap;
 
 	// Internal latches which will transfer to the shift registers every 8 cycles.  
-	uint16_t patternLatchLow, patternLatchHigh;
-	bool attributeLatchLow, attributeLatchHigh;
-	uint8_t nametableByteLatch;
+	Latches latches;
 
 	// Internal shift registers relating to drawing.
-	uint16_t patternShiftRegisterLow, patternShiftRegisterHigh;  // Contains appropriate pattern bits.
-	uint8_t attributeShiftRegisterLow, attributeShiftRegisterHigh;  // Contains the attribute data for the given tile.
+	ShiftRegisters shiftRegisters;
 
 	Graphics* graphics;  // A pointer to the graphics object which will be drawn to.
 

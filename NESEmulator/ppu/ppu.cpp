@@ -24,15 +24,8 @@ PPU::PPU() :
 	dmaPage(0),
 	ioBus(0),
 	graphics(nullptr),
-	attributeShiftRegisterLow(0),
-	attributeShiftRegisterHigh(0),
-	patternShiftRegisterLow(0),
-	patternShiftRegisterHigh(0),
-	attributeLatchLow(0),
-	attributeLatchHigh(0),
-	nametableByteLatch(0),
-	patternLatchLow(0),
-	patternLatchHigh(0),
+	latches(),
+	shiftRegisters(),
 	paletteMap(loadPalette("resourceFiles/2C02G_wiki.pal")),
 	dot(0),
 	scanline(0),
@@ -60,15 +53,8 @@ PPU::PPU(Memory* VRAM, Memory* CHRDATA) :
 	dmaPage(0),
 	ioBus(0),
 	graphics(nullptr),
-	attributeShiftRegisterLow(0),
-	attributeShiftRegisterHigh(0),
-	patternShiftRegisterLow(0),
-	patternShiftRegisterHigh(0),
-	attributeLatchLow(0),
-	attributeLatchHigh(0),
-	nametableByteLatch(0),
-	patternLatchLow(0),
-	patternLatchHigh(0),
+	latches(),
+	shiftRegisters(),
 	paletteMap(loadPalette("resourceFiles/2C02G_wiki.pal")),
 	dot(0),
 	scanline(0),
@@ -359,25 +345,11 @@ void PPU::performDataFetches() {
 	uint8_t cycleCounter = (this->dot - 1) % 8;  // This variable ranges from 0 to 7 and represents cycles 8, 16, 24... 256.
 
 	// The shift registers are shifted to the right by 1 every data-fetching cycle.
-	this->patternShiftRegisterLow >>= 1;
-	this->patternShiftRegisterHigh >>= 1;
-	this->attributeShiftRegisterLow >>= 1;
-	this->attributeShiftRegisterHigh >>= 1;
-
-	/* TEST: transfering attribute shifters every cycle. (didnt seem to work)
-	if (this->attributeLatchLow) {
-		int c = 0;
-	}
-	this->attributeShiftRegisterLow |= this->attributeLatchLow << 8;
-	this->attributeShiftRegisterHigh |= this->attributeLatchHigh << 8;
-	*/
+	this->shiftRegisters >>= 1;
 
 	// The pattern and attribute shifters are reloaded on cycle counter 0. (NOTE: It might transfer on cycleCounter 7, judging from frame timing diagram.)
 	if (cycleCounter == 0) {
-		this->patternShiftRegisterLow |= reverseBits(this->patternLatchLow, 8) << 8;  // The pattern will be fed right-to-left, so mirror the pattern to ensure proper feeding.
-		this->patternShiftRegisterHigh |= reverseBits(this->patternLatchHigh, 8) << 8;
-		this->attributeShiftRegisterLow |= this->attributeLatchLow * 0xff;
-		this->attributeShiftRegisterHigh |= this->attributeLatchHigh * 0xff;
+		this->shiftRegisters.transferLatches(this->latches);
 	}
 
 	const uint16_t FIRST_NAMETABLE_ADDR = 0x2000, PATTERN_TABLE_ADDR = getBit(this->control, 4) << 12;
@@ -396,9 +368,9 @@ void PPU::performDataFetches() {
 		//c = b << 1;  // When we get the coarse y and store it in b, they are offset by 5, so 0bYYYYY00000. First, we shift it right by 5 to account for this, then multiply by 32
 		// To account for the length (in tiles) of the x-axis. Simplified, this is the same as not shifting at all.
 		addr = FIRST_NAMETABLE_ADDR + a + b;
-		this->nametableByteLatch = this->databus.read(addr);		
+		this->latches.nametableByteLatch = this->databus.read(addr);		
 
-		if (this->nametableByteLatch == 0x01) {  // TODO: Fix weird bug where VRAM has some erroneous values (such as 0x3f at 0x2a).
+		if (this->latches.nametableByteLatch == 0x01) {  // TODO: Fix weird bug where VRAM has some erroneous values (such as 0x3f at 0x2a).
 			c = 0;
 		}
 		break;
@@ -453,7 +425,7 @@ void PPU::performDataFetches() {
 
 		*/
 		
-		if (this->nametableByteLatch == 0x19 && this->scanline == 0x90) {  // TODO: Fix weird bug where VRAM has some erroneous values (such as 0x3f at 0x2a).
+		if (this->latches.nametableByteLatch == 0x19 && this->scanline == 0x90) {  // TODO: Fix weird bug where VRAM has some erroneous values (such as 0x3f at 0x2a).
 			a = 0;  // NOTE: Above TODO is probably fixed, but make sure first.
 		}
 		a = getBit(this->v, 6) << 1;  // This selects which part of the byte given the quadrant this tile is in.
@@ -461,25 +433,25 @@ void PPU::performDataFetches() {
 		a += b;
 
 		// Finally we move the bits into the appropriate latches.
-		this->attributeLatchLow = getBit(c, 2 * a );
-		this->attributeLatchHigh = getBit(c, 2 * a + 1);
+		this->latches.attributeLatchLow = getBit(c, 2 * a );
+		this->latches.attributeLatchHigh = getBit(c, 2 * a + 1);
 		break;
 	case(5):  // Fetching pattern table tile low.
 		// Using the nametable byte, we will grab the associated pattern.
 		// NOTE: For now, we will use a specific pattern table.
-		addr = PATTERN_TABLE_ADDR + this->nametableByteLatch * 16;  // Each pattern is 16 bytes large.
+		addr = PATTERN_TABLE_ADDR + this->latches.nametableByteLatch * 16;  // Each pattern is 16 bytes large.
 		// We will get a different pair of bytes from the pattern depending on the current line (e.g. get 1st pair on line 0, 2nd pair on line 1...).
 		addr += this->scanline % 8;  // Selecting the line. TODO: There is almost certainly a better way to fetch pattern table bytes than this.
 		
-		this->patternLatchLow = this->databus.read(addr);
+		this->latches.patternLatchLow = this->databus.read(addr);
 
 		break;
 	case(7):  // Fetching pattern table tile high.
-		addr = PATTERN_TABLE_ADDR + this->nametableByteLatch * 16;  // Each pattern is 16 bytes large.
+		addr = PATTERN_TABLE_ADDR + this->latches.nametableByteLatch * 16;  // Each pattern is 16 bytes large.
 		addr += this->scanline % 8;  // Selecting the line.
-		this->patternLatchHigh = this->databus.read(addr + 0x8);  // The upper bits are offset by 8 from the low bits.
+		this->latches.patternLatchHigh = this->databus.read(addr + 0x8);  // The upper bits are offset by 8 from the low bits.
 
-		if (this->nametableByteLatch == 0x24 && (this->patternLatchLow || this->patternLatchHigh)) {
+		if (this->latches.nametableByteLatch == 0x24 && (this->latches.patternLatchLow || this->latches.patternLatchHigh)) {
 			c = 0;
 		}
 		break;
@@ -575,21 +547,19 @@ void PPU::drawPixel() {
 	if (this->scanline == 0x12 * 8 && this->dot == 0x9 * 8) {
 		int _ = 0;
 	}
-	if (!(this->patternShiftRegisterLow ^ 0b11111100'00000000)) {
-		int _ = 0;
-	}
 
 	/*
 	Problems: 
 		- The pattern registers are 1 bit too to the left.
+		- The left most tile is shifted down a pixel.
 		- The bottom right of the attribute data is not being read or transfered into the shift registers correctly.
 			- Problem is not located here; likely somewhere in the cycle-by-cycle behavior.
 	*/
 
-	addr += getBit(this->patternShiftRegisterHigh >> 1, (7 - this->x)) << 1;
-	addr += getBit(this->patternShiftRegisterLow >> 1, (7 - this->x));
+	addr += getBit(this->shiftRegisters.patternShiftRegisterHigh >> 1, (7 - this->x)) << 1;
+	addr += getBit(this->shiftRegisters.patternShiftRegisterLow >> 1, (7 - this->x));
 	// Indexing which palette we want.
-	addr += 4 * (getBit(this->attributeShiftRegisterLow, this->x) + (getBit(this->attributeShiftRegisterHigh, this->x) << 1));
+	addr += 4 * (getBit(this->shiftRegisters.attributeShiftRegisterLow, this->x) + (getBit(this->shiftRegisters.attributeShiftRegisterHigh, this->x) << 1));
 	
 	// Now, using this addr, we will get the color located at that addr.
 	colorKey |= this->databus.read(addr);
@@ -600,3 +570,39 @@ void PPU::drawPixel() {
 		this->graphics->drawSquare(this->paletteMap.at(colorKey), this->dot, this->scanline, 1);
 	}
 }
+
+ShiftRegisters::ShiftRegisters() : 
+	patternShiftRegisterLow(0),
+	patternShiftRegisterHigh(0),
+	attributeShiftRegisterLow(0),
+	attributeShiftRegisterHigh(0)
+{}
+
+ShiftRegisters::~ShiftRegisters() {}
+
+ShiftRegisters& ShiftRegisters::operator>>=(const int& n) {
+	this->patternShiftRegisterHigh >>= 1;
+	this->patternShiftRegisterLow >>= 1;
+	this->attributeShiftRegisterHigh >>= 1;
+	this->attributeShiftRegisterLow >>= 1;
+
+	return *this;
+
+}
+
+void ShiftRegisters::transferLatches(Latches latches) {
+	this->patternShiftRegisterLow |= reverseBits(latches.patternLatchLow, 8) << 8;  // The pattern will be fed right-to-left, so mirror the pattern to ensure proper feeding.
+	this->patternShiftRegisterHigh |= reverseBits(latches.patternLatchHigh, 8) << 8;
+	this->attributeShiftRegisterLow |= latches.attributeLatchLow * 0xff;
+	this->attributeShiftRegisterHigh |= latches.attributeLatchHigh * 0xff;
+}
+
+Latches::Latches() :
+	patternLatchLow(0),
+	patternLatchHigh(0),
+	attributeLatchLow(0),
+	attributeLatchHigh(0),
+	nametableByteLatch(0)
+{}
+
+Latches::~Latches() {}
