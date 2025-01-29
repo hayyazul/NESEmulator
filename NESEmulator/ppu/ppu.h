@@ -26,40 +26,21 @@ const int TOTAL_LINES = 262;
 const int LINES_BETWEEN_VBLANKS = TOTAL_LINES;  // There are 262 lines total, so the interval between Vblanks is 262.
 const int PPU_CYCLES_PER_LINE = 341;  // Self-explanatory.
 
+struct ShiftRegisters {
+	uint16_t patternShiftRegisterLow, patternShiftRegisterHigh;  // Contains appropriate pattern bits.
+	uint8_t attributeShiftRegisterLow, attributeShiftRegisterHigh;  // Contains the attribute data for the given tile.
+};
+
+struct Latches {
+	// Internal latches which will transfer to the shift registers every 8 cycles.  
+	uint16_t patternLatchLow, patternLatchHigh;
+	bool attributeLatchLow, attributeLatchHigh;
+	uint8_t nametableByteLatch;
+
+};
+
 // 2C02
 // Map between a byte and an NES RGB value which can be passed into Graphcis::drawPixel. Note that this does not account for the hue argument.
-
-struct PPURegisters {  // NOTE: Some of these registers are not modified in the read/write operations of the PPU. Implementation wise, these do not exist, so I will likely remove these.
-	// W - Write Only; R - Read Only; RW - Read and Write; xN - Times you need to read/write to go through the entire register.
-	/* W 0x2000
-	7  bit  0
-	---- ----
-	VPHB SINN
-	|||| ||||
-	|||| ||++- Base nametable address
-	|||| ||    (0 = $2000; 1 = $2400; 2 = $2800; 3 = $2C00)
-	|||| |+--- VRAM address increment per CPU read/write of PPUDATA
-	|||| |     (0: add 1, going across; 1: add 32, going down)
-	|||| +---- Sprite pattern table address for 8x8 sprites
-	||||       (0: $0000; 1: $1000; ignored in 8x16 mode)
-	|||+------ Background pattern table address (0: $0000; 1: $1000)
-	||+------- Sprite size (0: 8x8 pixels; 1: 8x16 pixels – see PPU OAM#Byte 1)
-	|+-------- PPU master/slave select
-	|          (0: read backdrop from EXT pins; 1: output color on EXT pins)
-	+--------- Vblank NMI enable (0: off, 1: on)
-	*/
-	uint8_t PPUCTRL;
-	uint8_t PPUMASK;  // W 
-	uint8_t PPUSTATUS;  // R
-	uint8_t OAMADDR;  // W
-	uint8_t OAMDATA;  // RW
-	uint16_t PPUSCROLL;  // Wx2
-	uint16_t PPUADDR;  // Wx2
-	uint8_t PPUDATA;  // RW
-	uint8_t OAMDMA;  // W
-/*
-*/
-};
 
 class PPU {
 public:
@@ -68,16 +49,14 @@ public:
 	~PPU();
 
 	void attachGraphics(Graphics* graphics);
-
 	void attachVRAM(Memory* vram);
 	void attachCHRDATA(Memory* chrdata);
 
 	// Executes a single PPU cycle.
 	void executePPUCycle();
 
-	// NOTE: Might move these into PPURegisters.
 	// Using the address and data given, writes to and performs some operations relating to a given PPU register.
-	// Returns the old value of the byte written to; for values w/ >8 bits, the portion written to is returned.
+	// Tries to return old value written to, but this is not always possible so do not rely on the output of this function for that functionality.
 	uint8_t writeToRegister(uint16_t address, uint8_t data);
 	// Using the address given, reads from and performs some operations relating to a given PPU register.
 	uint8_t readRegister(uint16_t address);
@@ -156,12 +135,15 @@ protected:
 	bool requestingOAMDMA;  // Whether the PPU is requesting an OAMDMA. This gets set true when a write to OAMDMA occurs and false when the requestingDMA method is called and this is true.
 	uint8_t dmaPage;
 
-	PPURegisters registers;  // External/shared registers. NOTE: Very likely will be removed.
 	// Internal registers.
 	bool w;  // 1 bit
 	uint16_t v, t;  // 15 bits
 	uint8_t x;  // 3 bits
 	// Misc.
+	uint8_t control;  // Written via PPUCTRL.
+	uint8_t mask;  // Written via PPUMASK.
+	uint8_t status;  // Read via PPUSTATUS
+	uint8_t OAMAddr;
 	uint8_t PPUDATABuffer;  // A buffer to hold the value at the last VRAM address; used in conjunction w/ reads on PPUDATA.
 	uint8_t ioBus;  // The I/O data bus; this must be at least partly emulated to make some PPU register read/write operations work.
 	/* This is mainly because of 1. reads to write - only registers should return the I / O bus value; 2. PPUSTATUS returns the first 5 bits of this bus.

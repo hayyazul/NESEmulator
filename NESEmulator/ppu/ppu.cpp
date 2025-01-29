@@ -10,9 +10,12 @@ PPU::PPU() :
 	CHRDATA(nullptr), 
 	OAM(Memory{0x100}),
 	paletteControl(Memory{0x20}),
-	registers(PPURegisters()), 
 	cycleCount(0),
 	PPUDATABuffer(0),
+	control(0),
+	mask(0),
+	status(0),
+	OAMAddr(0),
 	w(0),
 	t(0),
 	v(0),
@@ -43,9 +46,12 @@ PPU::PPU(Memory* VRAM, Memory* CHRDATA) :
 	CHRDATA(CHRDATA),
 	OAM(Memory{ 0x100 }),
 	paletteControl(Memory{ 0x20 }),
-	registers(PPURegisters()),
 	cycleCount(0),
 	PPUDATABuffer(0),
+	control(0),
+	mask(0),
+	status(0),
+	OAMAddr(0),
 	w(0),
 	t(0),
 	v(0),
@@ -95,7 +101,7 @@ void PPU::executePPUCycle() {
 	}
 
 	int currentLine = this->getLineOn();
-	if (currentLine >= VISIBLE_LINE && currentLine < POST_RENDER_LINE && getBit(this->registers.PPUMASK, 3)) {
+	if (currentLine >= VISIBLE_LINE && currentLine < POST_RENDER_LINE && getBit(this->mask, 3)) {
 		this->drawPixel();
 	}
 
@@ -115,18 +121,18 @@ uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 	// For specific behaviors, look at PPU Scrolling.
 	switch (address) {
 	case(0x2000):  // PPUCTRL
-		oldValue = this->registers.PPUCTRL;
+		oldValue = control;
 		if (this->cycleCount >= PRE_RENDER_LINE * PPU_CYCLES_PER_LINE) {  // Ignore writes to PPUCTRL until pre-render line is reached.
-			this->registers.PPUCTRL = data;
+			control = data;
 		}
 
 		copyBits(this->t, 10, 11, (uint16_t)data, 0, 1);
 		break;
 	case(0x2001):  // PPUMASK
-		this->registers.PPUMASK = data;
+		this->mask = data;
 		break;
 	case(0x2003):  // OAMADDR - The addressing space for OAM is only 0x100 bytes long.
-		this->registers.OAMADDR = data;
+		this->OAMAddr = data;
 		break;
 	case(0x2004):  // OAMDATA - Increments OAMADDR
 		/* Note: from Nesdev:
@@ -141,8 +147,8 @@ uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 		*/
 		// Following the above note's advice, this write is ignored during rendering.
 		if (!this->inRendering()) {
-			this->OAM.setByte(this->registers.OAMADDR, data);
-			++this->registers.OAMADDR;  // OAMADDR is incremented only on writes to OAMDATA, not reads.
+			this->OAM.setByte(this->OAMAddr, data);
+			++this->OAMAddr;  // OAMADDR is incremented only on writes to OAMDATA, not reads.
 		}
 		break;
 	case(0x2005):  // PPUSCROLL - Writes to the x scroll when the write latch is 0, writes to y scroll when the latch is 1.
@@ -184,7 +190,7 @@ uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 		oldValue = this->databus.write(this->v, data);
 		// Now we increment PPUADDR by 32 if bit 2 of PPUCTRL is set (the nametable is 32 bytes long, so this essentially goes down).
 		// Otherwise, we increment PPUADDR by 1 (going right).
-		this->v += 1 << (5 * getBit(this->registers.PPUCTRL, 2));
+		this->v += 1 << (5 * getBit(this->control, 2));
 		break;
 	case(0x4014):  // OAMDMA  // TODO: Very important TODO; a write to this address makes the CPU do a lot of stuff.
 		// It essentially copies over a page of memory from the CPU into OAM. This process:
@@ -219,20 +225,20 @@ uint8_t PPU::readRegister(uint16_t address) {
 		// When we want to return PPUSTATUS, we have to return the I/O bus w/ the last 3 bits changed based
 		// on some flags.
 		this->ioBus &= 0b00011111;  // First, clear out the last 3 bits of ioBus.
-		this->ioBus += this->registers.PPUSTATUS;  // Then, add the last 3 bits of PPUSTATUS to it (the other btis in PPUSTATUS should be 0).
+		this->ioBus += this->status;  // Then, add the last 3 bits of PPUSTATUS to it (the other btis in PPUSTATUS should be 0).
 		break;
 	case(0x2004):  // OAMDATA
-		this->ioBus = this->OAM.getByte(this->registers.OAMADDR);  // Simply gets the value from OAM at OAMADDR.
+		this->ioBus = this->OAM.getByte(this->OAMAddr);  // Simply gets the value from OAM at OAMADDR.
 		break;
 	case(0x2007):  // PPUDATA
 		// Instead of returning the value at the given address, we actually return a value in a buffer;
 		// we then update the buffer with the value at the given address. This effectively delays PPUDATA
 		// reads by 1.
 		this->ioBus = this->PPUDATABuffer;  // NOTE: There is some open-bus behavior when reading from palette RAM, however I do not know enough to emulate it at the moment.
-		this->PPUDATABuffer = this->databus.read(this->registers.PPUADDR);
+		this->PPUDATABuffer = this->databus.read(this->v);
 		// Now we increment PPUADDR by 32 if bit 2 of PPUCTRL is set (the nametable is 32 bytes long, so this essentially goes down).
 		// Otherwise, we increment PPUADDR by 1 (going right).
-		this->registers.PPUADDR += 1 << (5 * getBit(this->registers.PPUCTRL, 2));
+		this->v += 1 << (5 * getBit(this->control, 2));
 		break;
 	default:  // This catches the reads to write-only registers.
 		break;
@@ -243,7 +249,7 @@ uint8_t PPU::readRegister(uint16_t address) {
 
 bool PPU::requestingNMI() const {
 	// We request an NMI when we are in Vblank AND the 7th bit in PPUCTRL is set.
-	bool requestNMI = (getBit(this->registers.PPUCTRL, 7)) && this->inVblank();
+	bool requestNMI = (getBit(this->control, 7)) && this->inVblank();
 	if (requestNMI) {
 		int a = 0;
 	}
@@ -298,8 +304,8 @@ bool PPU::reachedPrerender() const {
 
 bool PPU::inRendering() const {
 	// The PPU is rendering if 1. either background OR sprite rendering is on, 2. it is inbetween scanlines 0 and 239 inclusive.
-	bool backgroundRendering = getBit(this->registers.PPUMASK, 3);
-	bool spriteRendering = getBit(this->registers.PPUMASK, 4);
+	bool backgroundRendering = getBit(this->mask, 3);
+	bool spriteRendering = getBit(this->mask, 4);
 	
 	int scanline = this->getLineOn();
 	bool onRenderLines = scanline >= VISIBLE_LINE && scanline <= LAST_RENDER_LINE;
@@ -309,9 +315,9 @@ bool PPU::inRendering() const {
 
 void PPU::updatePPUSTATUS() {  // TODO: Implement sprite overflow and sprite 0 hit flags.
 	if (this->reachedVblank()) {
-		setBit(this->registers.PPUSTATUS, 7);
+		setBit(this->status, 7);
 	} else if (this->reachedPrerender()) {
-		clrBit(this->registers.PPUSTATUS, 7);
+		clrBit(this->status, 7);
 	}
 }
 
@@ -374,8 +380,8 @@ void PPU::performDataFetches() {
 		this->attributeShiftRegisterHigh |= this->attributeLatchHigh * 0xff;
 	}
 
-	const uint16_t FIRST_NAMETABLE_ADDR = 0x2000, PATTERN_TABLE_ADDR = getBit(this->registers.PPUCTRL, 4) << 12;
-	auto z = getBit(this->registers.PPUCTRL, 4);
+	const uint16_t FIRST_NAMETABLE_ADDR = 0x2000, PATTERN_TABLE_ADDR = getBit(this->control, 4) << 12;
+	auto z = getBit(this->control, 4);
 	auto y = z << 12;
 	uint16_t addr;  // Variable to hold addresses which may be used. NOTE: Might be removed.
 	uint16_t a, b, c;  // TODO: rename these.
@@ -558,7 +564,7 @@ void PPU::drawPixel() {
 	// Now, figure out the color we need to draw.
 	uint16_t colorKey = 0;
 	// First, copy the emphasis values from PPUMASK to the color key.
-	copyBits(colorKey, 6, 8, (uint16_t)this->registers.PPUMASK, 5, 7);
+	copyBits(colorKey, 6, 8, (uint16_t)this->mask, 5, 7);
 
 	// Now we have to find the color index for this pixel. For now, we will find out the color index for the background.
 	
