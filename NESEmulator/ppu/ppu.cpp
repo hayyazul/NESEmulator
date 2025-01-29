@@ -80,13 +80,17 @@ void PPU::attachCHRDATA(Memory* chrdata) {
 }
 
 void PPU::executePPUCycle() {
+	
+	// NOTE: When dealing w/ the weird bugs relating to donkey kong's erroneous display, start your investigation here.
+	// Setting the address to 0x2001 seems to place the latter (pattern 0x40) in the first tile but does weird stuff w/ 0x2000.
+	//this->VRAM->setByte(0x2001, 0x40);
 	this->updatePPUSTATUS();
 
-	if (this->inRendering()) {
+	if (this->isRendering()) {
 		this->updateRenderingRegisters();
 	}
 
-	int currentLine = this->getLineOn();
+	int currentLine = this->scanline;
 	if (currentLine >= VISIBLE_LINE && currentLine < POST_RENDER_LINE && getBit(this->mask, 3)) {
 		this->drawPixel();
 	}
@@ -132,7 +136,7 @@ uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 		-----
 		*/
 		// Following the above note's advice, this write is ignored during rendering.
-		if (!this->inRendering()) {
+		if (!this->isRendering()) {
 			this->OAM.setByte(this->OAMAddr, data);
 			++this->OAMAddr;  // OAMADDR is incremented only on writes to OAMDATA, not reads.
 		}
@@ -258,24 +262,20 @@ uint8_t PPU::getDMAPage() const {
 
 bool PPU::inVblank() const {
 	// We reach Vblank when we are on dot 1 of the first VBlank line and end on dot 340 of the last Vblank line (line 260).
-	int currentLine = this->getLineOn();
+	int currentLine = this->scanline;
 	bool onVblank = currentLine > FIRST_VBLANK_LINE && currentLine <= LAST_VBLANK_LINE;  // First check if we are inbetween the first and last vblank (exclusive, inclusive)
 	// Return true if we know we are on vblank.
 	if (onVblank) {
 		return onVblank;
 	}
 	// If not, check if we are on the first vblank line; if so, check if we are on or past the first dot (dot 0 on the first vblank line should not count).
-	onVblank = currentLine == FIRST_VBLANK_LINE && this->getDotOn() >= 1;
+	onVblank = currentLine == FIRST_VBLANK_LINE && this->dot >= 1;
 	return onVblank;
 }
 
 bool PPU::reachedVblank() const {
-	int currentLine = this->getLineOn();
-	bool beganVblank = currentLine == FIRST_VBLANK_LINE && this->getDotOn() == 1;
-
-	auto a = this->getDotOn();  // DEBUG: Remove when done debugging vblank detection via PPUSTATUS.
-	auto b = this->getLineOn();
-
+	int currentLine = this->scanline;
+	bool beganVblank = currentLine == FIRST_VBLANK_LINE && this->dot == 1;
 
 	return beganVblank;
 }
@@ -284,19 +284,17 @@ bool PPU::inHBlank() const {
 	return this->dot >= 257;
 }
 
-bool PPU::reachedPrerender() const {
-	return false;
-}
-
-bool PPU::inRendering() const {
+bool PPU::isRendering() const {
 	// The PPU is rendering if 1. either background OR sprite rendering is on, 2. it is inbetween scanlines 0 and 239 inclusive.
 	bool backgroundRendering = getBit(this->mask, 3);
 	bool spriteRendering = getBit(this->mask, 4);
 	
-	int scanline = this->getLineOn();
+	int scanline = this->scanline;
 	bool onRenderLines = scanline >= VISIBLE_LINE && scanline <= LAST_RENDER_LINE;
 
-	return (backgroundRendering || spriteRendering); // NOTE: For now, this function will return whether rendering is enabled.
+	// NOTE: Adding && onRenderLines seemed to have fixed the bug w/ donkey kong, though it did introduce another bug w/ the screen display.
+
+	return (backgroundRendering || spriteRendering) && onRenderLines; // NOTE: For now, this function will return whether rendering is enabled.
 }
 
 void PPU::updatePPUSTATUS() {  // TODO: Implement sprite overflow and sprite 0 hit flags.
@@ -480,21 +478,6 @@ void PPU::updateBeamLocation() {
 	}
 }
 
-int PPU::getLineOn() const {
-	int lineOn = (this->cycleCount / PPU_CYCLES_PER_LINE) % TOTAL_LINES;
-	if (this->scanline == 0) {
-		int a = 0;
-	}
-	//return lineOn;
-	return this->scanline;
-}
-
-int PPU::getDotOn() const {
-	auto a = this->cycleCount % PPU_CYCLES_PER_LINE;
-	//return this->cycleCount % PPU_CYCLES_PER_LINE;  // From what I read so far, I think cycles 1-256 (0BI) draw each dot, so I will use that to determine the dot we are on.
-	return this->dot;
-}
-
 void PPU::incrementScrolling(bool axis) {  // Increments scrolling
 	// TODO: Clean up code.
 
@@ -606,3 +589,70 @@ Latches::Latches() :
 {}
 
 Latches::~Latches() {}
+
+PPUPosition::PPUPosition() :
+	scanline(0),
+	dot(0)
+{}
+
+PPUPosition::~PPUPosition() {}
+
+void PPUPosition::updatePosition(bool oddFrame) {
+	// First, check if we need to skip dot 340, line 261 (only do this on odd frames).
+	if (oddFrame & 0b1) {  // Check if the frame is odd
+		if (this->dot == 340 && this->scanline == 261) {
+			this->dot = 0;
+			this->scanline = 0;
+			return;
+		}
+	}
+
+	// Then, increment dot and scanline (the latter only if dot > 340).
+	if (++this->dot > 340) {
+		this->dot = 0;
+		if (++this->scanline > 261) {
+			this->scanline = 0;
+		}
+	}
+}
+
+bool PPUPosition::inVblank(bool reached) const {
+	if (reached) {  // In this case we only care if we are exactly on the start of vblank.
+		bool beganVblank = this->scanline == FIRST_VBLANK_LINE && this->dot == 1;
+		return beganVblank;
+	}
+
+	// We reach Vblank when we are on dot 1 of the first VBlank line and end on dot 340 of the last Vblank line (line 260).
+	bool onVblank = this->scanline > FIRST_VBLANK_LINE && this->scanline <= LAST_VBLANK_LINE;  // First check if we are inbetween the first and last vblank (exclusive, inclusive)
+	// Return true if we know we are on vblank.
+	if (onVblank) {
+		return onVblank;
+	}
+	// If not, check if we are on the first vblank line; if so, check if we are on or past the first dot (dot 0 on the first vblank line should not count).
+	onVblank = this->scanline == FIRST_VBLANK_LINE && this->dot >= 1;
+	return onVblank;
+}
+
+bool PPUPosition::inHBlank(bool reached) const {
+	if (reached) {
+		return this->dot == 257;
+	}
+	return this->dot >= 257;
+}
+
+bool PPUPosition::inPrerender(bool reached) const {
+	if (reached) {
+		return this->scanline == PRE_RENDER_LINE && this->dot == 1;
+	}
+	
+	return this->scanline == PRE_RENDER_LINE;
+}
+
+bool PPUPosition::onRenderLines(bool reached) const {
+	if (reached) {
+		return this->scanline == VISIBLE_LINE;
+	}
+
+	bool onRenderLines = this->scanline >= VISIBLE_LINE && this->scanline <= LAST_RENDER_LINE;
+	return onRenderLines;
+}

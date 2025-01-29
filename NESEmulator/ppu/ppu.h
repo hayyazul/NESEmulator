@@ -26,6 +26,7 @@ const int TOTAL_LINES = 262;
 const int LINES_BETWEEN_VBLANKS = TOTAL_LINES;  // There are 262 lines total, so the interval between Vblanks is 262.
 const int PPU_CYCLES_PER_LINE = 341;  // Self-explanatory.
 
+// Collection of latches involved in rendering.
 struct Latches {
 	// Internal latches which will transfer to the shift registers every 8 cycles.  
 	uint16_t patternLatchLow, patternLatchHigh;
@@ -36,22 +37,35 @@ struct Latches {
 	~Latches();
 };
 
+// Collection of shift registers involved in rendering.
 struct ShiftRegisters {
 	uint16_t patternShiftRegisterLow, patternShiftRegisterHigh;  // Contains appropriate pattern bits.
 	uint8_t attributeShiftRegisterLow, attributeShiftRegisterHigh;  // Contains the attribute data for the given tile.
 
 	ShiftRegisters();
-
 	~ShiftRegisters();
 
 	ShiftRegisters& operator>>=(const int& n);
 
-	void transferLatches(Latches);
+	void transferLatches(Latches latches);
 };
 
+// Position of the PPU's "beam", i.e. what dot and cycle it is on.
+struct PPUPosition {
+	PPUPosition();
+	~PPUPosition();
 
-// 2C02
-// Map between a byte and an NES RGB value which can be passed into Graphcis::drawPixel. Note that this does not account for the hue argument.
+	int scanline, dot;
+
+	void updatePosition(bool oddFrame);
+
+	bool inVblank(bool reached = false) const;  // Returns whether the position is in the Vblank area. Additional parameter to check if it has only reached it. 
+	bool inHBlank(bool reached = false) const;
+	bool inPrerender(bool reached = false) const;
+	bool onRenderLines(bool reached = false) const;  	// Whether the PPU is in the rendering region (does not mean the PPU is rendering, that also depends on whether rendering is enabled).
+
+	// NOTE: I might make the scanline and dot private, add getters, and make an inflexible interface to modify their value.
+};
 
 class PPU {
 public:
@@ -88,8 +102,7 @@ protected:
 	bool inHBlank() const;
 
 	// reachedPrerender returns whether the PPU is at dot 1 (0BI) of the pre-render line.
-	bool reachedPrerender() const;
-	bool inRendering() const;  	// Whether the PPU is currently rendering.
+	bool isRendering() const;  	// Whether the PPU is currently rendering.
 
 	// Updates the PPUSTATUS register; should be called every PPU cycle. This might be removed or put into a larger function which updates the internal states of the PPU.
 	void updatePPUSTATUS();
@@ -100,9 +113,6 @@ protected:
 	// Updates the location of the scanning beam.
 	void updateBeamLocation();
 	// Gets the scanline the PPU is on; NOTE: might make this public.
-	int getLineOn() const;  // DEPRECATED
-	// Gets the dot the PPU is on; NOTE: this is subject to change in the future; the current method of finding the dot is not based on the wiki.
-	int getDotOn() const;  // DEPRECATED
 
 	void incrementScrolling(bool axis = false);  // Increments the x and v registers, handling overflow for both appropriately. false - x axis, true - y axis.
 
@@ -152,6 +162,7 @@ protected:
 	uint8_t mask;  // Written via PPUMASK.
 	uint8_t status;  // Read via PPUSTATUS
 	uint8_t OAMAddr;
+
 	uint8_t PPUDATABuffer;  // A buffer to hold the value at the last VRAM address; used in conjunction w/ reads on PPUDATA.
 	uint8_t ioBus;  // The I/O data bus; this must be at least partly emulated to make some PPU register read/write operations work.
 	/* This is mainly because of 1. reads to write - only registers should return the I / O bus value; 2. PPUSTATUS returns the first 5 bits of this bus.
