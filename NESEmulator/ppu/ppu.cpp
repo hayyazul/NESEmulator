@@ -27,8 +27,7 @@ PPU::PPU() :
 	latches(),
 	shiftRegisters(),
 	paletteMap(loadPalette("resourceFiles/2C02G_wiki.pal")),
-	dot(0),
-	scanline(0),
+	beamPos(),
 	frameCount(0)
 {
 	this->databus.attachPalette(&paletteControl);
@@ -56,8 +55,7 @@ PPU::PPU(Memory* VRAM, Memory* CHRDATA) :
 	latches(),
 	shiftRegisters(),
 	paletteMap(loadPalette("resourceFiles/2C02G_wiki.pal")),
-	dot(0),
-	scanline(0),
+	beamPos(),
 	frameCount(0)
 {
 	this->databus.attachPalette(&paletteControl);
@@ -90,7 +88,7 @@ void PPU::executePPUCycle() {
 		this->updateRenderingRegisters();
 	}
 
-	int currentLine = this->scanline;
+	int currentLine = this->beamPos.scanline;
 	if (currentLine >= VISIBLE_LINE && currentLine < POST_RENDER_LINE && getBit(this->mask, 3)) {
 		this->drawPixel();
 	}
@@ -239,7 +237,7 @@ uint8_t PPU::readRegister(uint16_t address) {
 
 bool PPU::requestingNMI() const {
 	// We request an NMI when we are in Vblank AND the 7th bit in PPUCTRL is set.
-	bool requestNMI = (getBit(this->control, 7)) && this->inVblank();
+	bool requestNMI = (getBit(this->control, 7)) && this->beamPos.inVblank();
 	if (requestNMI) {
 		int a = 0;
 	}
@@ -258,38 +256,12 @@ uint8_t PPU::getDMAPage() const {
 	return this->dmaPage;
 }
 
-
-
-bool PPU::inVblank() const {
-	// We reach Vblank when we are on dot 1 of the first VBlank line and end on dot 340 of the last Vblank line (line 260).
-	int currentLine = this->scanline;
-	bool onVblank = currentLine > FIRST_VBLANK_LINE && currentLine <= LAST_VBLANK_LINE;  // First check if we are inbetween the first and last vblank (exclusive, inclusive)
-	// Return true if we know we are on vblank.
-	if (onVblank) {
-		return onVblank;
-	}
-	// If not, check if we are on the first vblank line; if so, check if we are on or past the first dot (dot 0 on the first vblank line should not count).
-	onVblank = currentLine == FIRST_VBLANK_LINE && this->dot >= 1;
-	return onVblank;
-}
-
-bool PPU::reachedVblank() const {
-	int currentLine = this->scanline;
-	bool beganVblank = currentLine == FIRST_VBLANK_LINE && this->dot == 1;
-
-	return beganVblank;
-}
-
-bool PPU::inHBlank() const {
-	return this->dot >= 257;
-}
-
 bool PPU::isRendering() const {
 	// The PPU is rendering if 1. either background OR sprite rendering is on, 2. it is inbetween scanlines 0 and 239 inclusive.
 	bool backgroundRendering = getBit(this->mask, 3);
 	bool spriteRendering = getBit(this->mask, 4);
 	
-	int scanline = this->scanline;
+	int scanline = this->beamPos.scanline;
 	bool onRenderLines = scanline >= VISIBLE_LINE && scanline <= LAST_RENDER_LINE;
 
 	// NOTE: Adding && onRenderLines seemed to have fixed the bug w/ donkey kong, though it did introduce another bug w/ the screen display.
@@ -298,20 +270,20 @@ bool PPU::isRendering() const {
 }
 
 void PPU::updatePPUSTATUS() {  // TODO: Implement sprite overflow and sprite 0 hit flags.
-	if (this->reachedVblank()) {
+	if (this->beamPos.inVblank(true)) {
 		setBit(this->status, 7);
-	} else if (this->reachedPrerender()) {
+	} else if (this->beamPos.inPrerender(true)) {
 		clrBit(this->status, 7);
 	}
 }
 
 void PPU::updateRenderingRegisters() {
 	// The PPU will update differently based on the current cycle.
-	uint16_t currentDot = this->dot;
+	uint16_t currentDot = this->beamPos.dot;
 	// TODO: Fix a bug relating to timing; when currentDot is 0x100, this->v's coarse x component is 0x1b.
 	if (currentDot == 0) {
 		// Idle cycle.
-	} else if (currentDot <= 0x100 && this->scanline < 240) {
+	} else if (currentDot <= 0x100 && this->beamPos.scanline < 240) {
 		if (currentDot == 0x100) {
 			this->v;
 			this->incrementScrolling(true);
@@ -326,7 +298,7 @@ void PPU::updateRenderingRegisters() {
 		// At this point, bits related to horizontal positioning in t is copied to v.
 		copyBits(this->v, this->t, 0, 4);
 		copyBits(this->v, this->t, 10, 10);
-	} else if (currentDot >= 280 && currentDot <= 304 && this->scanline == PRE_RENDER_LINE) {
+	} else if (currentDot >= 280 && currentDot <= 304 && this->beamPos.scanline == PRE_RENDER_LINE) {
 		copyBits(this->v, this->t, 5, 9);
 		copyBits(this->v, this->t, 11, 14);
 	}
@@ -340,7 +312,7 @@ void PPU::updateRenderingRegisters() {
 // TODO: Refactor
 void PPU::performDataFetches() {
 	// TODO: Give this variable and function a better name.
-	uint8_t cycleCounter = (this->dot - 1) % 8;  // This variable ranges from 0 to 7 and represents cycles 8, 16, 24... 256.
+	uint8_t cycleCounter = (this->beamPos.dot - 1) % 8;  // This variable ranges from 0 to 7 and represents cycles 8, 16, 24... 256.
 
 	// The shift registers are shifted to the right by 1 every data-fetching cycle.
 	this->shiftRegisters >>= 1;
@@ -423,7 +395,7 @@ void PPU::performDataFetches() {
 
 		*/
 		
-		if (this->latches.nametableByteLatch == 0x19 && this->scanline == 0x90) {  // TODO: Fix weird bug where VRAM has some erroneous values (such as 0x3f at 0x2a).
+		if (this->latches.nametableByteLatch == 0x19 && this->beamPos.scanline == 0x90) {  // TODO: Fix weird bug where VRAM has some erroneous values (such as 0x3f at 0x2a).
 			a = 0;  // NOTE: Above TODO is probably fixed, but make sure first.
 		}
 		a = getBit(this->v, 6) << 1;  // This selects which part of the byte given the quadrant this tile is in.
@@ -439,14 +411,14 @@ void PPU::performDataFetches() {
 		// NOTE: For now, we will use a specific pattern table.
 		addr = PATTERN_TABLE_ADDR + this->latches.nametableByteLatch * 16;  // Each pattern is 16 bytes large.
 		// We will get a different pair of bytes from the pattern depending on the current line (e.g. get 1st pair on line 0, 2nd pair on line 1...).
-		addr += this->scanline % 8;  // Selecting the line. TODO: There is almost certainly a better way to fetch pattern table bytes than this.
+		addr += this->beamPos.scanline % 8;  // Selecting the line. TODO: There is almost certainly a better way to fetch pattern table bytes than this.
 		
 		this->latches.patternLatchLow = this->databus.read(addr);
 
 		break;
 	case(7):  // Fetching pattern table tile high.
 		addr = PATTERN_TABLE_ADDR + this->latches.nametableByteLatch * 16;  // Each pattern is 16 bytes large.
-		addr += this->scanline % 8;  // Selecting the line.
+		addr += this->beamPos.scanline % 8;  // Selecting the line.
 		this->latches.patternLatchHigh = this->databus.read(addr + 0x8);  // The upper bits are offset by 8 from the low bits.
 
 		if (this->latches.nametableByteLatch == 0x24 && (this->latches.patternLatchLow || this->latches.patternLatchHigh)) {
@@ -458,23 +430,9 @@ void PPU::performDataFetches() {
 	}
 }
 
-void PPU::updateBeamLocation() {
-	// First, check if we need to skip dot 340, line 261 (only do this on odd frames).
-	if (this->frameCount & 0b1) {  // Check if the frame is odd
-		if (this->dot == 340 && this->scanline == 261) {
-			this->dot = 0;
-			this->scanline = 0;
-			return;
-		}
-	}
-
-	// Then, increment dot and scanline (the latter only if dot > 340).
-	if (++this->dot > 340) {
-		this->dot = 0;
-		if (++this->scanline > 261) {
-			this->scanline = 0;
-			++this->frameCount;
-		}
+void PPU::updateBeamLocation() { 
+	if (this->beamPos.updatePosition(this->frameCount & 1)) {
+		++this->frameCount;
 	}
 }
 
@@ -527,7 +485,7 @@ void PPU::drawPixel() {
 	const uint16_t backgroundPaletteAddress = 0x3f00;  // The starting address for the background palette.
 	uint16_t addr = backgroundPaletteAddress;
 	// Indexing the palette.
-	if (this->scanline == 0x12 * 8 && this->dot == 0x9 * 8) {
+	if (this->beamPos.scanline == 0x12 * 8 && this->beamPos.dot == 0x9 * 8) {
 		int _ = 0;
 	}
 
@@ -547,10 +505,10 @@ void PPU::drawPixel() {
 	// Now, using this addr, we will get the color located at that addr.
 	colorKey |= this->databus.read(addr);
 
-	if (this->dot < 0x100 && this->scanline < 0xf0) {  // Do not draw past dot 255 or scanline 240
+	if (this->beamPos.dot < 0x100 && this->beamPos.scanline < 0xf0) {  // Do not draw past dot 255 or scanline 240
 		// NOTE: Temporary solution; I am not sure why but using Graphics::drawPixel results in a slight barber pole effect instead of a stable picture.
 
-		this->graphics->drawSquare(this->paletteMap.at(colorKey), this->dot, this->scanline, 1);
+		this->graphics->drawSquare(this->paletteMap.at(colorKey), this->beamPos.dot, this->beamPos.scanline, 1);
 	}
 }
 
@@ -597,13 +555,13 @@ PPUPosition::PPUPosition() :
 
 PPUPosition::~PPUPosition() {}
 
-void PPUPosition::updatePosition(bool oddFrame) {
+bool PPUPosition::updatePosition(bool oddFrame) {
 	// First, check if we need to skip dot 340, line 261 (only do this on odd frames).
 	if (oddFrame & 0b1) {  // Check if the frame is odd
 		if (this->dot == 340 && this->scanline == 261) {
 			this->dot = 0;
 			this->scanline = 0;
-			return;
+			return true;
 		}
 	}
 
@@ -612,8 +570,12 @@ void PPUPosition::updatePosition(bool oddFrame) {
 		this->dot = 0;
 		if (++this->scanline > 261) {
 			this->scanline = 0;
+			return true;
 		}
 	}
+
+	// If we never needed to wrap the scanline, then the frame has not changed.
+	return false;
 }
 
 bool PPUPosition::inVblank(bool reached) const {

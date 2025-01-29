@@ -57,11 +57,16 @@ struct PPUPosition {
 
 	int scanline, dot;
 
-	void updatePosition(bool oddFrame);
-
-	bool inVblank(bool reached = false) const;  // Returns whether the position is in the Vblank area. Additional parameter to check if it has only reached it. 
+	// Updates the position of the scanline and or dot; returns whether a new frame has started.
+	bool updatePosition(bool oddFrame);
+	
+	// Returns whether the position is in Vblank, pass true to check if it has only reached it (on the first dot of Vblank).
+	bool inVblank(bool reached = false) const;  
+	// Returns whether the position is in Hblank, pass true to check if it has only reached it (on the first dot of Hblank).
 	bool inHBlank(bool reached = false) const;
+	// Returns whether the position is in prerender, pass true to check if it has only reached it (on the first dot of prerender).
 	bool inPrerender(bool reached = false) const;
+	// Returns whether the position is on the render lines, pass true to check if it has only reached it (on the first dot of the render lines).
 	bool onRenderLines(bool reached = false) const;  	// Whether the PPU is in the rendering region (does not mean the PPU is rendering, that also depends on whether rendering is enabled).
 
 	// NOTE: I might make the scanline and dot private, add getters, and make an inflexible interface to modify their value.
@@ -95,25 +100,16 @@ public:
 
 protected:
 
-	// inVblank returns whether the PPU is inbetween dot 1 (0BI) of line 241 (this is when vblank starts) and dot 340 of line 260.
-	bool inVblank() const;
-	bool reachedVblank() const;  // This instead only checks whether the PPU is exactly on dot 1 of line 241.
-
-	bool inHBlank() const;
-
 	// reachedPrerender returns whether the PPU is at dot 1 (0BI) of the pre-render line.
 	bool isRendering() const;  	// Whether the PPU is currently rendering.
 
 	// Updates the PPUSTATUS register; should be called every PPU cycle. This might be removed or put into a larger function which updates the internal states of the PPU.
 	void updatePPUSTATUS();
-
 	void updateRenderingRegisters();  // Updates internal registers for rendering; should only be called if rendering is enabled.
 	void performDataFetches();  // Performs the data fetches associated w/ cycles 1-256 on the rendering lines.
 
-	// Updates the location of the scanning beam.
+	// Updates the location of the scanning beam. NOTE: might remove.
 	void updateBeamLocation();
-	// Gets the scanline the PPU is on; NOTE: might make this public.
-
 	void incrementScrolling(bool axis = false);  // Increments the x and v registers, handling overflow for both appropriately. false - x axis, true - y axis.
 
 	void drawPixel();  // Draws a pixel to graphics depending on the internal register values. (see the NESdev's page on PPU Rendering for details).
@@ -136,7 +132,7 @@ protected:
 	initialized by the program itself, because it's all RAM.
 	*/
 	
-	uint16_t dot, scanline;  // Represents the current dot and or scanline 
+	PPUPosition beamPos;  // Represents the current dot and scanline 
 	int cycleCount, frameCount;  // NOTE: there might be issues with overflow; look into this risk more.
 	
 	// VRAM (NOTE: for now) should contain 2kb (or 0x800 bytes) which span 0x1000 addresses (0x2000 to 0x2fff)

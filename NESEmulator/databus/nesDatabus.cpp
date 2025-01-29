@@ -29,10 +29,12 @@ uint8_t NESDatabus::read(uint16_t address) {
 		return DataBus::read(address);
 		break;
 	case(AddressingSpace::PPU_REGISTERS):
-		this->ppu->readRegister(address);
+		return this->ppu->readRegister(address);
 		break;
 	default:
+		// Note: This should never happen.
 		std::cout << "nesDatabus.cpp, NESDatabus::read; Failed to resolve AddressingSpace." << std::endl;
+		return 0;
 		break;
 	};
 }
