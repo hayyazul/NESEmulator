@@ -50,6 +50,7 @@ struct ShiftRegisters {
 	void transferLatches(Latches latches);
 };
 
+
 // Position of the PPU's "beam", i.e. what dot and cycle it is on.
 struct PPUPosition {
 	PPUPosition();
@@ -63,13 +64,46 @@ struct PPUPosition {
 	// Returns whether the position is in Vblank, pass true to check if it has only reached it (on the first dot of Vblank).
 	bool inVblank(bool reached = false) const;  
 	// Returns whether the position is in Hblank, pass true to check if it has only reached it (on the first dot of Hblank).
-	bool inHBlank(bool reached = false) const;
+	bool inHblank(bool reached = false) const;
 	// Returns whether the position is in prerender, pass true to check if it has only reached it (on the first dot of prerender).
 	bool inPrerender(bool reached = false) const;
+	// Returns whether the position is in render, pass true to check if it has only reached it (on the first dot of render).
+	// Differs from onRenderLines by excluding dots in Hblank and dot 0.
+	bool inRender(bool reached = false) const;
 	// Returns whether the position is on the render lines, pass true to check if it has only reached it (on the first dot of the render lines).
 	bool onRenderLines(bool reached = false) const;  	// Whether the PPU is in the rendering region (does not mean the PPU is rendering, that also depends on whether rendering is enabled).
 
+	// Returns whether the position is in the true VBlanking period (which starts 1 line and 1 dot before the PPU performs actions relating to the start of Vblank).
+	// This is used to determine whether to continue datafetching the various bytes or not.
+	bool inTrueVblank(bool reached = false) const;
+
 	// NOTE: I might make the scanline and dot private, add getters, and make an inflexible interface to modify their value.
+};
+
+/* NOTE: Potential implementation; still judging whether this is a good idea.
+struct PPUInternalRegisters {
+	PPUInternalRegisters();
+	~PPUInternalRegisters();
+
+	uint16_t v, t;
+	uint8_t x;
+	bool w;
+
+	uint8_t getX();
+	uint8_t getX(bool coarse);
+
+	uint8_t getY();
+	uint8_t getY(bool coarse);
+
+};*/
+
+// Describes the kinds of data that could have been fetched (Attribute, nametable, etc.)
+enum PPUDataFetchType {
+	NONE,  
+	NAMETABLE,
+	ATTRIBUTE_TABLE,
+	PATTERN_TABLE_LOW,
+	PATTERN_TABLE_HIGH
 };
 
 class PPU {
@@ -100,16 +134,15 @@ public:
 
 protected:
 
-	// reachedPrerender returns whether the PPU is at dot 1 (0BI) of the pre-render line.
 	bool isRendering() const;  	// Whether the PPU is currently rendering.
 
 	// Updates the PPUSTATUS register; should be called every PPU cycle. This might be removed or put into a larger function which updates the internal states of the PPU.
 	void updatePPUSTATUS();
-	void updateRenderingRegisters();  // Updates internal registers for rendering; should only be called if rendering is enabled.
-	void performDataFetches();  // Performs the data fetches associated w/ cycles 1-256 on the rendering lines.
 
 	// Updates the location of the scanning beam. NOTE: might remove.
 	void updateBeamLocation();
+	void updateRenderingRegisters();  // Updates internal registers for rendering; should only be called if rendering is enabled.
+	PPUDataFetchType performDataFetches();  // Performs the data fetches associated w/ cycles 1-256 on the rendering lines.
 	void incrementScrolling(bool axis = false);  // Increments the x and v registers, handling overflow for both appropriately. false - x axis, true - y axis.
 
 	void drawPixel();  // Draws a pixel to graphics depending on the internal register values. (see the NESdev's page on PPU Rendering for details).

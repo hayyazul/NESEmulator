@@ -266,7 +266,7 @@ bool PPU::isRendering() const {
 
 	// NOTE: Adding && onRenderLines seemed to have fixed the bug w/ donkey kong, though it did introduce another bug w/ the screen display.
 
-	return (backgroundRendering || spriteRendering) && onRenderLines; // NOTE: For now, this function will return whether rendering is enabled.
+	return (backgroundRendering || spriteRendering);//&& onRenderLines; // NOTE: For now, this function will return whether rendering is enabled.
 }
 
 void PPU::updatePPUSTATUS() {  // TODO: Implement sprite overflow and sprite 0 hit flags.
@@ -279,13 +279,40 @@ void PPU::updatePPUSTATUS() {  // TODO: Implement sprite overflow and sprite 0 h
 
 void PPU::updateRenderingRegisters() {
 	// The PPU will update differently based on the current cycle.
+	// See frame timing diagram for more info.
+
+	if (this->beamPos.inRender()) {
+		if (this->beamPos.dot == 0x100) {
+			this->incrementScrolling(true);  // At the end of a render line, increment fine y (coarse y if fine y overflows).
+		}
+		if (this->beamPos.dot % 8 == 0) {  // At the end of a tile, increment coarse x.
+			this->incrementScrolling();
+		}
+	}
+	
+	// The condition before the OR ensures to perform datafetches throughout the frame, the latter performs data fetches fore the 1st 2 tiles for the next frame.
+	PPUDataFetchType fetchType;
+	if (this->beamPos.inRender() || (this->beamPos.dot >= 321 && this->beamPos.dot <= 336)) { 
+		fetchType = this->performDataFetches();
+	}
+	
+	if (this->beamPos.inHblank(true)) {  // Upon reaching Hblank, transfer bits in t to v.
+		copyBits(this->v, this->t, 0, 4);
+		copyBits(this->v, this->t, 10, 10);
+	}
+	if (this->beamPos.dot >= 280 && this->beamPos.dot <= 304 && this->beamPos.inPrerender()) {  // Same as above, but every cycle in the pre render line in this specific region.
+		copyBits(this->v, this->t, 5, 9);
+		copyBits(this->v, this->t, 11, 14);
+	}
+
+	// --- OLD --- //
+	/*
 	uint16_t currentDot = this->beamPos.dot;
 	// TODO: Fix a bug relating to timing; when currentDot is 0x100, this->v's coarse x component is 0x1b.
 	if (currentDot == 0) {
 		// Idle cycle.
 	} else if (currentDot <= 0x100 && this->beamPos.scanline < 240) {
 		if (currentDot == 0x100) {
-			this->v;
 			this->incrementScrolling(true);
 		} 
 		if (currentDot % 8 == 0) {
@@ -306,13 +333,17 @@ void PPU::updateRenderingRegisters() {
 		if (currentDot % 8 == 0) {
 			this->incrementScrolling();
 		}
-	}
+	}*/
 }
 
 // TODO: Refactor
-void PPU::performDataFetches() {
+PPUDataFetchType PPU::performDataFetches() {
 	// TODO: Give this variable and function a better name.
 	uint8_t cycleCounter = (this->beamPos.dot - 1) % 8;  // This variable ranges from 0 to 7 and represents cycles 8, 16, 24... 256.
+
+	if (this->beamPos.dot == 256) {
+		int c = 0;
+	};
 
 	// The shift registers are shifted to the right by 1 every data-fetching cycle.
 	this->shiftRegisters >>= 1;
@@ -323,52 +354,43 @@ void PPU::performDataFetches() {
 	}
 
 	const uint16_t FIRST_NAMETABLE_ADDR = 0x2000, PATTERN_TABLE_ADDR = getBit(this->control, 4) << 12;
-	auto z = getBit(this->control, 4);
-	auto y = z << 12;
-	uint16_t addr;  // Variable to hold addresses which may be used. NOTE: Might be removed.
-	uint16_t a, b, c;  // TODO: rename these.
 	// Now, we will load the latches every other cycle.
 	switch (cycleCounter) {
-	case(1):  // Fetching nametable byte.
+	case(1): { // Fetching nametable byte.
 		// Using the internal v register to define the scroll.
 		// NOTE: For now, we are only rendering the first nametable w/o proper mirroring or any scrolling.
 		//addr = FIRST_NAMETABLE_ADDR + getBits(this->v, 0, 4) + getBits(this->v, 5, 9) * 32;
-		a = getBits(this->v, 0, 4);
-		b = getBits(this->v, 5, 9);
+		uint16_t coarseX = getBits(this->v, 0, 4);
+		uint16_t coarseY = getBits(this->v, 5, 9);
 		//c = b << 1;  // When we get the coarse y and store it in b, they are offset by 5, so 0bYYYYY00000. First, we shift it right by 5 to account for this, then multiply by 32
 		// To account for the length (in tiles) of the x-axis. Simplified, this is the same as not shifting at all.
-		addr = FIRST_NAMETABLE_ADDR + a + b;
-		this->latches.nametableByteLatch = this->databus.read(addr);		
-
-		if (this->latches.nametableByteLatch == 0x01) {  // TODO: Fix weird bug where VRAM has some erroneous values (such as 0x3f at 0x2a).
-			c = 0;
-		}
+		uint16_t addr = FIRST_NAMETABLE_ADDR + coarseX + coarseY;
+		this->latches.nametableByteLatch = this->databus.read(addr);
 		break;
-	case(3):  // Fetching attribute table byte.
-		addr = FIRST_NAMETABLE_ADDR + 0x3c0; // 0x3c0 = Size of nametable; after this is the attribute table.
-		
+	}
+	case(3): { // Fetching attribute table byte.
+		uint16_t addr = FIRST_NAMETABLE_ADDR + 0x3c0; // 0x3c0 = Size of nametable; after this is the attribute table.
+
 		// We can form the attribute address via the following format:
 		// NN1111YYYXXX; where NN is the nametable select, 1111 a constant offset, YYY and XXX the high bits of their coarse offsets.
 		// NOTE: I am  not 100% sure if this will be a bug, but this uses the new value of v instead of the old one. If buggy behavior arises, look here.
-		a = getBits(this->v, 2, 4) >> 2;  // Coarse x (ignore lower 2 bits)
-		b = getBits(this->v, 7, 9) >> 7;  // Coarse y (ignore lower 2 bits)
+		uint16_t xCoord = getBits(this->v, 2, 4) >> 2;  // Coarse x (ignore lower 2 bits)
+		uint16_t yCoord = getBits(this->v, 7, 9) >> 7;  // Coarse y (ignore lower 2 bits)
 		// a and b form the x, y coordinate for a nametable tile.
 
-		//c = b / 4;  // Note: Do NOT "simplify" this into b * 2; b / 4 truncates decimal values, "snapping" the coarse y to the correct attribute row..
-		b *= 8;
-		//b = a / 4;
+		yCoord *= 8;
 
-		addr += a + b;  // Offset the address given what part of the nametable we are 
-		c = this->databus.read(addr);  // TODO: Debug; I think there is a bug here but it isn't clear.
-		
+		addr += xCoord + yCoord;  // Offset the address given what part of the nametable we are 
+		uint16_t attrByte = this->databus.read(addr);  // TODO: Debug; I think there is a bug here but it isn't clear.
+
 		/* Once we have the attribute byte, we select two bits given the 2x2 quadrant in the 4x4 block we are in.
 		A block is divided into 4 pieces like so:
-			
+
 			01
 			23
 
 		Where 0, 1, 2, 3 represent the 2 bits in the attribute byte (0 - 1st 2 bits, 1 - bits 2 & 3 (0BI), etc.)
-		
+
 		The quadrant is determined by bit 1 of the x and y coarse offsets.
 
 		  0 1 x
@@ -394,40 +416,66 @@ void PPU::performDataFetches() {
 		 lower bit = 2 * a
 
 		*/
-		
+
 		if (this->latches.nametableByteLatch == 0x19 && this->beamPos.scanline == 0x90) {  // TODO: Fix weird bug where VRAM has some erroneous values (such as 0x3f at 0x2a).
-			a = 0;  // NOTE: Above TODO is probably fixed, but make sure first.
+			int a = 0;  // NOTE: Above TODO is probably fixed, but make sure first.
 		}
-		a = getBit(this->v, 6) << 1;  // This selects which part of the byte given the quadrant this tile is in.
-		b = getBit(this->v, 1);
-		a += b;
+		uint8_t upperBit = getBit(this->v, 6) << 1;  // This selects which part of the byte given the quadrant this tile is in.
+		uint8_t lowerBit = getBit(this->v, 1);
+		uint8_t corner = lowerBit + upperBit;
 
 		// Finally we move the bits into the appropriate latches.
-		this->latches.attributeLatchLow = getBit(c, 2 * a );
-		this->latches.attributeLatchHigh = getBit(c, 2 * a + 1);
+		this->latches.attributeLatchLow = getBit(attrByte, 2 * corner);
+		this->latches.attributeLatchHigh = getBit(attrByte, 2 * corner + 1);
 		break;
-	case(5):  // Fetching pattern table tile low.
+	}
+	case(5): { // Fetching pattern table tile low.
 		// Using the nametable byte, we will grab the associated pattern.
 		// NOTE: For now, we will use a specific pattern table.
-		addr = PATTERN_TABLE_ADDR + this->latches.nametableByteLatch * 16;  // Each pattern is 16 bytes large.
+		uint16_t addr = PATTERN_TABLE_ADDR + this->latches.nametableByteLatch * 16;  // Each pattern is 16 bytes large.
 		// We will get a different pair of bytes from the pattern depending on the current line (e.g. get 1st pair on line 0, 2nd pair on line 1...).
 		addr += this->beamPos.scanline % 8;  // Selecting the line. TODO: There is almost certainly a better way to fetch pattern table bytes than this.
-		
+
 		this->latches.patternLatchLow = this->databus.read(addr);
 
 		break;
-	case(7):  // Fetching pattern table tile high.
-		addr = PATTERN_TABLE_ADDR + this->latches.nametableByteLatch * 16;  // Each pattern is 16 bytes large.
+	}
+	case(7): { // Fetching pattern table tile high.
+		uint16_t addr = PATTERN_TABLE_ADDR + this->latches.nametableByteLatch * 16;  // Each pattern is 16 bytes large.
 		addr += this->beamPos.scanline % 8;  // Selecting the line.
 		this->latches.patternLatchHigh = this->databus.read(addr + 0x8);  // The upper bits are offset by 8 from the low bits.
 
 		if (this->latches.nametableByteLatch == 0x24 && (this->latches.patternLatchLow || this->latches.patternLatchHigh)) {
-			c = 0;
+			int c = 0;
 		}
 		break;
+	}
 	default:
 		break;
+
 	}
+	
+	switch (cycleCounter) {
+	case(1):
+	case(2):
+		return NAMETABLE;
+		break;
+	case(3):
+	case(4):
+		return ATTRIBUTE_TABLE;
+		break;
+	case(5):
+	case(6):
+		return PATTERN_TABLE_LOW;
+		break;
+	case(7):
+	case(0):
+		return PATTERN_TABLE_HIGH;
+		break;
+	default:
+		break;  // Impossible to reach area.
+	}
+
 }
 
 void PPU::updateBeamLocation() { 
@@ -512,6 +560,8 @@ void PPU::drawPixel() {
 	}
 }
 
+// --- Non-PPU Methods --- //
+
 ShiftRegisters::ShiftRegisters() : 
 	patternShiftRegisterLow(0),
 	patternShiftRegisterHigh(0),
@@ -595,7 +645,7 @@ bool PPUPosition::inVblank(bool reached) const {
 	return onVblank;
 }
 
-bool PPUPosition::inHBlank(bool reached) const {
+bool PPUPosition::inHblank(bool reached) const {
 	if (reached) {
 		return this->dot == 257;
 	}
@@ -610,6 +660,18 @@ bool PPUPosition::inPrerender(bool reached) const {
 	return this->scanline == PRE_RENDER_LINE;
 }
 
+bool PPUPosition::inRender(bool reached) const {
+	bool onRenderLine = this->onRenderLines(reached);
+	if (onRenderLine) {  // First check if we are on the right line.
+		if (reached) {  // Check if we are exactly on the first dot for reached, if we are within the range for not reached.
+			return this->dot == 0x1;
+		}
+		return this->dot >= 0x1 && this->dot <= 0x100;
+	}
+
+	return false;
+}
+
 bool PPUPosition::onRenderLines(bool reached) const {
 	if (reached) {
 		return this->scanline == VISIBLE_LINE;
@@ -617,4 +679,22 @@ bool PPUPosition::onRenderLines(bool reached) const {
 
 	bool onRenderLines = this->scanline >= VISIBLE_LINE && this->scanline <= LAST_RENDER_LINE;
 	return onRenderLines;
+}
+
+bool PPUPosition::inTrueVblank(bool reached) const {
+	const int TRUE_VBLANK_START_LINE = 0x240;
+	if (reached) {  // In this case we only care if we are exactly on the start of vblank.
+		bool beganVblank = this->scanline == TRUE_VBLANK_START_LINE && this->dot == 0;
+		return beganVblank;
+	}
+
+	// We reach Vblank when we are on dot 1 of the first VBlank line and end on dot 340 of the last Vblank line (line 260).
+	bool onVblank = this->scanline > TRUE_VBLANK_START_LINE && this->scanline <= LAST_VBLANK_LINE;  // First check if we are inbetween the first and last vblank (exclusive, inclusive)
+	// Return true if we know we are on vblank.
+	if (onVblank) {
+		return onVblank;
+	}
+	// If not, check if we are on the first vblank line; if so, check if we are on or past the first dot (dot 0 on the first vblank line should not count).
+	onVblank = this->scanline == TRUE_VBLANK_START_LINE && this->dot >= 0;
+	return onVblank;
 }
