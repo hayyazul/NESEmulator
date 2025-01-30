@@ -134,7 +134,9 @@ public:
 
 protected:
 
-	bool isRendering() const;  	// Whether the PPU is currently rendering.
+	// Whether the PPU is currently rendering. The PPU is considered rendering when within the picture region and background and or sprite rendering is enabled. While nothing is rendered on the pre-render line, 
+	// it may be considered as part of rendering region for this function (used to determine whether to update rendering registers).
+	bool isRendering(bool includePrerender = false) const;  	
 
 	// Updates the PPUSTATUS register; should be called every PPU cycle. This might be removed or put into a larger function which updates the internal states of the PPU.
 	void updatePPUSTATUS();

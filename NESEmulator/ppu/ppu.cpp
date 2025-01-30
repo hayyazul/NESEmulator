@@ -81,15 +81,16 @@ void PPU::executePPUCycle() {
 	
 	// NOTE: When dealing w/ the weird bugs relating to donkey kong's erroneous display, start your investigation here.
 	// Setting the address to 0x2001 seems to place the latter (pattern 0x40) in the first tile but does weird stuff w/ 0x2000.
+	//this->VRAM->setByte(0x2000, 0x40);
 	//this->VRAM->setByte(0x2001, 0x40);
-	this->updatePPUSTATUS();
 
-	if (this->isRendering()) {
+	this->updatePPUSTATUS();
+	
+	if (this->isRendering(true)) {
 		this->updateRenderingRegisters();
 	}
-
-	int currentLine = this->beamPos.scanline;
-	if (currentLine >= VISIBLE_LINE && currentLine < POST_RENDER_LINE && getBit(this->mask, 3)) {
+	
+	if (this->beamPos.onRenderLines() && getBit(this->mask, 3)) {
 		this->drawPixel();
 	}
 
@@ -256,17 +257,14 @@ uint8_t PPU::getDMAPage() const {
 	return this->dmaPage;
 }
 
-bool PPU::isRendering() const {
+bool PPU::isRendering(bool includePrerender) const {
 	// The PPU is rendering if 1. either background OR sprite rendering is on, 2. it is inbetween scanlines 0 and 239 inclusive.
 	bool backgroundRendering = getBit(this->mask, 3);
 	bool spriteRendering = getBit(this->mask, 4);
-	
-	int scanline = this->beamPos.scanline;
-	bool onRenderLines = scanline >= VISIBLE_LINE && scanline <= LAST_RENDER_LINE;
 
-	// NOTE: Adding && onRenderLines seemed to have fixed the bug w/ donkey kong, though it did introduce another bug w/ the screen display.
+	bool onRenderLines = this->beamPos.onRenderLines() || (this->beamPos.inPrerender() && includePrerender);
 
-	return (backgroundRendering || spriteRendering);//&& onRenderLines; // NOTE: For now, this function will return whether rendering is enabled.
+	return (backgroundRendering || spriteRendering) && onRenderLines; // NOTE: For now, this function will return whether rendering is enabled.
 }
 
 void PPU::updatePPUSTATUS() {  // TODO: Implement sprite overflow and sprite 0 hit flags.
