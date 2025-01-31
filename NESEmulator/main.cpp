@@ -70,7 +70,7 @@ int main() {
 	// (which is equal to the height in px due to this being a square)
 	// = width (in patterns) * width (of a pattern) * scale
 	// = 16 * 8 * scale = 128 * scale
-	bool patternTable = true;
+	bool patternTable = false;
 	unsigned int nameTable = 0;
 	unsigned int x = 0, y = 0;
 

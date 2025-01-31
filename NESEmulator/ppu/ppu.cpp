@@ -28,7 +28,10 @@ PPU::PPU() :
 	shiftRegisters(),
 	paletteMap(loadPalette("resourceFiles/2C02G_wiki.pal")),
 	beamPos(),
-	frameCount(0)
+	frameCount(0),
+	spriteEvalState(INIT),
+	erroneousByteIdx(0),
+	spriteIdx(0)
 {
 	this->databus.attachPalette(&paletteControl);
 }
@@ -56,7 +59,10 @@ PPU::PPU(Memory* VRAM, Memory* CHRDATA) :
 	shiftRegisters(),
 	paletteMap(loadPalette("resourceFiles/2C02G_wiki.pal")),
 	beamPos(),
-	frameCount(0)
+	frameCount(0),
+	spriteEvalState(INIT),
+	erroneousByteIdx(0),
+	spriteIdx(0)
 {
 	this->databus.attachPalette(&paletteControl);
 }
@@ -97,7 +103,6 @@ void PPU::executePPUCycle() {
 	++this->cycleCount;
 	this->updateBeamLocation();
 }
-
 
 uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 	// Deduces what register the operation should occur on, then performs the appropriate operation.
@@ -288,19 +293,119 @@ void PPU::updateRenderingRegisters() {
 		}
 	}
 	
+	// Background fetches
 	// The condition before the OR ensures to perform datafetches throughout the frame, the latter performs data fetches fore the 1st 2 tiles for the next frame.
 	PPUDataFetchType fetchType;
-	if (this->beamPos.inRender() || (this->beamPos.dot >= 321 && this->beamPos.dot <= 336)) { 
-		fetchType = this->performDataFetches();
+	if (this->beamPos.inRender() || this->beamPos.dotInRange(321, 336)) { 
+		fetchType = this->performBackgroundFetches();
 	}
 	
 	if (this->beamPos.inHblank(true)) {  // Upon reaching Hblank, transfer bits in t to v.
 		copyBits(this->v, this->t, 0, 4);
 		copyBits(this->v, this->t, 10, 10);
 	}
-	if (this->beamPos.dot >= 280 && this->beamPos.dot <= 304 && this->beamPos.inPrerender()) {  // Same as above, but every cycle in the pre render line in this specific region.
+	if (this->beamPos.dotInRange(280, 304) && this->beamPos.inPrerender()) {  // Same as above, but every cycle in the pre render line in this specific region.
 		copyBits(this->v, this->t, 5, 9);
 		copyBits(this->v, this->t, 11, 14);
+	}
+
+	// Sprite fetches (NOTE: I don't know if sprite fetches are disabled in non-rendering or on non-rendering lines; for now this code assumes the fetches are always happening.)
+	/*
+	NOTE: I will not be implementing many of the cycle-level details as they will not affect most games. Only if I decide
+	to try to support more titles with more exotic programming practices will I attempt any changes. The main way I am simplifying
+	this code is by not respecting cycle-level accuracy, meaning multiple bytes are written at once on a regular basis.
+	*/
+	/* Note:
+	On odd cycles, data is read from (primary) OAM
+	On even cycles, data is written to secondary OAM 
+	(unless secondary OAM is full, in which case it will read the value in secondary OAM instead)
+	*/
+	if (this->beamPos.dot == 0x0) {
+		// NOTE: I don't know if the PPU actually enables writing for the secondary OAM on cycle 0; this is just a guess.
+		// IGNORE COMMENT // I also do not know, and in fact doubt, whether it sets OAMAddr to 0.
+		//this->OAMAddr
+		this->spriteIdx = 0;
+		this->erroneousByteIdx = 0;
+		this->secondaryOAM.setWriteState(true);
+		this->spriteEvalState = INIT;
+	}
+	
+	if (this->beamPos.dotInRange(0x1, 0x40)) {  // 1. Set all bytes to 0xff.
+		if (this->beamPos.inRange(0x7f, 0x7f, 0x1, 0x1)) {
+			int _ = 0;
+		}
+
+		this->secondaryOAM.setByte((this->beamPos.dot - 1) / 2, 0xff);
+		if (this->beamPos.dot == 0x40) {
+			this->spriteEvalState = FINDING_SPRITES;
+		}
+
+	} else if (this->beamPos.dotInRange(0x41, 0x100)) {
+		switch (this->spriteEvalState) {
+		case(FINDING_SPRITES): {
+			// Commented out because I (likely) won't make it cycle-accurate.
+			// uint8_t byteIdx = ((this->beamPos.dot - 65) / 2) % 4;  // Index of the byte associated w/ a sprite.
+
+			if (this->spriteIdx >= 64) {
+				int _ = 0;  // This should never happen.
+			}
+
+			// NOTE: Odd-read and even-writes are not emulated; both occur in the same cycle implementation-wise.
+			// NOTE: Another thing which isn't emulated is the exact timing for primary-to-secondary OAM transfers; 
+			// when a sprite is detected to be in range of the next line
+
+			uint8_t yCoord = this->OAM.getByte(this->spriteIdx * 4);  // Stores y-coordinate of the sprite
+			uint8_t nextLine = (this->beamPos.scanline + 1) % 262;  // Allows for line 261 to line 0 wrapping.
+
+			// Checks if the next line is within the range for the sprite.
+			// TODO: Implement checking for 8x16 sprites.
+			if (yCoord <= nextLine && nextLine <= yCoord + 7) {  // If it is, copy over the next few bytes.
+				for (int i = 0; i < 4; ++i) {
+					this->secondaryOAM.setFreeByte(this->OAM.getByte(4 * this->spriteIdx + i));
+				}
+			}
+
+			this->spriteEvalState = INCREMENT_CHECK;
+			}
+			break;
+		case(INCREMENT_CHECK): {
+			++this->spriteIdx;
+			if (this->spriteIdx == 64) {  // Checks if all sprites have been evaluated.
+				this->spriteIdx = 0;
+				this->spriteEvalState = POINTLESS_COPYING;
+			} else if (!this->secondaryOAM.getWriteState()) {  // Checks if secondaryOAM is filled.
+				this->erroneousByteIdx = 0;
+				this->spriteEvalState = SPRITE_OVERFLOW;
+			} else {
+				this->spriteEvalState = FINDING_SPRITES;
+			}
+			break;
+		}
+		case(SPRITE_OVERFLOW): { 
+			uint8_t yCoord = this->OAM.getByte(4 * this->spriteIdx + this->erroneousByteIdx);  // Stores y-coordinate of the sprite
+			uint8_t nextLine = (this->beamPos.scanline + 1) % 262;  // Allows for line 261 to line 0 wrapping.
+			if (yCoord <= nextLine && nextLine <= yCoord + 7) {  // If another sprite is detected in this area, 
+				// TODO: set sprite overflow flag.
+			}
+			++this->erroneousByteIdx;
+			this->spriteEvalState = INCREMENT_CHECK;
+			break;
+		}
+		case(POINTLESS_COPYING): {
+			// NOTE: the failed writes are not emulated.
+			//this->secondaryOAM.setFreeByte(this->OAM.getByte(4 * this->spriteIdx));
+			++this->spriteIdx %= 64;
+			break;
+		}
+		default:
+			break;
+		}
+
+		// If secondaryOAM is filled, perform the (wrongly implemented) sprite-overflow checking.
+		if (!this->secondaryOAM.getWriteState()) {  // secondaryOAM is write disabled upon being filled.
+			 
+		}
+		
 	}
 
 	// --- OLD --- //
@@ -335,7 +440,7 @@ void PPU::updateRenderingRegisters() {
 }
 
 // TODO: Refactor
-PPUDataFetchType PPU::performDataFetches() {
+PPUDataFetchType PPU::performBackgroundFetches() {
 	// TODO: Give this variable and function a better name.
 	uint8_t cycleCounter = (this->beamPos.dot - 1) % 8;  // This variable ranges from 0 to 7 and represents cycles 8, 16, 24... 256.
 
@@ -351,7 +456,8 @@ PPUDataFetchType PPU::performDataFetches() {
 		this->shiftRegisters.transferLatches(this->latches);
 	}
 
-	const uint16_t FIRST_NAMETABLE_ADDR = 0x2000, PATTERN_TABLE_ADDR = getBit(this->control, 4) << 12;
+	const uint16_t FIRST_NAMETABLE_ADDR = 0x2000, NAMETABLE_SIZE = 0x400;
+	const uint16_t NAMETABLE_ADDR = FIRST_NAMETABLE_ADDR + NAMETABLE_SIZE * getBits(this->control, 0, 1), BACKGROUND_PATTERN_TABLE_ADDR = getBit(this->control, 4) << 12;
 	// Now, we will load the latches every other cycle.
 	switch (cycleCounter) {
 	case(1): { // Fetching nametable byte.
@@ -362,12 +468,12 @@ PPUDataFetchType PPU::performDataFetches() {
 		uint16_t coarseY = getBits(this->v, 5, 9);
 		//c = b << 1;  // When we get the coarse y and store it in b, they are offset by 5, so 0bYYYYY00000. First, we shift it right by 5 to account for this, then multiply by 32
 		// To account for the length (in tiles) of the x-axis. Simplified, this is the same as not shifting at all.
-		uint16_t addr = FIRST_NAMETABLE_ADDR + coarseX + coarseY;
+		uint16_t addr = NAMETABLE_ADDR + coarseX + coarseY;
 		this->latches.nametableByteLatch = this->databus.read(addr);
 		break;
 	}
 	case(3): { // Fetching attribute table byte.
-		uint16_t addr = FIRST_NAMETABLE_ADDR + 0x3c0; // 0x3c0 = Size of nametable; after this is the attribute table.
+		uint16_t addr = NAMETABLE_ADDR + 0x3c0; // 0x3c0 = Size of nametable; after this is the attribute table.
 
 		// We can form the attribute address via the following format:
 		// NN1111YYYXXX; where NN is the nametable select, 1111 a constant offset, YYY and XXX the high bits of their coarse offsets.
@@ -429,8 +535,7 @@ PPUDataFetchType PPU::performDataFetches() {
 	}
 	case(5): { // Fetching pattern table tile low.
 		// Using the nametable byte, we will grab the associated pattern.
-		// NOTE: For now, we will use a specific pattern table.
-		uint16_t addr = PATTERN_TABLE_ADDR + this->latches.nametableByteLatch * 16;  // Each pattern is 16 bytes large.
+		uint16_t addr = BACKGROUND_PATTERN_TABLE_ADDR + this->latches.nametableByteLatch * 16;  // Each pattern is 16 bytes large.
 		// We will get a different pair of bytes from the pattern depending on the current line (e.g. get 1st pair on line 0, 2nd pair on line 1...).
 		addr += this->beamPos.scanline % 8;  // Selecting the line. TODO: There is almost certainly a better way to fetch pattern table bytes than this.
 
@@ -439,7 +544,7 @@ PPUDataFetchType PPU::performDataFetches() {
 		break;
 	}
 	case(7): { // Fetching pattern table tile high.
-		uint16_t addr = PATTERN_TABLE_ADDR + this->latches.nametableByteLatch * 16;  // Each pattern is 16 bytes large.
+		uint16_t addr = BACKGROUND_PATTERN_TABLE_ADDR + this->latches.nametableByteLatch * 16;  // Each pattern is 16 bytes large.
 		addr += this->beamPos.scanline % 8;  // Selecting the line.
 		this->latches.patternLatchHigh = this->databus.read(addr + 0x8);  // The upper bits are offset by 8 from the low bits.
 
@@ -624,6 +729,18 @@ bool PPUPosition::updatePosition(bool oddFrame) {
 
 	// If we never needed to wrap the scanline, then the frame has not changed.
 	return false;
+}
+
+bool PPUPosition::dotInRange(int lowerBound, int upperBound) const {
+	return (this->dot <= upperBound) && (this->dot >= lowerBound);
+}
+
+bool PPUPosition::lineInRange(int lowerBound, int upperBound) const {
+	return (this->scanline <= upperBound && this->scanline >= lowerBound);
+}
+
+bool PPUPosition::inRange(int lineLowerBound, int lineUpperBound, int dotLowerBound, int dotUpperBound) const {
+	return this->dotInRange(dotLowerBound, dotUpperBound) && this->lineInRange(lineLowerBound, lineUpperBound);
 }
 
 bool PPUPosition::inVblank(bool reached) const {
