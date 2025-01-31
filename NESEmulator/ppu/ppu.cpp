@@ -25,7 +25,8 @@ PPU::PPU() :
 	ioBus(0),
 	graphics(nullptr),
 	latches(),
-	shiftRegisters(),
+	backgroundShiftRegisters(),
+	spriteShiftRegisters(),
 	paletteMap(loadPalette("resourceFiles/2C02G_wiki.pal")),
 	beamPos(),
 	frameCount(0),
@@ -54,7 +55,8 @@ PPU::PPU(Memory* VRAM, Memory* CHRDATA) :
 	ioBus(0),
 	graphics(nullptr),
 	latches(),
-	shiftRegisters(),
+	backgroundShiftRegisters(),
+	spriteShiftRegisters(),
 	paletteMap(loadPalette("resourceFiles/2C02G_wiki.pal")),
 	beamPos(),
 	frameCount(0),
@@ -323,21 +325,35 @@ void PPU::updateRenderingRegisters() {
 		if (this->beamPos.inRange(0x7f, 0x7f, 0x0, 0x0)) {
 			int _ = 0;
 		}
-		this->secondaryOAM.setWriteState(true);
+		this->secondaryOAM.freeAllBytes();
 		this->spriteEvalState = INIT;
 	}
 	
-	if (this->beamPos.dotInRange(0x1, 0x40)) {  // 1. Set all bytes to 0xff.\
+	if (this->beamPos.dotInRange(0x1, 0x40)) {  // Set all bytes in secondary OAM to 0xff.
 
 		this->secondaryOAM.setByte((this->beamPos.dot - 1) / 2, 0xff);
 		if (this->beamPos.dot == 0x40) {
 			this->spriteEvalState = FINDING_SPRITES;
 		}
 
-	}
-	else if (this->beamPos.dotInRange(0x41, 0x100)) {
+	} else if (this->beamPos.dotInRange(0x41, 0x100)) {  // Sprite evaluation period.
 		this->performSpriteEvaluation();
+	} else if (this->beamPos.dotInRange(0x101, 0x140)) {  // 2ndOAM-to-shiftRegister transfer period.
+		//this->transferSpriteData();
 	}
+}
+
+void PPU::fetchPatternData(uint8_t patternID, bool table, bool high, int line, uint16_t& pattern) {
+	const uint16_t PATTERN_TABLE_SIZE = 0x1000;
+
+	// Using the nametable byte, we will grab the associated pattern.
+	uint16_t addr = (PATTERN_TABLE_SIZE * table) + (0x10 * patternID);  // Each pattern is 16 bytes large.
+	
+	// We will get a different pair of bytes from the pattern depending on the current line (e.g. get 1st pair on line 0, 2nd pair on line 1...).
+	addr += line;  // Selecting the line. 
+	addr += 0x8 * high;
+
+	pattern = this->databus.read(addr);
 }
 
 // TODO: Refactor
@@ -350,11 +366,11 @@ PPUDataFetchType PPU::performBackgroundFetches() {
 	};
 
 	// The shift registers are shifted to the right by 1 every data-fetching cycle.
-	this->shiftRegisters >>= 1;
+	this->backgroundShiftRegisters >>= 1;
 
 	// The pattern and attribute shifters are reloaded on cycle counter 0. (NOTE: It might transfer on cycleCounter 7, judging from frame timing diagram.)
 	if (cycleCounter == 0) {
-		this->shiftRegisters.transferLatches(this->latches);
+		this->backgroundShiftRegisters.transferLatches(this->latches);
 	}
 
 	const uint16_t FIRST_NAMETABLE_ADDR = 0x2000, NAMETABLE_SIZE = 0x400;
@@ -436,22 +452,19 @@ PPUDataFetchType PPU::performBackgroundFetches() {
 	}
 	case(5): { // Fetching pattern table tile low.
 		// Using the nametable byte, we will grab the associated pattern.
-		uint16_t addr = BACKGROUND_PATTERN_TABLE_ADDR + this->latches.nametableByteLatch * 16;  // Each pattern is 16 bytes large.
-		// We will get a different pair of bytes from the pattern depending on the current line (e.g. get 1st pair on line 0, 2nd pair on line 1...).
-		addr += this->beamPos.scanline % 8;  // Selecting the line. TODO: There is almost certainly a better way to fetch pattern table bytes than this.
-
-		this->latches.patternLatchLow = this->databus.read(addr);
-
+		this->fetchPatternData(this->latches.nametableByteLatch, 
+			getBit(this->control, 4), 
+			false, 
+			this->beamPos.scanline % 8, 
+			this->latches.patternLatchLow);
 		break;
 	}
 	case(7): { // Fetching pattern table tile high.
-		uint16_t addr = BACKGROUND_PATTERN_TABLE_ADDR + this->latches.nametableByteLatch * 16;  // Each pattern is 16 bytes large.
-		addr += this->beamPos.scanline % 8;  // Selecting the line.
-		this->latches.patternLatchHigh = this->databus.read(addr + 0x8);  // The upper bits are offset by 8 from the low bits.
-
-		if (this->latches.nametableByteLatch == 0x24 && (this->latches.patternLatchLow || this->latches.patternLatchHigh)) {
-			int c = 0;
-		}
+		this->fetchPatternData(this->latches.nametableByteLatch,
+			getBit(this->control, 4),
+			true,
+			this->beamPos.scanline % 8,
+			this->latches.patternLatchHigh);
 		break;
 	}
 	default:
@@ -528,11 +541,11 @@ void PPU::performSpriteEvaluation() {
 	case(COPY_SPRITE_DATA): {
 		++this->OAMAddr;
 		++this->OAMAddrByteType;
-		this->secondaryOAM.setFreeByte(this->OAM.getByte(this->OAMAddr));
-
 		if (this->OAMAddrByteType == Y_COORD) {  // When we wrap back to the first byte type.
-
+			this->spriteEvalState = INCREMENT_CHECK;
+			break;
 		}
+		this->secondaryOAM.setFreeByte(this->OAM.getByte(this->OAMAddr));
 	}
 	break;
 	case(INCREMENT_CHECK): {
@@ -568,9 +581,16 @@ void PPU::performSpriteEvaluation() {
 	default:
 		break;
 	}
+}
 
-	// If secondaryOAM is filled, perform the (wrongly implemented) sprite-overflow checking.
-	if (!this->secondaryOAM.getWriteState()) {  // secondaryOAM is write disabled upon being filled.
+void PPU::transferSpriteData() {
+	// This period should last for 64 cycles, 2 cycles for each byte, and another 2 to idle while the PPU fetches sprite pattern data.
+	int relativeDot = (this->beamPos.dot - 0x101);  // Ranges from 0 to 63.
+	int byteOn = relativeDot % 4;  // The byte of the sprite being indexed. This is relative and ranges from 0 to 3.
+	int sprite = relativeDot % 8;
+
+	// Note: This emulator will not emulate the exact cycle-behavior of these transfers. Instead, it will do 2 cycles at once and idle on the next one.
+	if (byteOn == 1) {  // The y-coordinate byte is irrelevant
 
 	}
 }
@@ -642,10 +662,10 @@ void PPU::drawPixel() {
 			- Problem is not located here; likely somewhere in the cycle-by-cycle behavior.
 	*/
 
-	addr += getBit(this->shiftRegisters.patternShiftRegisterHigh >> 1, (7 - this->x)) << 1;
-	addr += getBit(this->shiftRegisters.patternShiftRegisterLow >> 1, (7 - this->x));
+	addr += getBit(this->backgroundShiftRegisters.patternShiftRegisterHigh >> 1, (7 - this->x)) << 1;
+	addr += getBit(this->backgroundShiftRegisters.patternShiftRegisterLow >> 1, (7 - this->x));
 	// Indexing which palette we want.
-	addr += 4 * (getBit(this->shiftRegisters.attributeShiftRegisterLow, this->x) + (getBit(this->shiftRegisters.attributeShiftRegisterHigh, this->x) << 1));
+	addr += 4 * (getBit(this->backgroundShiftRegisters.attributeShiftRegisterLow, this->x) + (getBit(this->backgroundShiftRegisters.attributeShiftRegisterHigh, this->x) << 1));
 	
 	// Now, using this addr, we will get the color located at that addr.
 	colorKey |= this->databus.read(addr);
@@ -659,33 +679,32 @@ void PPU::drawPixel() {
 
 // --- Non-PPU Methods --- //
 
-ShiftRegisters::ShiftRegisters() : 
+BackgroundShiftRegisters::BackgroundShiftRegisters() : 
 	patternShiftRegisterLow(0),
 	patternShiftRegisterHigh(0),
 	attributeShiftRegisterLow(0),
 	attributeShiftRegisterHigh(0)
 {}
 
-ShiftRegisters::~ShiftRegisters() {}
+BackgroundShiftRegisters::~BackgroundShiftRegisters() {}
 
-ShiftRegisters& ShiftRegisters::operator>>=(const int& n) {
+BackgroundShiftRegisters& BackgroundShiftRegisters::operator>>=(const int& n) {
 	this->patternShiftRegisterHigh >>= 1;
 	this->patternShiftRegisterLow >>= 1;
 	this->attributeShiftRegisterHigh >>= 1;
 	this->attributeShiftRegisterLow >>= 1;
 
 	return *this;
-
 }
 
-void ShiftRegisters::transferLatches(Latches latches) {
+void BackgroundShiftRegisters::transferLatches(BackgroundLatches latches) {
 	this->patternShiftRegisterLow |= reverseBits(latches.patternLatchLow, 8) << 8;  // The pattern will be fed right-to-left, so mirror the pattern to ensure proper feeding.
 	this->patternShiftRegisterHigh |= reverseBits(latches.patternLatchHigh, 8) << 8;
 	this->attributeShiftRegisterLow |= latches.attributeLatchLow * 0xff;
 	this->attributeShiftRegisterHigh |= latches.attributeLatchHigh * 0xff;
 }
 
-Latches::Latches() :
+BackgroundLatches::BackgroundLatches() :
 	patternLatchLow(0),
 	patternLatchHigh(0),
 	attributeLatchLow(0),
@@ -693,7 +712,7 @@ Latches::Latches() :
 	nametableByteLatch(0)
 {}
 
-Latches::~Latches() {}
+BackgroundLatches::~BackgroundLatches() {}
 
 PPUPosition::PPUPosition() :
 	scanline(0),
@@ -819,4 +838,24 @@ SpriteByteType& SpriteByteType::operator++() {
 
 bool SpriteByteType::operator==(SpriteByteOn sbo) {
 	return this->spriteByteOn == sbo;
+}
+
+SpriteShiftUnit::SpriteShiftUnit() {}
+SpriteShiftUnit::~SpriteShiftUnit() {}
+
+SpriteShiftUnit& SpriteShiftUnit::operator>>=(const int& n) {
+	this->patternShiftRegisterHigh >>= 1;
+	this->patternShiftRegisterLow >>= 1;
+	this->attributeShiftRegisterHigh >>= 1;
+	this->attributeShiftRegisterLow >>= 1;
+
+	return *this;
+}
+
+SpriteShiftRegisters::SpriteShiftRegisters() {}
+
+SpriteShiftRegisters::~SpriteShiftRegisters() {}
+
+void SpriteShiftRegisters::shiftRegister(int sprite) {
+	this->shiftRegisters.at(sprite) >>= 1;
 }

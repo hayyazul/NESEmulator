@@ -1,6 +1,6 @@
 #include "secondaryOAM.h"
 
-SecondaryOAM::SecondaryOAM() : Memory(0x100), writeEnabled(true) {}
+SecondaryOAM::SecondaryOAM() : Memory(0x20), writeEnabled(true), freeByteIdx(0) {}
 
 SecondaryOAM::~SecondaryOAM() {}
 

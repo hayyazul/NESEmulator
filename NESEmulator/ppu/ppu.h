@@ -7,6 +7,7 @@
 //  TODO: Fix and organize timing control.
 
 #include <map>
+#include <array>
 #include "../memory/memory.h"
 #include "../memory/secondaryOAM.h"
 #include "../databus/ppuDatabus.h"
@@ -27,30 +28,65 @@ const int TOTAL_LINES = 262;
 const int LINES_BETWEEN_VBLANKS = TOTAL_LINES;  // There are 262 lines total, so the interval between Vblanks is 262.
 const int PPU_CYCLES_PER_LINE = 341;  // Self-explanatory.
 
-// Collection of latches involved in rendering.
-struct Latches {
+// Collection of latches involved in rendering the background.
+struct BackgroundLatches {
 	// Internal latches which will transfer to the shift registers every 8 cycles.  
 	uint16_t patternLatchLow, patternLatchHigh;
 	bool attributeLatchLow, attributeLatchHigh;
 	uint8_t nametableByteLatch;
 
-	Latches();
-	~Latches();
+	BackgroundLatches();
+	~BackgroundLatches();
 };
 
-// Collection of shift registers involved in rendering.
-struct ShiftRegisters {
+struct SpriteShiftUnit {
+	uint16_t patternShiftRegisterLow, patternShiftRegisterHigh;
+	uint8_t attributeShiftRegisterLow, attributeShiftRegisterHigh;
+	uint8_t x;  // The x coordinate of where the sprite is located; used to know when to start rendering this sprite.
+
+	SpriteShiftUnit();
+	~SpriteShiftUnit();
+
+	SpriteShiftUnit& operator>>=(const int& n);
+};
+
+// Collection of shift registers involved in rendering the background..
+struct BackgroundShiftRegisters {
 	uint16_t patternShiftRegisterLow, patternShiftRegisterHigh;  // Contains appropriate pattern bits.
 	uint8_t attributeShiftRegisterLow, attributeShiftRegisterHigh;  // Contains the attribute data for the given tile.
 
-	ShiftRegisters();
-	~ShiftRegisters();
+	BackgroundShiftRegisters();
+	~BackgroundShiftRegisters();
 
-	ShiftRegisters& operator>>=(const int& n);
+	BackgroundShiftRegisters& operator>>=(const int& n);
 
-	void transferLatches(Latches latches);
+	void transferLatches(BackgroundLatches latches);
 };
 
+// NOTE: Might use this for BackgroundShiftRegisters.
+
+
+/*
+struct SpriteLatches {
+	uint16_t patternLatchLow, patternLatchHigh;
+	bool attributeLatchLow, attributeLatchHigh;
+
+	SpriteLatches();
+	~SpriteLatches();
+
+	// NOTE: Might make a method to access secondaryOAM and get the data from there, given a sprite as input.
+};
+*/
+
+struct SpriteShiftRegisters {
+	std::array<SpriteShiftUnit, 8> shiftRegisters;  // 8 shift registers for 8 sprites in secondary OAM.
+
+	SpriteShiftRegisters();
+	~SpriteShiftRegisters();
+
+	// Shifts the registers associated w/ a given sprite right once.
+	void shiftRegister(int sprite);
+};
 
 // Position of the PPU's "beam", i.e. what dot and cycle it is on.
 struct PPUPosition {
@@ -182,8 +218,11 @@ protected:
 	void updateBeamLocation();
 	void updateRenderingRegisters();  // Updates internal registers for rendering; should only be called if rendering is enabled.
 	
+	void fetchPatternData(uint8_t pattermID, bool table, bool high, int line, uint16_t& pattern);
 	PPUDataFetchType performBackgroundFetches();  // Performs the data fetches associated w/ cycles 1-256 on the rendering lines.
 	void performSpriteEvaluation();
+	void transferSpriteData();  // Transfers the sprite data from 2ndOAM to their respective shift registers.
+	
 	void incrementScrolling(bool axis = false);  // Increments the x and v registers, handling overflow for both appropriately. false - x axis, true - y axis.
 
 	void drawPixel();  // Draws a pixel to graphics depending on the internal register values. (see the NESdev's page on PPU Rendering for details).
@@ -191,11 +230,14 @@ protected:
 	const std::map<uint16_t, uint32_t> paletteMap;
 
 	// Internal latches which will transfer to the shift registers every 8 cycles.  
-	Latches latches;
+	BackgroundLatches latches;
 
 	// Internal shift registers relating to drawing.
-	ShiftRegisters shiftRegisters;
-
+	BackgroundShiftRegisters backgroundShiftRegisters;
+	// NOTE: There is little information on where sprite patterns are located; I am assuming there are 8 shift registers. 
+	// This part of the emulator is highly speculative due to lack of information.
+	SpriteShiftRegisters spriteShiftRegisters;  
+	
 	Graphics* graphics;  // A pointer to the graphics object which will be drawn to.
 
 	/*

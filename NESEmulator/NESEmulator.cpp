@@ -1,6 +1,6 @@
 ﻿#include "NESEmulator.h"
 
-NES::NES() : DMAUnit(nullptr), haltCPUOAM(false), scheduleHalt(false) {  // Not recommended to initialize w/ this; this will cause a memory leak later. NOTE: Might just make these nullptrs.
+NES::NES() : DMAUnit(nullptr), haltCPUOAM(false), scheduleHalt(false), totalMachineCycles(0) {  // Not recommended to initialize w/ this; this will cause a memory leak later. NOTE: Might just make these nullptrs.
 	this->memory = new Memory(0x10000);  // 0x10000 is the size of the addressing space.
 	this->ram = new RAM();
 	this->databus = new NESDatabus(this->memory);
@@ -14,7 +14,7 @@ NES::NES() : DMAUnit(nullptr), haltCPUOAM(false), scheduleHalt(false) {  // Not 
 	this->CPU->powerOn();
 }
 
-NES::NES(NESDatabus* databus, _6502_CPU* CPU, RAM* ram, Memory* vram, PPU* ppu) : DMAUnit(databus), haltCPUOAM(false), scheduleHalt(false) {
+NES::NES(NESDatabus* databus, _6502_CPU* CPU, RAM* ram, Memory* vram, PPU* ppu) : DMAUnit(databus), haltCPUOAM(false), scheduleHalt(false), totalMachineCycles(0) {
 	this->ram = ram;
 	this->ppu = ppu;
 	this->VRAM = vram;
