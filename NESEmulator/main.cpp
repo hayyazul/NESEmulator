@@ -106,9 +106,7 @@ int main() {
 			}
 		}
 
-		for (int i = 0; i < 64; ++i) {
-			ppu.displaySprite(i);
-		}
+		ppu.displayVisibleSprites();
 
 		PTDisplayer.displayPatternTable(graphics, ppu, patternTable, x + 256, y, 2);
 		displayPalette(graphics, ppu, 0, 240, 8);

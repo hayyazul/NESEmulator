@@ -57,7 +57,12 @@ public:
 	// Displays a sprite at an arbitrary location in an unemulated fashion. You may specify an x or a y, otherwise it will use the sprite's information to determine its location.
 	void displaySprite(int spriteIdx, int x = -1, int y = -1, bool patternTable = 0);
 
+	// Displays sprites where they are supposed to be offset by given x and y inputs (w/ defaults of 0). Only displays secondaryOAM.
+	void displayVisibleSprites(int x = 0, int y = 0);
+
 	void dumpOAMData(unsigned int lineSize = 4) const;  // Prints out OAM bytes in a string of bytes.
 
 private:
+
+	void displaySprite(SpriteData spriteData, int x, int y);
 };

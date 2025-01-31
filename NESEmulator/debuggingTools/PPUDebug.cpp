@@ -118,8 +118,6 @@ std::array<uint8_t, PALETTE_RAM_SIZE_IN_BYTES> PPUDebug::getPalette() {
 }
 
 void PPUDebug::displaySprite(int spriteIdx, int x, int y, bool patternTable) {
-	// NOTE: does not support sprite flipping.
-
 	// First get the sprite data.
 	if (spriteIdx > 0x3f || spriteIdx < 0) {
 		spriteIdx = 0;
@@ -134,11 +132,41 @@ void PPUDebug::displaySprite(int spriteIdx, int x, int y, bool patternTable) {
 	x = x < 0 ? spriteData.x : x;
 	y = y < 0 ? spriteData.y : y;
 
+	this->displaySprite(spriteData, x, y);
+
+}
+
+void PPUDebug::displayVisibleSprites(int x, int y) {
+	for (int i = 0; i < 0x100; i += 4) {
+		SpriteData spriteData;
+		spriteData.y = this->OAM.getByte(i);
+		spriteData.pattern = this->OAM.getByte(i + 1);
+		spriteData.attribute = this->OAM.getByte(i + 2);
+		spriteData.x = this->OAM.getByte(i + 3);
+		
+		this->displaySprite(spriteData, spriteData.x + x, spriteData.y + y);
+	}
+}
+
+void PPUDebug::dumpOAMData(unsigned int lineSize) const {
+	const int sizeOfOAMData = 0x100;  // There are 256 bytes in OAM data representing 64 sprites each defined w/ 4 bytes.
+	uint8_t OAMByte;
+	for (int i = 0; i < sizeOfOAMData; ++i) {
+		if (i % lineSize == 0 && i) {
+			std::cout << std::endl;
+		}
+		OAMByte = this->OAM.getByte(i);
+		std::cout << displayHex(OAMByte, 2) << ' ';	
+	}
+}
+
+void PPUDebug::displaySprite(SpriteData spriteData, int x, int y) {
+	if (spriteData.y >= 240) {  // Don't attempt to display sprites which are beyond the visible region.
+		return;
+	}
 
 	// Now to display. Before we can, we must extract the pattern data.
-
-
-	uint16_t patternAddr = (0x1000 * patternTable);
+	uint16_t patternAddr = (0x1000 * getBit(this->control, 3));
 	patternAddr += 16 * spriteData.pattern;
 	std::array<uint8_t, PATTERN_SIZE_IN_BYTES / 2> patternLow;
 	std::array<uint8_t, PATTERN_SIZE_IN_BYTES / 2> patternHigh;
@@ -153,7 +181,7 @@ void PPUDebug::displaySprite(int spriteIdx, int x, int y, bool patternTable) {
 
 	// Now we display the sprite.
 	for (int i = 0; i < 8; ++i) {
-		for (int j = 0; j < 8; ++j) {	
+		for (int j = 0; j < 8; ++j) {
 
 			// Copy and pasted from PPU::drawPixel
 			uint16_t colorKey = 0;
@@ -179,19 +207,6 @@ void PPUDebug::displaySprite(int spriteIdx, int x, int y, bool patternTable) {
 
 			this->graphics->drawSquare(this->paletteMap.at(colorKey), x + j, y + i, 1);
 		}
-	}
-
-}
-
-void PPUDebug::dumpOAMData(unsigned int lineSize) const {
-	const int sizeOfOAMData = 0x100;  // There are 256 bytes in OAM data representing 64 sprites each defined w/ 4 bytes.
-	uint8_t OAMByte;
-	for (int i = 0; i < sizeOfOAMData; ++i) {
-		if (i % lineSize == 0 && i) {
-			std::cout << std::endl;
-		}
-		OAMByte = this->OAM.getByte(i);
-		std::cout << displayHex(OAMByte, 2) << ' ';	
 	}
 }
 
