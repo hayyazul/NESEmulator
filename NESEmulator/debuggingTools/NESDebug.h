@@ -24,11 +24,11 @@ struct MachineAction {  // NOTE: 48 bytes is a lot.
 	bool instructionExecuted;  // Whether an instruction has been executed.
 	// A PPU cycle always has occured.
 
-	std::stack<PPUActions> ppuActions;  // NOTE: For now, this has nothing.
+	//std::stack<PPUActions> ppuActions;  // NOTE: For now, this has nothing.
 	//std::stack<DatabusAction> databusActions;
 
 	MachineAction() : cycle(-1), NMIRequested(false), instructionExecuted(false) {};
-	MachineAction(long int cycle, bool NMIRequested, bool instructionExecuted, std::stack<PPUActions> ppuActions) : cycle(cycle), NMIRequested(NMIRequested), instructionExecuted(instructionExecuted), ppuActions(ppuActions) {};
+	//MachineAction(long int cycle, bool NMIRequested, bool instructionExecuted, std::stack<PPUActions> ppuActions) : cycle(cycle), NMIRequested(NMIRequested), instructionExecuted(instructionExecuted), ppuActions(ppuActions) {};
 
 	void print() {
 		std::cout << "Cycle: " << std::dec << this->cycle << std::endl;

@@ -29,9 +29,7 @@ PPU::PPU() :
 	paletteMap(loadPalette("resourceFiles/2C02G_wiki.pal")),
 	beamPos(),
 	frameCount(0),
-	spriteEvalState(INIT),
-	erroneousByteIdx(0),
-	spriteIdx(0)
+	spriteEvalState(INIT)
 {
 	this->databus.attachPalette(&paletteControl);
 }
@@ -60,9 +58,7 @@ PPU::PPU(Memory* VRAM, Memory* CHRDATA) :
 	paletteMap(loadPalette("resourceFiles/2C02G_wiki.pal")),
 	beamPos(),
 	frameCount(0),
-	spriteEvalState(INIT),
-	erroneousByteIdx(0),
-	spriteIdx(0)
+	spriteEvalState(INIT)
 {
 	this->databus.attachPalette(&paletteControl);
 }
@@ -324,119 +320,24 @@ void PPU::updateRenderingRegisters() {
 		// NOTE: I don't know if the PPU actually enables writing for the secondary OAM on cycle 0; this is just a guess.
 		// IGNORE COMMENT // I also do not know, and in fact doubt, whether it sets OAMAddr to 0.
 		//this->OAMAddr
-		this->spriteIdx = 0;
-		this->erroneousByteIdx = 0;
+		if (this->beamPos.inRange(0x7f, 0x7f, 0x0, 0x0)) {
+			int _ = 0;
+		}
 		this->secondaryOAM.setWriteState(true);
 		this->spriteEvalState = INIT;
 	}
 	
-	if (this->beamPos.dotInRange(0x1, 0x40)) {  // 1. Set all bytes to 0xff.
-		if (this->beamPos.inRange(0x7f, 0x7f, 0x1, 0x1)) {
-			int _ = 0;
-		}
+	if (this->beamPos.dotInRange(0x1, 0x40)) {  // 1. Set all bytes to 0xff.\
 
 		this->secondaryOAM.setByte((this->beamPos.dot - 1) / 2, 0xff);
 		if (this->beamPos.dot == 0x40) {
 			this->spriteEvalState = FINDING_SPRITES;
 		}
 
-	} else if (this->beamPos.dotInRange(0x41, 0x100)) {
-		switch (this->spriteEvalState) {
-		case(FINDING_SPRITES): {
-			// Commented out because I (likely) won't make it cycle-accurate.
-			// uint8_t byteIdx = ((this->beamPos.dot - 65) / 2) % 4;  // Index of the byte associated w/ a sprite.
-
-			if (this->spriteIdx >= 64) {
-				int _ = 0;  // This should never happen.
-			}
-
-			// NOTE: Odd-read and even-writes are not emulated; both occur in the same cycle implementation-wise.
-			// NOTE: Another thing which isn't emulated is the exact timing for primary-to-secondary OAM transfers; 
-			// when a sprite is detected to be in range of the next line
-
-			uint8_t yCoord = this->OAM.getByte(this->spriteIdx * 4);  // Stores y-coordinate of the sprite
-			uint8_t nextLine = (this->beamPos.scanline + 1) % 262;  // Allows for line 261 to line 0 wrapping.
-
-			// Checks if the next line is within the range for the sprite.
-			// TODO: Implement checking for 8x16 sprites.
-			if (yCoord <= nextLine && nextLine <= yCoord + 7) {  // If it is, copy over the next few bytes.
-				for (int i = 0; i < 4; ++i) {
-					this->secondaryOAM.setFreeByte(this->OAM.getByte(4 * this->spriteIdx + i));
-				}
-			}
-
-			this->spriteEvalState = INCREMENT_CHECK;
-			}
-			break;
-		case(INCREMENT_CHECK): {
-			++this->spriteIdx;
-			if (this->spriteIdx == 64) {  // Checks if all sprites have been evaluated.
-				this->spriteIdx = 0;
-				this->spriteEvalState = POINTLESS_COPYING;
-			} else if (!this->secondaryOAM.getWriteState()) {  // Checks if secondaryOAM is filled.
-				this->erroneousByteIdx = 0;
-				this->spriteEvalState = SPRITE_OVERFLOW;
-			} else {
-				this->spriteEvalState = FINDING_SPRITES;
-			}
-			break;
-		}
-		case(SPRITE_OVERFLOW): { 
-			uint8_t yCoord = this->OAM.getByte(4 * this->spriteIdx + this->erroneousByteIdx);  // Stores y-coordinate of the sprite
-			uint8_t nextLine = (this->beamPos.scanline + 1) % 262;  // Allows for line 261 to line 0 wrapping.
-			if (yCoord <= nextLine && nextLine <= yCoord + 7) {  // If another sprite is detected in this area, 
-				// TODO: set sprite overflow flag.
-			}
-			++this->erroneousByteIdx;
-			this->spriteEvalState = INCREMENT_CHECK;
-			break;
-		}
-		case(POINTLESS_COPYING): {
-			// NOTE: the failed writes are not emulated.
-			//this->secondaryOAM.setFreeByte(this->OAM.getByte(4 * this->spriteIdx));
-			++this->spriteIdx %= 64;
-			break;
-		}
-		default:
-			break;
-		}
-
-		// If secondaryOAM is filled, perform the (wrongly implemented) sprite-overflow checking.
-		if (!this->secondaryOAM.getWriteState()) {  // secondaryOAM is write disabled upon being filled.
-			 
-		}
-		
 	}
-
-	// --- OLD --- //
-	/*
-	uint16_t currentDot = this->beamPos.dot;
-	// TODO: Fix a bug relating to timing; when currentDot is 0x100, this->v's coarse x component is 0x1b.
-	if (currentDot == 0) {
-		// Idle cycle.
-	} else if (currentDot <= 0x100 && this->beamPos.scanline < 240) {
-		if (currentDot == 0x100) {
-			this->incrementScrolling(true);
-		} 
-		if (currentDot % 8 == 0) {
-			this->incrementScrolling();
-		}
-
-		// Datafetching cycles; also the drawing cycles, but drawing is handled outside of this function.
-		this->performDataFetches();
-	} else if (currentDot == 0x101) {  // Dot 257
-		// At this point, bits related to horizontal positioning in t is copied to v.
-		copyBits(this->v, this->t, 0, 4);
-		copyBits(this->v, this->t, 10, 10);
-	} else if (currentDot >= 280 && currentDot <= 304 && this->beamPos.scanline == PRE_RENDER_LINE) {
-		copyBits(this->v, this->t, 5, 9);
-		copyBits(this->v, this->t, 11, 14);
+	else if (this->beamPos.dotInRange(0x41, 0x100)) {
+		this->performSpriteEvaluation();
 	}
-	else if (currentDot >= 328) {  // NOTE: I feel like there is an error in this implementation; it offsets the coarse x by 2 every frame.
-		if (currentDot % 8 == 0) {
-			this->incrementScrolling();
-		}
-	}*/
 }
 
 // TODO: Refactor
@@ -579,6 +480,99 @@ PPUDataFetchType PPU::performBackgroundFetches() {
 		break;  // Impossible to reach area.
 	}
 
+}
+
+void PPU::performSpriteEvaluation() {
+	/* From NESDev
+	The value of OAMADDR at this tick determines the starting address for sprite evaluation for 
+	this scanline, which can cause the sprite at OAMADDR to be treated as it was sprite 0, 
+	both for sprite-0 hit and priority. If OAMADDR is unaligned and does not point to the 
+	Y position (first byte) of an OAM entry, then whatever it points to 
+	(tile index, attribute, or X coordinate) will be reinterpreted as a Y position, 
+	and the following bytes will be similarly reinterpreted. 
+	No more sprites will be found once the end of OAM is reached, 
+	effectively hiding any sprites before the starting OAMADDR.
+	*/
+	// this->OAMAddr SHOULD be 0, but if it isn't this function should emulate this inappropriate behavior accordingly.
+	
+	switch (this->spriteEvalState) {
+	case(FINDING_SPRITES): {
+	
+		// Commented out because I (likely) won't make it cycle-accurate.
+		// uint8_t byteIdx = ((this->beamPos.dot - 65) / 2) % 4;  // Index of the byte associated w/ a sprite.
+
+		//if (this->spriteIdx >= 64) {
+		// 	int _ = 0;  // This should never happen.
+		//}
+
+		// NOTE: Odd-read and even-writes are not emulated; both occur in the same cycle implementation-wise.
+		// NOTE: Another thing which isn't emulated is the exact timing for primary-to-secondary OAM transfers; 
+		// when a sprite is detected to be in range of the next line
+
+		if (this->OAMAddrByteType == Y_COORD) {
+			uint8_t yCoord = this->OAM.getByte(this->OAMAddr);  // Stores y-coordinate of the sprite
+			uint8_t nextLine = (this->beamPos.scanline + 1) % 262;  // Allows for line 261 to line 0 wrapping.
+
+			// Checks if the next line is within the range for the sprite.
+			// TODO: Implement checking for 8x16 sprites.
+			if (yCoord <= nextLine && nextLine <= yCoord + 7) {  // If it is, copy over the next few bytes.
+				this->secondaryOAM.setFreeByte(this->OAM.getByte(this->OAMAddr));
+				this->spriteEvalState = COPY_SPRITE_DATA;
+				break;
+			}
+		}
+		this->OAMAddr += 4;
+		this->spriteEvalState = INCREMENT_CHECK;
+	}
+	break;
+	case(COPY_SPRITE_DATA): {
+		++this->OAMAddr;
+		++this->OAMAddrByteType;
+		this->secondaryOAM.setFreeByte(this->OAM.getByte(this->OAMAddr));
+
+		if (this->OAMAddrByteType == Y_COORD) {  // When we wrap back to the first byte type.
+
+		}
+	}
+	break;
+	case(INCREMENT_CHECK): {
+		this->OAMAddr %= 0x100;
+		if (this->OAMAddr < 4) {  // Checks if all sprites have been evaluated by seeing if OAMAddr wrapped around.
+			this->OAMAddr = 0;
+			this->spriteEvalState = POINTLESS_COPYING;
+		}
+		else if (!this->secondaryOAM.getWriteState()) {  // Checks if secondaryOAM is filled.
+			this->spriteEvalState = SPRITE_OVERFLOW;
+		}
+		else {
+			this->spriteEvalState = FINDING_SPRITES;
+		}
+		break;
+	}
+	case(SPRITE_OVERFLOW): {
+		uint8_t yCoord = this->OAM.getByte(this->OAMAddr);  // Stores y-coordinate of the sprite
+		uint8_t nextLine = (this->beamPos.scanline + 1) % 262;  // Allows for line 261 to line 0 wrapping.
+		if (yCoord <= nextLine && nextLine <= yCoord + 7) {  // If another sprite is detected in this area, 
+			// TODO: set sprite overflow flag.
+		}
+		this->OAMAddr += 5;  // Should be 4, but there is a bug in the PPU which also increments the byte being evaluated, so increment by 5 to account for this (4 + 1, sprite index increment + byte index increment).
+		this->spriteEvalState = INCREMENT_CHECK;
+		break;
+	}
+	case(POINTLESS_COPYING): {
+		// NOTE: the failed writes are not emulated.
+		//this->secondaryOAM.setFreeByte(this->OAM.getByte(4 * this->spriteIdx));
+		++this->OAMAddr %= 64;
+		break;
+	}
+	default:
+		break;
+	}
+
+	// If secondaryOAM is filled, perform the (wrongly implemented) sprite-overflow checking.
+	if (!this->secondaryOAM.getWriteState()) {  // secondaryOAM is write disabled upon being filled.
+
+	}
 }
 
 void PPU::updateBeamLocation() { 
@@ -812,4 +806,17 @@ bool PPUPosition::inTrueVblank(bool reached) const {
 	// If not, check if we are on the first vblank line; if so, check if we are on or past the first dot (dot 0 on the first vblank line should not count).
 	onVblank = this->scanline == TRUE_VBLANK_START_LINE && this->dot >= 0;
 	return onVblank;
+}
+
+SpriteByteType::SpriteByteType() : spriteByteOn(Y_COORD) {}
+
+SpriteByteType::~SpriteByteType() {}
+
+SpriteByteType& SpriteByteType::operator++() {
+	++this->spriteByteOn %= 4;
+	return *this;
+}
+
+bool SpriteByteType::operator==(SpriteByteOn sbo) {
+	return this->spriteByteOn == sbo;
 }

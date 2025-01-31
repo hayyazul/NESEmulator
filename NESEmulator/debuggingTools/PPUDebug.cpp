@@ -117,6 +117,72 @@ std::array<uint8_t, PALETTE_RAM_SIZE_IN_BYTES> PPUDebug::getPalette() {
 	return paletteData;
 }
 
+void PPUDebug::displaySprite(int spriteIdx, int x, int y, bool patternTable) {
+	// NOTE: does not support sprite flipping.
+
+	// First get the sprite data.
+	if (spriteIdx > 0x3f || spriteIdx < 0) {
+		spriteIdx = 0;
+	}
+	SpriteData spriteData;
+
+	spriteData.y = this->OAM.getByte(4 * spriteIdx);
+	spriteData.pattern = this->OAM.getByte(4 * spriteIdx + 1);
+	spriteData.attribute = this->OAM.getByte(4 * spriteIdx + 2);
+	spriteData.x = this->OAM.getByte(4 * spriteIdx + 3);
+
+	x = x < 0 ? spriteData.x : x;
+	y = y < 0 ? spriteData.y : y;
+
+
+	// Now to display. Before we can, we must extract the pattern data.
+
+
+	uint16_t patternAddr = (0x1000 * patternTable);
+	patternAddr += 16 * spriteData.pattern;
+	std::array<uint8_t, PATTERN_SIZE_IN_BYTES / 2> patternLow;
+	std::array<uint8_t, PATTERN_SIZE_IN_BYTES / 2> patternHigh;
+	uint8_t attribute = getBits(spriteData.attribute, 0, 1);
+	bool flipHoriz = getBit(spriteData.attribute, 6);
+	bool flipVert = getBit(spriteData.attribute, 7);
+
+	for (int i = 0, j = 8; i < 8; ++i, ++j) {
+		patternLow.at(i) = this->databus.read(patternAddr + i);
+		patternHigh.at(i) = this->databus.read(patternAddr + j);
+	}
+
+	// Now we display the sprite.
+	for (int i = 0; i < 8; ++i) {
+		for (int j = 0; j < 8; ++j) {	
+
+			// Copy and pasted from PPU::drawPixel
+			uint16_t colorKey = 0;
+			copyBits(colorKey, 6, 8, (uint16_t)this->mask, 5, 7);
+
+			const uint16_t spritePaletteAddress = 0x3f10;  // The starting address for the background palette.
+			uint16_t addr = spritePaletteAddress;
+
+			int rowIdx = flipVert ? 7 - i : i;
+			int colIdx = flipHoriz ? j : 7 - j;
+
+			uint8_t highBit = getBit(patternHigh.at(rowIdx), colIdx);
+			highBit <<= 1;
+			uint8_t lowBit = getBit(patternLow.at(rowIdx), colIdx);
+
+			addr += highBit + lowBit;
+			// Indexing which palette we want.
+			addr += 4 * attribute;
+
+			// Now, using this addr, we will get the color located at that addr.
+			auto f = this->databus.read(addr);
+			colorKey |= f;
+
+			this->graphics->drawSquare(this->paletteMap.at(colorKey), x + j, y + i, 1);
+		}
+	}
+
+}
+
 void PPUDebug::dumpOAMData(unsigned int lineSize) const {
 	const int sizeOfOAMData = 0x100;  // There are 256 bytes in OAM data representing 64 sprites each defined w/ 4 bytes.
 	uint8_t OAMByte;
@@ -128,3 +194,6 @@ void PPUDebug::dumpOAMData(unsigned int lineSize) const {
 		std::cout << displayHex(OAMByte, 2) << ' ';	
 	}
 }
+
+SpriteData::SpriteData() : x(0xff), y(0xff), pattern(0xff), attribute(0xff) {}
+SpriteData::~SpriteData() {}

@@ -4,8 +4,14 @@
 
 #include <array>
 
-struct PPUActions {
-	// TODO
+struct PPUActions;
+
+// Struct for some given sprite data.
+struct SpriteData {
+	uint8_t x, y, pattern, attribute;
+
+	SpriteData();
+	~SpriteData();
 };
 
 // Size and dimensions of a single nametable.
@@ -19,6 +25,8 @@ constexpr uint16_t PATTERN_TABLE_SIZE_IN_BYTES = 0x1000;
 constexpr uint8_t PATTERN_SIZE_IN_BYTES = 0x10;
 // Size of RAM Palette
 constexpr uint8_t PALETTE_RAM_SIZE_IN_BYTES = 0x20;
+
+constexpr uint8_t MAX_SPRITE_COUNT = 0x40;
 
 class PPUDebug : public PPU {
 public:
@@ -44,7 +52,11 @@ public:
 	std::array<uint8_t, PATTERN_SIZE_IN_BYTES> getPattern(uint8_t patternId, bool table = 0) const;
 
 	std::array<uint8_t, PALETTE_RAM_SIZE_IN_BYTES> getPalette();
-		
+
+	//std::array<SpriteData, MAX_SPRITE_COUNT> getSprites() const;  // Fetches sprites from primary OAM.
+	// Displays a sprite at an arbitrary location in an unemulated fashion. You may specify an x or a y, otherwise it will use the sprite's information to determine its location.
+	void displaySprite(int spriteIdx, int x = -1, int y = -1, bool patternTable = 0);
+
 	void dumpOAMData(unsigned int lineSize = 4) const;  // Prints out OAM bytes in a string of bytes.
 
 private:

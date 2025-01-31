@@ -116,12 +116,31 @@ enum SpriteEvaluationState {
 	INIT,  // Cycles 1-64, initializes OAM to this.
 	// Next 4 are between cycles 65-256.
 	FINDING_SPRITES,  // 2.1 on NESDev, secondary OAM is not full and is looking for sprites to fill it up.
+	COPY_SPRITE_DATA,  // 2.1.a on NESDev, when the next line intersects w/ the sprite, the PPU copies the rest of the sprite data to secondary OAM.
 	INCREMENT_CHECK,  // 2.2 on NESDev, decides what to do given how many sprites have been inserted. 
 	// If less than 8, return to FINDING_SPRITES, if all sprites have been evaluated, go to 
 	SPRITE_OVERFLOW,  // 2.3 on NESDev, the period when evaluating sprite overflow.
 	POINTLESS_COPYING  // 2.4 on NESDev, the period when the PPU tries and purposely fails to copy OAM sprite n and byte 0 into the next free slot in secondary OAM.
 	// The next 2 are between cycles 257 and 340+0
 	// TODO
+};
+
+enum SpriteByteOn {
+	Y_COORD,
+	TILE_IDX,  // AKA the pattern index.
+	ATTRIBUTES,
+	X_COORD
+};
+
+struct SpriteByteType {
+	int spriteByteOn;
+
+	SpriteByteType();
+	~SpriteByteType();
+
+	SpriteByteType& operator++();
+
+	bool operator==(SpriteByteOn sbo);
 };
 
 class PPU {
@@ -162,7 +181,9 @@ protected:
 	// Updates the location of the scanning beam. NOTE: might remove.
 	void updateBeamLocation();
 	void updateRenderingRegisters();  // Updates internal registers for rendering; should only be called if rendering is enabled.
+	
 	PPUDataFetchType performBackgroundFetches();  // Performs the data fetches associated w/ cycles 1-256 on the rendering lines.
+	void performSpriteEvaluation();
 	void incrementScrolling(bool axis = false);  // Increments the x and v registers, handling overflow for both appropriately. false - x axis, true - y axis.
 
 	void drawPixel();  // Draws a pixel to graphics depending on the internal register values. (see the NESdev's page on PPU Rendering for details).
@@ -200,8 +221,10 @@ protected:
 	Memory OAM;  // Internal memory inside the PPU which contains 256 bytes, 4 bytes defining 1 sprite for 64 sprites.
 	SecondaryOAM secondaryOAM;  // used for rendering sprites.
 	SpriteEvaluationState spriteEvalState;
-	uint8_t spriteIdx;  // Part of sprite evaluation.
-	uint8_t erroneousByteIdx;  // Part of sprite evaluation. During sprite overflow check, the PPU erroneously increments the address of OAM it is using to access by 5 instead of 4.
+	SpriteByteType OAMAddrByteType;  // Determines what part of the sprite the sprite eval is currently on; used to emulate non-zero OAMAddr values.
+	
+	//uint8_t spriteIdx;  // Part of sprite evaluation.
+	//uint8_t erroneousByteIdx;  // Part of sprite evaluation. During sprite overflow check, the PPU erroneously increments the address of OAM it is using to access by 5 instead of 4.
 
 	// NOTE: I likely will refactor sprite evaluation. In particular, I might try a state machine. The current implementation is also a state machine, but it is cobbled together very poorly.
 
