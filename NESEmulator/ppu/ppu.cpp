@@ -339,11 +339,20 @@ void PPU::updateRenderingRegisters() {
 	} else if (this->beamPos.dotInRange(0x41, 0x100)) {  // Sprite evaluation period.
 		this->performSpriteEvaluation();
 	} else if (this->beamPos.dotInRange(0x101, 0x140)) {  // 2ndOAM-to-shiftRegister transfer period.
-		//this->transferSpriteData();
+		this->transferSpriteData();
 	}
 }
 
-void PPU::fetchPatternData(uint8_t patternID, bool table, bool high, int line, uint16_t& pattern) {
+void PPU::fetchPatternData(uint8_t patternID, bool table, bool high, int line, uint16_t& pattern, bool flipH, bool flipV) {
+	
+	if (line > 7 || line < 0) {
+		int _ = 0;  // This should never happen.
+	}
+
+	if (flipV) {  // Access the bottom of the pattern if flipping vertically.
+		line = 7 - line;
+	}
+	
 	const uint16_t PATTERN_TABLE_SIZE = 0x1000;
 
 	// Using the nametable byte, we will grab the associated pattern.
@@ -352,8 +361,13 @@ void PPU::fetchPatternData(uint8_t patternID, bool table, bool high, int line, u
 	// We will get a different pair of bytes from the pattern depending on the current line (e.g. get 1st pair on line 0, 2nd pair on line 1...).
 	addr += line;  // Selecting the line. 
 	addr += 0x8 * high;
+ 
+	uint16_t patternLatch = this->databus.read(addr);
+	if (flipH) {  // Reverse the bits if flipping horizontally.
+		patternLatch = reverseBits(pattern, 8);
+	}
 
-	pattern = this->databus.read(addr);
+	pattern |= (patternLatch << 8);
 }
 
 // TODO: Refactor
@@ -587,11 +601,59 @@ void PPU::transferSpriteData() {
 	// This period should last for 64 cycles, 2 cycles for each byte, and another 2 to idle while the PPU fetches sprite pattern data.
 	int relativeDot = (this->beamPos.dot - 0x101);  // Ranges from 0 to 63.
 	int byteOn = relativeDot % 4;  // The byte of the sprite being indexed. This is relative and ranges from 0 to 3.
-	int sprite = relativeDot % 8;
+	int sprite = relativeDot / 8;
+	uint16_t secondaryOAMAddr = relativeDot / 2;
 
-	// Note: This emulator will not emulate the exact cycle-behavior of these transfers. Instead, it will do 2 cycles at once and idle on the next one.
-	if (byteOn == 1) {  // The y-coordinate byte is irrelevant
+	int nextLine = (this->beamPos.scanline + 1) % 262;
 
+	// TODO: Support 8x16 sprites.
+	// Note: This emulator will not emulate the exact cycle-behavior of these transfers. 
+	// Instead, it will do multiple cycles at once and idle till the next one it needs to do something.
+	if (relativeDot % 8 == 0) {  // When we are on a new sprite (every 8 dots), perform all fetches at once.
+		// First get the sprite y.
+		uint8_t spriteY = this->secondaryOAM.getByte(secondaryOAMAddr);
+		uint8_t patternID = this->secondaryOAM.getByte(secondaryOAMAddr + 1);
+		uint8_t attributes = this->secondaryOAM.getByte(secondaryOAMAddr + 2);
+		uint8_t spriteX = this->secondaryOAM.getByte(secondaryOAMAddr + 3);
+
+		bool patternTable = getBit(this->control, 3);
+
+		// Then get the line the sprite will need to display the next line.
+		int spriteLine = nextLine - spriteY;
+		if (spriteLine < 0) {  // This means the sprite is beyond the next line; this should not happen and is an issue w/ secondary OAM tranfers.
+			int _ = 0;
+			return;
+		}
+
+		bool flipH = getBit(attributes, 6);
+		bool flipV = getBit(attributes, 7);
+
+		// Now we fetch the patterns.
+		this->fetchPatternData(patternID,
+			patternTable,
+			false,
+			spriteLine,
+			this->spriteShiftRegisters.shiftRegisters.at(sprite).patternShiftRegisterLow,
+			flipH,
+			flipV);
+		this->fetchPatternData(patternID,
+			patternTable,
+			true,
+			spriteLine,
+			this->spriteShiftRegisters.shiftRegisters.at(sprite).patternShiftRegisterHigh,
+			flipH,
+			flipV);
+
+		// Transfering the location of the sprite.
+		this->spriteShiftRegisters.shiftRegisters.at(sprite).x = spriteX;
+
+		// And lastly, the attribute data.
+		this->spriteShiftRegisters.shiftRegisters.at(sprite).attributeShiftRegisterLow = 0xff * getBit(attributes, 0);
+		this->spriteShiftRegisters.shiftRegisters.at(sprite).attributeShiftRegisterHigh = 0xff * getBit(attributes, 1);		
+	}
+
+	if (sprite == 7 && byteOn == 3) {
+		int _ = 0;
 	}
 }
 
@@ -840,7 +902,13 @@ bool SpriteByteType::operator==(SpriteByteOn sbo) {
 	return this->spriteByteOn == sbo;
 }
 
-SpriteShiftUnit::SpriteShiftUnit() {}
+SpriteShiftUnit::SpriteShiftUnit() : 
+	patternShiftRegisterLow(0), 
+	patternShiftRegisterHigh(0), 
+	attributeShiftRegisterLow(0),
+	attributeShiftRegisterHigh(0),
+	x(0)
+{}
 SpriteShiftUnit::~SpriteShiftUnit() {}
 
 SpriteShiftUnit& SpriteShiftUnit::operator>>=(const int& n) {

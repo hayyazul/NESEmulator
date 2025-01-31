@@ -218,7 +218,8 @@ protected:
 	void updateBeamLocation();
 	void updateRenderingRegisters();  // Updates internal registers for rendering; should only be called if rendering is enabled.
 	
-	void fetchPatternData(uint8_t pattermID, bool table, bool high, int line, uint16_t& pattern);
+	// Performs a pattern fetch given some inputs. Note that line is a value expected to be between 
+	void fetchPatternData(uint8_t patternID, bool table, bool high, int line, uint16_t& pattern, bool flipH = false, bool flipV = false);
 	PPUDataFetchType performBackgroundFetches();  // Performs the data fetches associated w/ cycles 1-256 on the rendering lines.
 	void performSpriteEvaluation();
 	void transferSpriteData();  // Transfers the sprite data from 2ndOAM to their respective shift registers.
