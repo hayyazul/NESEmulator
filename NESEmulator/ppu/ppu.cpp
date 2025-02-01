@@ -361,13 +361,13 @@ void PPU::fetchPatternData(uint8_t patternID, bool table, bool high, int line, u
 	// We will get a different pair of bytes from the pattern depending on the current line (e.g. get 1st pair on line 0, 2nd pair on line 1...).
 	addr += line;  // Selecting the line. 
 	addr += 0x8 * high;
- 
+
 	uint16_t patternLatch = this->databus.read(addr);
 	if (flipH) {  // Reverse the bits if flipping horizontally.
 		patternLatch = reverseBits(pattern, 8);
 	}
 
-	pattern |= (patternLatch << 8);
+	pattern = patternLatch;
 }
 
 // TODO: Refactor
@@ -621,7 +621,7 @@ void PPU::transferSpriteData() {
 		// Then get the line the sprite will need to display the next line.
 		int spriteLine = nextLine - spriteY;
 		if (spriteLine < 0) {  // This means the sprite is beyond the next line; this should not happen and is an issue w/ secondary OAM tranfers.
-			int _ = 0;
+			int _ = 0;  // NOTE: This has been hit at some points, possibly indicating a bug.
 			return;
 		}
 
