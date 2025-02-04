@@ -733,14 +733,19 @@ void PPU::drawPixel() {
 	uint8_t paletteIdx = this->backgroundShiftRegisters.getPattern(this->x);
 	// Indexing which palette we want.
 
-	uint8_t paletteAddr = this->backgroundShiftRegisters.getAttribute(this->x);
+	uint8_t palette = this->backgroundShiftRegisters.getAttribute(this->x);
 	
+	//palette = getBit(this->backgroundShiftRegisters.attributeShiftRegisterHigh, this->x) << 1;
+//	palette += getBit(this->backgroundShiftRegisters.attributeShiftRegisterLow, this->x);
+	//palette *= 4;
+
 	if (true/*this->spriteShiftRegisters.at(spriteIdx).patternShiftRegisterLow != 0 && this->spriteShiftRegisters.at(spriteIdx).x == 0*/) {
 	//	addr += spritePalette + spritePaletteIdx;
 	//}
 	//else {
-		addr += (4 * paletteAddr) + paletteIdx;
+		addr += 4 * palette + paletteIdx;
 	}
+
 	// Now, using this addr, we will get the color located at that addr.
 	uint8_t colorIdx = this->databus.read(addr);
 	colorKey |= colorIdx;
@@ -764,12 +769,12 @@ BackgroundShiftRegisters::~BackgroundShiftRegisters() {}
 uint8_t BackgroundShiftRegisters::getPattern(int x) const {
 	x = 7 - x;  // Keep in mind that the index starts from left to right.
 	uint8_t pattern = getBit(this->patternShiftRegisterHigh >> 1, x) << 1;  // Fetching the high bit.
-	pattern |= getBit(this->patternShiftRegisterLow >> 1, x);  // Then the low bit.
+	pattern += getBit(this->patternShiftRegisterLow >> 1, x);  // Then the low bit.
 	return pattern;
 }
 uint8_t BackgroundShiftRegisters::getAttribute(int x) const {
-	uint8_t pattern = getBit(this->attributeShiftRegisterHigh >> 1, x) << 1;  // Fetching the high bit.
-	pattern |= getBit(this->attributeShiftRegisterLow >> 1, x);  // Then the low bit.
+	uint8_t pattern = getBit(this->attributeShiftRegisterHigh, x) << 1;  // Fetching the high bit.
+	pattern += getBit(this->attributeShiftRegisterLow, x);  // Then the low bit.
 	return pattern;
 }
 BackgroundShiftRegisters& BackgroundShiftRegisters::operator>>=(const int& n) {

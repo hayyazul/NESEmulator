@@ -205,6 +205,9 @@ void PPUDebug::displaySprite(SpriteData spriteData, int x, int y) {
 			auto f = this->databus.read(addr);
 			colorKey |= f;
 
+			if (highBit + lowBit == 0) {  // If it is transparent, do not draw.
+				continue;
+			}
 			this->graphics->drawSquare(this->paletteMap.at(colorKey), x + j, y + i, 1);
 		}
 	}
