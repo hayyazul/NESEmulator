@@ -29,8 +29,8 @@ PPU::PPU() :
 	spriteShiftRegisters(),
 	paletteMap(loadPalette("resourceFiles/2C02G_wiki.pal")),
 	beamPos(),
-	frameCount(0),
-	spriteEvalState(INIT)
+	frameCount(0), 
+	spriteEvalCycle()
 {
 	this->databus.attachPalette(&paletteControl);
 }
@@ -60,7 +60,7 @@ PPU::PPU(Memory* VRAM, Memory* CHRDATA) :
 	paletteMap(loadPalette("resourceFiles/2C02G_wiki.pal")),
 	beamPos(),
 	frameCount(0),
-	spriteEvalState(INIT)
+	spriteEvalCycle()
 {
 	this->databus.attachPalette(&paletteControl);
 }
@@ -98,8 +98,8 @@ void PPU::executePPUCycle() {
 		this->drawPixel();
 	}
 
-	++this->cycleCount;
 	this->updateBeamLocation();
+	++this->cycleCount;
 }
 
 uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
@@ -292,10 +292,9 @@ void PPU::updateRenderingRegisters() {
 	}
 	
 	// Background fetches
-	// The condition before the OR ensures to perform datafetches throughout the frame, the latter performs data fetches fore the 1st 2 tiles for the next frame.
-	PPUDataFetchType fetchType;
+	// The condition before the || ensures to perform datafetches throughout the frame, the latter ensures data fetches for the 1st 2 tiles for the next frame.
 	if (this->beamPos.inRender() || this->beamPos.dotInRange(321, 336)) { 
-		fetchType = this->performBackgroundFetches();
+		this->performBackgroundFetches();
 	}
 	
 	if (this->beamPos.inHblank(true)) {  // Upon reaching Hblank, transfer bits in t to v.
@@ -321,12 +320,11 @@ void PPU::updateRenderingRegisters() {
 	if (this->beamPos.dot == 0x0) {
 		// NOTE: I don't know if the PPU actually enables writing for the secondary OAM on cycle 0; this is just a guess.
 		// IGNORE COMMENT // I also do not know, and in fact doubt, whether it sets OAMAddr to 0.
-		//this->OAMAddr
 		if (this->beamPos.inRange(0x7f, 0x7f, 0x0, 0x0)) {
 			int _ = 0;
 		}
 		this->secondaryOAM.freeAllBytes();
-		this->spriteEvalState = INIT;
+		this->spriteEvalCycle.reset();
 	}
 
 	// Perform shifts if in the given range.
@@ -334,12 +332,12 @@ void PPU::updateRenderingRegisters() {
 		this->updateSpriteShiftRegisters();
 	}
 	
+	// OAM, 2ndOAM, and Shift register transfers
 	if (this->beamPos.dotInRange(0x1, 0x40)) {  // Set all bytes in secondary OAM to 0xff.
 		this->secondaryOAM.setByte((this->beamPos.dot - 1) / 2, 0xff);
 		if (this->beamPos.dot == 0x40) {
-			this->spriteEvalState = FINDING_SPRITES;
+			this->spriteEvalCycle.setState(FINDING_SPRITES);
 		}
-		this->OAMAddrByteType.spriteByteOn = Y_COORD;
 	} else if (this->beamPos.dotInRange(0x41, 0x100)) {  // Sprite evaluation period.
 		this->performSpriteEvaluation();
 	} else if (this->beamPos.dotInRange(0x101, 0x140)) {  // 2ndOAM-to-shiftRegister transfer period.
@@ -375,13 +373,9 @@ void PPU::fetchPatternData(uint8_t patternID, bool table, bool high, int line, u
 }
 
 // TODO: Refactor
-PPUDataFetchType PPU::performBackgroundFetches() {
+void PPU::performBackgroundFetches() {
 	// TODO: Give this variable and function a better name.
 	uint8_t cycleCounter = (this->beamPos.dot - 1) % 8;  // This variable ranges from 0 to 7 and represents cycles 8, 16, 24... 256.
-
-	if (this->beamPos.dot == 256) {
-		int c = 0;
-	};
 
 	// The shift registers are shifted to the right by 1 every data-fetching cycle.
 	this->backgroundShiftRegisters >>= 1;
@@ -489,28 +483,6 @@ PPUDataFetchType PPU::performBackgroundFetches() {
 		break;
 
 	}
-	
-	switch (cycleCounter) {
-	case(1):
-	case(2):
-		return NAMETABLE;
-		break;
-	case(3):
-	case(4):
-		return ATTRIBUTE_TABLE;
-		break;
-	case(5):
-	case(6):
-		return PATTERN_TABLE_LOW;
-		break;
-	case(7):
-	case(0):
-		return PATTERN_TABLE_HIGH;
-		break;
-	default:
-		break;  // Impossible to reach area.
-	}
-
 }
 
 void PPU::performSpriteEvaluation() {
@@ -526,7 +498,7 @@ void PPU::performSpriteEvaluation() {
 	*/
 	// this->OAMAddr SHOULD be 0, but if it isn't this function should emulate this inappropriate behavior accordingly.
 	
-	switch (this->spriteEvalState) {
+	switch (this->spriteEvalCycle.byteType) {
 	case(FINDING_SPRITES): {
 	
 		// Commented out because I (likely) won't make it cycle-accurate.
@@ -540,7 +512,7 @@ void PPU::performSpriteEvaluation() {
 		// NOTE: Another thing which isn't emulated is the exact timing for primary-to-secondary OAM transfers; 
 		// when a sprite is detected to be in range of the next line
 
-		if (this->OAMAddrByteType == Y_COORD) {
+		if (this->spriteEvalCycle.onByte(Y_COORD)) {
 			uint8_t yCoord = this->OAM.getByte(this->OAMAddr);  // Stores y-coordinate of the sprite
 			uint8_t nextLine = (this->beamPos.scanline + 1) % 262;  // Allows for line 261 to line 0 wrapping.
 
@@ -548,19 +520,19 @@ void PPU::performSpriteEvaluation() {
 			// TODO: Implement checking for 8x16 sprites.
 			if (yCoord <= nextLine && nextLine <= yCoord + 7) {  // If it is, copy over the next few bytes.
 				this->secondaryOAM.setFreeByte(this->OAM.getByte(this->OAMAddr));
-				this->spriteEvalState = COPY_SPRITE_DATA;
+				this->spriteEvalCycle.setState(COPY_SPRITE_DATA);
 				break;
 			}
 		}
 		this->OAMAddr += 4;
-		this->spriteEvalState = INCREMENT_CHECK;
+		this->spriteEvalCycle.setState(INCREMENT_CHECK);
 	}
 	break;
 	case(COPY_SPRITE_DATA): {
 		++this->OAMAddr;
-		++this->OAMAddrByteType;
-		if (this->OAMAddrByteType == Y_COORD) {  // When we wrap back to the first byte type.
-			this->spriteEvalState = INCREMENT_CHECK;
+		++this->spriteEvalCycle;
+		if (this->spriteEvalCycle.onByte(Y_COORD)) {  // When we wrap back to the first byte type.
+			this->spriteEvalCycle.setState(INCREMENT_CHECK);
 			break;
 		}
 		this->secondaryOAM.setFreeByte(this->OAM.getByte(this->OAMAddr));
@@ -570,13 +542,13 @@ void PPU::performSpriteEvaluation() {
 		this->OAMAddr %= 0x100;
 		if (this->OAMAddr < 4) {  // Checks if all sprites have been evaluated by seeing if OAMAddr wrapped around.
 			this->OAMAddr = 0;
-			this->spriteEvalState = POINTLESS_COPYING;
+			this->spriteEvalCycle.setState(POINTLESS_COPYING);
 		}
 		else if (!this->secondaryOAM.getWriteState()) {  // Checks if secondaryOAM is filled.
-			this->spriteEvalState = SPRITE_OVERFLOW;
+			this->spriteEvalCycle.setState(SPRITE_OVERFLOW);
 		}
 		else {
-			this->spriteEvalState = FINDING_SPRITES;
+			this->spriteEvalCycle.setState(FINDING_SPRITES);
 		}
 		break;
 	}
@@ -587,7 +559,7 @@ void PPU::performSpriteEvaluation() {
 			// TODO: set sprite overflow flag.
 		}
 		this->OAMAddr += 5;  // Should be 4, but there is a bug in the PPU which also increments the byte being evaluated, so increment by 5 to account for this (4 + 1, sprite index increment + byte index increment).
-		this->spriteEvalState = INCREMENT_CHECK;
+		this->spriteEvalCycle.setState(INCREMENT_CHECK);
 		break;
 	}
 	case(POINTLESS_COPYING): {
@@ -604,7 +576,6 @@ void PPU::performSpriteEvaluation() {
 void PPU::transferSpriteData() {
 	// This period should last for 64 cycles, 2 cycles for each byte, and another 2 to idle while the PPU fetches sprite pattern data.
 	int relativeDot = (this->beamPos.dot - 0x101);  // Ranges from 0 to 63.
-	int byteOn = relativeDot % 4;  // The byte of the sprite being indexed. This is relative and ranges from 0 to 3.
 	int sprite = relativeDot / 8;
 	uint16_t secondaryOAMAddr = relativeDot / 2;
 
@@ -666,10 +637,6 @@ void PPU::transferSpriteData() {
 		// And lastly, the attribute data.
 		this->spriteShiftRegisters.shiftRegisters.at(sprite).attributeShiftRegisterLow = 0xff * getBit(attributes, 0);
 		this->spriteShiftRegisters.shiftRegisters.at(sprite).attributeShiftRegisterHigh = 0xff * getBit(attributes, 1);		
-	}
-
-	if (sprite == 7 && byteOn == 3) {
-		int _ = 0;
 	}
 }
 
@@ -923,16 +890,6 @@ bool PPUPosition::inTrueVblank(bool reached) const {
 	return onVblank;
 }
 
-SpriteByteType::SpriteByteType() : spriteByteOn(Y_COORD) {}
-SpriteByteType::~SpriteByteType() {}
-SpriteByteType& SpriteByteType::operator++() {
-	++this->spriteByteOn %= 4;
-	return *this;
-}
-bool SpriteByteType::operator==(SpriteByteOn sbo) {
-	return this->spriteByteOn == sbo;
-}
-
 SpriteShiftUnit::SpriteShiftUnit() : 
 	patternShiftRegisterLow(0), 
 	patternShiftRegisterHigh(0), 
@@ -984,4 +941,36 @@ void SpriteShiftRegisters::operator<<=(const int& n) {
 	for (int i = 0; i < 8; ++i) {
 		this->shiftRegisters.at(i) <<= n;
 	}
+}
+
+SpriteEvalCycle::SpriteEvalCycle() : byteType(Y_COORD), evalState(INIT) {}
+SpriteEvalCycle::~SpriteEvalCycle() {}
+void SpriteEvalCycle::operator++() {
+	switch (this->byteType) {
+	case(Y_COORD):
+		this->byteType = TILE_IDX;
+		break;
+	case(TILE_IDX):
+		this->byteType = ATTRIBUTES;
+		break;
+	case(ATTRIBUTES):
+		this->byteType = X_COORD;
+		break;
+	case(X_COORD):
+		this->byteType = Y_COORD;
+		break;
+	}
+}
+bool SpriteEvalCycle::onByte(SpriteByteOn sbo) const {
+	return this->byteType == sbo;
+}
+bool SpriteEvalCycle::onState(SpriteEvaluationState ses) const {
+	return this->evalState == ses;
+}
+void SpriteEvalCycle::setState(SpriteEvaluationState ses) {
+	this->evalState = ses;
+}
+void SpriteEvalCycle::reset() {
+	this->byteType = Y_COORD;
+	this->evalState = INIT;
 }

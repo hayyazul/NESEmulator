@@ -106,7 +106,7 @@ int main() {
 			}
 		}
 
-		//ppu.displayVisibleSprites();
+		ppu.displayVisibleSprites();
 
 		PTDisplayer.displayPatternTable(graphics, ppu, patternTable, x + 256, y, 2);
 		displayPalette(graphics, ppu, 0, 240, 8);

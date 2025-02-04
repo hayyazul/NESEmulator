@@ -5,6 +5,17 @@
 
 //  TODO: Make the nametables memory mappings.
 //  TODO: Fix and organize timing control.
+// - for PPU::performBackgroundFetches, I have to implement methods for PPUPosition regarding the modulo of a position. CANCELED
+//    - I also might make it void again. DONE
+// - Sprite evaluation, especially methods surrounding it, need to be cleaned up. I might create a new struct which
+// handles knowing when and what to transfer.  DONE
+// - I might give SpriteShiftRegisters an access method to make accesses less wordy.
+// - For PPU::transferSpriteData the planned modulo methods will help. I can also add a relative pos method, but this might
+// be getting too fine grained.
+// - PPU::drawPixel is the worst implemented function. It is esoteric, repeats itself, and is in general unwieldly.
+//    - I might combine shift registers into one class, then inherit for the background and sprite.
+//       - Using this, I can then simplify getting the low and high bits (which currently take up 2 full lines containing multiple operations).
+//       - This will also make it easier to deal w/ sprite 0 hits and other similar stuff.
 
 #include <map>
 #include <array>
@@ -144,15 +155,6 @@ struct PPUInternalRegisters {
 
 };*/
 
-// Describes the kinds of data that could have been fetched (Attribute, nametable, etc.)
-enum PPUDataFetchType {
-	NONE,  
-	NAMETABLE,
-	ATTRIBUTE_TABLE,
-	PATTERN_TABLE_LOW,
-	PATTERN_TABLE_HIGH
-};
-
 // Describes the different states of the OAM sprite evaulation
 enum SpriteEvaluationState {
 	INIT,  // Cycles 1-64, initializes OAM to this.
@@ -174,15 +176,24 @@ enum SpriteByteOn {
 	X_COORD
 };
 
-struct SpriteByteType {
-	int spriteByteOn;
+// A struct defining what kind of byte OAMAddr is on (note that if OAMAddr is initialized w/ a an address s.t. 4!|OAMAddr, it will treat the first byte it sees as a Y-coordinate anyway).
+class SpriteEvalCycle {
+public:
+	SpriteEvalCycle();
+	~SpriteEvalCycle();
 
-	SpriteByteType();
-	~SpriteByteType();
+	// Iterates the byteType w/ wrapping.
+	void operator++();
 
-	SpriteByteType& operator++();
+	bool onByte(SpriteByteOn sbo) const;
+	bool onState(SpriteEvaluationState ses) const;
+	void setState(SpriteEvaluationState ses);
+	// Resets the byte on and the evaluation state to their defaults (Y_COORD and INIT)
+	void reset();
 
-	bool operator==(SpriteByteOn sbo);
+
+	SpriteByteOn byteType;
+	SpriteEvaluationState evalState;
 };
 
 class PPU {
@@ -226,7 +237,7 @@ protected:
 	
 	// Performs a pattern fetch given some inputs. Note that line is a value expected to be between 
 	void fetchPatternData(uint8_t patternID, bool table, bool high, int line, uint16_t& pattern, bool flipH = false, bool flipV = false);
-	PPUDataFetchType performBackgroundFetches();  // Performs the data fetches associated w/ cycles 1-256 on the rendering lines.
+	void performBackgroundFetches();  // Performs the data fetches associated w/ cycles 1-256 on the rendering lines.
 	void performSpriteEvaluation();
 	void transferSpriteData();  // Transfers the sprite data from 2ndOAM to their respective shift registers.
 	void updateSpriteShiftRegisters();  // Updates the sprite shift registers. NOTE: Might remove.
@@ -270,8 +281,7 @@ protected:
 	Memory paletteControl;
 	Memory OAM;  // Internal memory inside the PPU which contains 256 bytes, 4 bytes defining 1 sprite for 64 sprites.
 	SecondaryOAM secondaryOAM;  // used for rendering sprites.
-	SpriteEvaluationState spriteEvalState;
-	SpriteByteType OAMAddrByteType;  // Determines what part of the sprite the sprite eval is currently on; used to emulate non-zero OAMAddr values.
+	SpriteEvalCycle spriteEvalCycle;
 	
 	//uint8_t spriteIdx;  // Part of sprite evaluation.
 	//uint8_t erroneousByteIdx;  // Part of sprite evaluation. During sprite overflow check, the PPU erroneously increments the address of OAM it is using to access by 5 instead of 4.
