@@ -328,14 +328,18 @@ void PPU::updateRenderingRegisters() {
 		this->secondaryOAM.freeAllBytes();
 		this->spriteEvalState = INIT;
 	}
+
+	// Perform shifts if in the given range.
+	if (this->beamPos.dotInRange(0x1, 0x100)) {
+		this->updateSpriteShiftRegisters();
+	}
 	
 	if (this->beamPos.dotInRange(0x1, 0x40)) {  // Set all bytes in secondary OAM to 0xff.
-
 		this->secondaryOAM.setByte((this->beamPos.dot - 1) / 2, 0xff);
 		if (this->beamPos.dot == 0x40) {
 			this->spriteEvalState = FINDING_SPRITES;
 		}
-
+		this->OAMAddrByteType.spriteByteOn = Y_COORD;
 	} else if (this->beamPos.dotInRange(0x41, 0x100)) {  // Sprite evaluation period.
 		this->performSpriteEvaluation();
 	} else if (this->beamPos.dotInRange(0x101, 0x140)) {  // 2ndOAM-to-shiftRegister transfer period.
@@ -616,11 +620,20 @@ void PPU::transferSpriteData() {
 		uint8_t attributes = this->secondaryOAM.getByte(secondaryOAMAddr + 2);
 		uint8_t spriteX = this->secondaryOAM.getByte(secondaryOAMAddr + 3);
 
+		if (spriteY == 0xff) {  // This is an "empty" sprite slot; fill all values w/ 0xff00 and 0xff
+			this->spriteShiftRegisters.shiftRegisters.at(sprite).patternShiftRegisterLow = 0xff00;
+			this->spriteShiftRegisters.shiftRegisters.at(sprite).patternShiftRegisterHigh = 0xff00;
+			this->spriteShiftRegisters.shiftRegisters.at(sprite).attributeShiftRegisterLow = 0xff;
+			this->spriteShiftRegisters.shiftRegisters.at(sprite).attributeShiftRegisterHigh = 0xff;
+			this->spriteShiftRegisters.shiftRegisters.at(sprite).x = 0xff;
+			return;
+		}
+
 		bool patternTable = getBit(this->control, 3);
 
 		// Then get the line the sprite will need to display the next line.
 		int spriteLine = nextLine - spriteY;
-		if (spriteLine < 0) {  // This means the sprite is beyond the next line; this should not happen and is an issue w/ secondary OAM tranfers.
+		if (spriteLine < 0 && spriteY != 0xff) {  // If the sprite's Y is 0xff, then it will be hidden (it won't wrap around to the top).  
 			int _ = 0;  // NOTE: This has been hit at some points, possibly indicating a bug.
 			return;
 		}
@@ -628,7 +641,7 @@ void PPU::transferSpriteData() {
 		bool flipH = getBit(attributes, 6);
 		bool flipV = getBit(attributes, 7);
 
-		// Now we fetch the patterns.
+		// Now we fetch the patterns. 
 		this->fetchPatternData(patternID,
 			patternTable,
 			false,
@@ -643,6 +656,9 @@ void PPU::transferSpriteData() {
 			this->spriteShiftRegisters.shiftRegisters.at(sprite).patternShiftRegisterHigh,
 			flipH,
 			flipV);
+		// NOTE: The above methods clobber the lower bits. This is considered acceptable because this is a non-rendering
+		// period, but in case any bugs arise, they should be looked into.
+		this->spriteShiftRegisters.shiftRegisters.at(sprite) <<= 8;
 
 		// Transfering the location of the sprite.
 		this->spriteShiftRegisters.shiftRegisters.at(sprite).x = spriteX;
@@ -657,12 +673,26 @@ void PPU::transferSpriteData() {
 	}
 }
 
+void PPU::updateSpriteShiftRegisters() {
+	// Assumptions: Sprite shift registers were already loaded the line before, we are on the dot to be rendered.
+	// This method will execute every cycle between cycles 1 and 256.
+	
+	// NOTE: This is almost definitely not how it is done in actual hardware.
+	// NOTE: I might remove this method.
+
+	// Every sprite shift unit will be shifted right. When a shift unit is shifted right, it first
+	// decrements its x until it reaches 0, afterwards it starts shifting its shift registers.
+	// So if we are on pixel 0 (cycle 1) and a sprite unit has x = 5, we will decrement it and get x = 4.
+	// This continues until x = 0, or when pixel = 4. Then on pixel = 5, the shift register itself is shifted 
+	// down into a position which allows its first pixel to be rendered.
+	this->spriteShiftRegisters >>= 1;
+}
+
 void PPU::updateBeamLocation() { 
 	if (this->beamPos.updatePosition(this->frameCount & 1)) {
 		++this->frameCount;
 	}
 }
-
 void PPU::incrementScrolling(bool axis) {  // Increments scrolling
 	// TODO: Clean up code.
 
@@ -701,36 +731,55 @@ void PPU::drawPixel() {
 		return;
 	}
 
-	// Now, figure out the color we need to draw.
+	// We will figure out what color we need to draw.
 	uint16_t colorKey = 0;
 	// First, copy the emphasis values from PPUMASK to the color key.
 	copyBits(colorKey, 6, 8, (uint16_t)this->mask, 5, 7);
 
-	// Now we have to find the color index for this pixel. For now, we will find out the color index for the background.
-	
+	// Now we have to find the color index for this pixel.
 	// Getting the high and low bits of the pattern at the appropriate point.
 	const uint16_t backgroundPaletteAddress = 0x3f00;  // The starting address for the background palette.
+	const uint16_t spritePaletteAddress = 0x3f10;
+
+	
+
 	uint16_t addr = backgroundPaletteAddress;
-	// Indexing the palette.
-	if (this->beamPos.scanline == 0x12 * 8 && this->beamPos.dot == 0x9 * 8) {
-		int _ = 0;
-	}
+	
+	int spriteIdx = 0;
+
+	uint8_t spritePaletteIdx = getBit(this->spriteShiftRegisters.shiftRegisters.at(spriteIdx).patternShiftRegisterHigh >> 1, (7 - this->x)) << 1;
+	spritePaletteIdx += getBit(this->spriteShiftRegisters.shiftRegisters.at(spriteIdx).patternShiftRegisterLow >> 1, (7 - this->x));
+
+	uint8_t spritePalette = getBit(this->spriteShiftRegisters.shiftRegisters.at(spriteIdx).attributeShiftRegisterHigh, this->x) << 1;
+	spritePalette += getBit(this->spriteShiftRegisters.shiftRegisters.at(spriteIdx).attributeShiftRegisterLow, this->x);
+	spritePalette *= 4;
+
 
 	/*
 	Problems: 
 		- The pattern registers are 1 bit too to the left.
-		- The left most tile is shifted down a pixel.
-		- The bottom right of the attribute data is not being read or transfered into the shift registers correctly.
-			- Problem is not located here; likely somewhere in the cycle-by-cycle behavior.
+			- Check if this is still a problem; it likely isn't anymore.
+
 	*/
 
-	addr += getBit(this->backgroundShiftRegisters.patternShiftRegisterHigh >> 1, (7 - this->x)) << 1;
-	addr += getBit(this->backgroundShiftRegisters.patternShiftRegisterLow >> 1, (7 - this->x));
+	// Indexing the palette. NOTE: Might make a method to make this shorter.
+	uint8_t paletteIdx = getBit(this->backgroundShiftRegisters.patternShiftRegisterHigh >> 1, (7 - this->x)) << 1;
+	paletteIdx += getBit(this->backgroundShiftRegisters.patternShiftRegisterLow >> 1, (7 - this->x));
 	// Indexing which palette we want.
-	addr += 4 * (getBit(this->backgroundShiftRegisters.attributeShiftRegisterLow, this->x) + (getBit(this->backgroundShiftRegisters.attributeShiftRegisterHigh, this->x) << 1));
+
+	uint8_t palette = getBit(this->backgroundShiftRegisters.attributeShiftRegisterHigh, this->x) << 1;
+	palette += getBit(this->backgroundShiftRegisters.attributeShiftRegisterLow, this->x);
+	palette *= 4;
 	
+	if (this->spriteShiftRegisters.shiftRegisters.at(spriteIdx).patternShiftRegisterLow != 0 && this->spriteShiftRegisters.shiftRegisters.at(spriteIdx).x == 0) {
+		addr += spritePalette + spritePaletteIdx;
+	}
+	else {
+		addr += palette + paletteIdx;
+	}
 	// Now, using this addr, we will get the color located at that addr.
-	colorKey |= this->databus.read(addr);
+	uint8_t colorIdx = this->databus.read(addr);
+	colorKey |= colorIdx;
 
 	if (this->beamPos.dot < 0x100 && this->beamPos.scanline < 0xf0) {  // Do not draw past dot 255 or scanline 240
 		// NOTE: Temporary solution; I am not sure why but using Graphics::drawPixel results in a slight barber pole effect instead of a stable picture.
@@ -747,9 +796,7 @@ BackgroundShiftRegisters::BackgroundShiftRegisters() :
 	attributeShiftRegisterLow(0),
 	attributeShiftRegisterHigh(0)
 {}
-
 BackgroundShiftRegisters::~BackgroundShiftRegisters() {}
-
 BackgroundShiftRegisters& BackgroundShiftRegisters::operator>>=(const int& n) {
 	this->patternShiftRegisterHigh >>= 1;
 	this->patternShiftRegisterLow >>= 1;
@@ -758,7 +805,6 @@ BackgroundShiftRegisters& BackgroundShiftRegisters::operator>>=(const int& n) {
 
 	return *this;
 }
-
 void BackgroundShiftRegisters::transferLatches(BackgroundLatches latches) {
 	this->patternShiftRegisterLow |= reverseBits(latches.patternLatchLow, 8) << 8;  // The pattern will be fed right-to-left, so mirror the pattern to ensure proper feeding.
 	this->patternShiftRegisterHigh |= reverseBits(latches.patternLatchHigh, 8) << 8;
@@ -773,16 +819,13 @@ BackgroundLatches::BackgroundLatches() :
 	attributeLatchHigh(0),
 	nametableByteLatch(0)
 {}
-
 BackgroundLatches::~BackgroundLatches() {}
 
 PPUPosition::PPUPosition() :
 	scanline(0),
 	dot(0)
 {}
-
 PPUPosition::~PPUPosition() {}
-
 bool PPUPosition::updatePosition(bool oddFrame) {
 	// First, check if we need to skip dot 340, line 261 (only do this on odd frames).
 	if (oddFrame & 0b1) {  // Check if the frame is odd
@@ -805,19 +848,15 @@ bool PPUPosition::updatePosition(bool oddFrame) {
 	// If we never needed to wrap the scanline, then the frame has not changed.
 	return false;
 }
-
 bool PPUPosition::dotInRange(int lowerBound, int upperBound) const {
 	return (this->dot <= upperBound) && (this->dot >= lowerBound);
 }
-
 bool PPUPosition::lineInRange(int lowerBound, int upperBound) const {
 	return (this->scanline <= upperBound && this->scanline >= lowerBound);
 }
-
 bool PPUPosition::inRange(int lineLowerBound, int lineUpperBound, int dotLowerBound, int dotUpperBound) const {
 	return this->dotInRange(dotLowerBound, dotUpperBound) && this->lineInRange(lineLowerBound, lineUpperBound);
 }
-
 bool PPUPosition::inVblank(bool reached) const {
 	if (reached) {  // In this case we only care if we are exactly on the start of vblank.
 		bool beganVblank = this->scanline == FIRST_VBLANK_LINE && this->dot == 1;
@@ -834,14 +873,12 @@ bool PPUPosition::inVblank(bool reached) const {
 	onVblank = this->scanline == FIRST_VBLANK_LINE && this->dot >= 1;
 	return onVblank;
 }
-
 bool PPUPosition::inHblank(bool reached) const {
 	if (reached) {
 		return this->dot == 257;
 	}
 	return this->dot >= 257;
 }
-
 bool PPUPosition::inPrerender(bool reached) const {
 	if (reached) {
 		return this->scanline == PRE_RENDER_LINE && this->dot == 1;
@@ -849,7 +886,6 @@ bool PPUPosition::inPrerender(bool reached) const {
 	
 	return this->scanline == PRE_RENDER_LINE;
 }
-
 bool PPUPosition::inRender(bool reached) const {
 	bool onRenderLine = this->onRenderLines(reached);
 	if (onRenderLine) {  // First check if we are on the right line.
@@ -861,7 +897,6 @@ bool PPUPosition::inRender(bool reached) const {
 
 	return false;
 }
-
 bool PPUPosition::onRenderLines(bool reached) const {
 	if (reached) {
 		return this->scanline == VISIBLE_LINE;
@@ -870,7 +905,6 @@ bool PPUPosition::onRenderLines(bool reached) const {
 	bool onRenderLines = this->scanline >= VISIBLE_LINE && this->scanline <= LAST_RENDER_LINE;
 	return onRenderLines;
 }
-
 bool PPUPosition::inTrueVblank(bool reached) const {
 	const int TRUE_VBLANK_START_LINE = 0x240;
 	if (reached) {  // In this case we only care if we are exactly on the start of vblank.
@@ -890,14 +924,11 @@ bool PPUPosition::inTrueVblank(bool reached) const {
 }
 
 SpriteByteType::SpriteByteType() : spriteByteOn(Y_COORD) {}
-
 SpriteByteType::~SpriteByteType() {}
-
 SpriteByteType& SpriteByteType::operator++() {
 	++this->spriteByteOn %= 4;
 	return *this;
 }
-
 bool SpriteByteType::operator==(SpriteByteOn sbo) {
 	return this->spriteByteOn == sbo;
 }
@@ -910,20 +941,47 @@ SpriteShiftUnit::SpriteShiftUnit() :
 	x(0)
 {}
 SpriteShiftUnit::~SpriteShiftUnit() {}
+SpriteShiftUnit& SpriteShiftUnit::operator>>=(int n) {
+	 
+	// Make sure x is fully decremented before shifting any of the registers.
+	if (this->x > 0) {
+		if (this->x > n) {
+			this->x -= n;
+			return *this;
+		} else {
+			n -= this->x;
+			this->x = 0;
+		}
+	}
 
-SpriteShiftUnit& SpriteShiftUnit::operator>>=(const int& n) {
-	this->patternShiftRegisterHigh >>= 1;
-	this->patternShiftRegisterLow >>= 1;
-	this->attributeShiftRegisterHigh >>= 1;
-	this->attributeShiftRegisterLow >>= 1;
+	this->patternShiftRegisterHigh >>= n;
+	this->patternShiftRegisterLow >>= n;
+	this->attributeShiftRegisterHigh >>= n;
+	this->attributeShiftRegisterLow >>= n;
 
+	return *this;
+}
+SpriteShiftUnit& SpriteShiftUnit::operator<<=(int n) {
+	this->patternShiftRegisterHigh <<= 1;
+	this->patternShiftRegisterLow <<= 1;
+	this->attributeShiftRegisterHigh <<= 1;
+	this->attributeShiftRegisterLow <<= 1;
+	
 	return *this;
 }
 
 SpriteShiftRegisters::SpriteShiftRegisters() {}
-
 SpriteShiftRegisters::~SpriteShiftRegisters() {}
-
 void SpriteShiftRegisters::shiftRegister(int sprite) {
 	this->shiftRegisters.at(sprite) >>= 1;
+}
+void SpriteShiftRegisters::operator>>=(const int& n) {
+	for (int i = 0; i < 8; ++i) {
+		this->shiftRegisters.at(i) >>= n;
+	}
+}
+void SpriteShiftRegisters::operator<<=(const int& n) {
+	for (int i = 0; i < 8; ++i) {
+		this->shiftRegisters.at(i) <<= n;
+	}
 }

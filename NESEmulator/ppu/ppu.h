@@ -47,7 +47,9 @@ struct SpriteShiftUnit {
 	SpriteShiftUnit();
 	~SpriteShiftUnit();
 
-	SpriteShiftUnit& operator>>=(const int& n);
+	// Important Note: These shift operators do not work in the traditional sense. See methods for more details.
+	SpriteShiftUnit& operator>>=(int n);
+	SpriteShiftUnit& operator<<=(int n);
 };
 
 // Collection of shift registers involved in rendering the background..
@@ -86,6 +88,10 @@ struct SpriteShiftRegisters {
 
 	// Shifts the registers associated w/ a given sprite right once.
 	void shiftRegister(int sprite);
+
+	// Performs a shift operation for all shift units/sprites.
+	void operator>>=(const int& n);
+	void operator<<=(const int& n);
 };
 
 // Position of the PPU's "beam", i.e. what dot and cycle it is on.
@@ -223,7 +229,8 @@ protected:
 	PPUDataFetchType performBackgroundFetches();  // Performs the data fetches associated w/ cycles 1-256 on the rendering lines.
 	void performSpriteEvaluation();
 	void transferSpriteData();  // Transfers the sprite data from 2ndOAM to their respective shift registers.
-	
+	void updateSpriteShiftRegisters();  // Updates the sprite shift registers. NOTE: Might remove.
+
 	void incrementScrolling(bool axis = false);  // Increments the x and v registers, handling overflow for both appropriately. false - x axis, true - y axis.
 
 	void drawPixel();  // Draws a pixel to graphics depending on the internal register values. (see the NESdev's page on PPU Rendering for details).
