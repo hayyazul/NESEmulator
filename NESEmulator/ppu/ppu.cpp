@@ -592,11 +592,11 @@ void PPU::transferSpriteData() {
 		uint8_t spriteX = this->secondaryOAM.getByte(secondaryOAMAddr + 3);
 
 		if (spriteY == 0xff) {  // This is an "empty" sprite slot; fill all values w/ 0xff00 and 0xff
-			this->spriteShiftRegisters.shiftRegisters.at(sprite).patternShiftRegisterLow = 0xff00;
-			this->spriteShiftRegisters.shiftRegisters.at(sprite).patternShiftRegisterHigh = 0xff00;
-			this->spriteShiftRegisters.shiftRegisters.at(sprite).attributeShiftRegisterLow = 0xff;
-			this->spriteShiftRegisters.shiftRegisters.at(sprite).attributeShiftRegisterHigh = 0xff;
-			this->spriteShiftRegisters.shiftRegisters.at(sprite).x = 0xff;
+			this->spriteShiftRegisters.at(sprite).patternShiftRegisterLow = 0xff00;
+			this->spriteShiftRegisters.at(sprite).patternShiftRegisterHigh = 0xff00;
+			this->spriteShiftRegisters.at(sprite).attributeShiftRegisterLow = 0xff;
+			this->spriteShiftRegisters.at(sprite).attributeShiftRegisterHigh = 0xff;
+			this->spriteShiftRegisters.at(sprite).x = 0xff;
 			return;
 		}
 
@@ -617,26 +617,26 @@ void PPU::transferSpriteData() {
 			patternTable,
 			false,
 			spriteLine,
-			this->spriteShiftRegisters.shiftRegisters.at(sprite).patternShiftRegisterLow,
+			this->spriteShiftRegisters.at(sprite).patternShiftRegisterLow,
 			flipH,
 			flipV);
 		this->fetchPatternData(patternID,
 			patternTable,
 			true,
 			spriteLine,
-			this->spriteShiftRegisters.shiftRegisters.at(sprite).patternShiftRegisterHigh,
+			this->spriteShiftRegisters.at(sprite).patternShiftRegisterHigh,
 			flipH,
 			flipV);
 		// NOTE: The above methods clobber the lower bits. This is considered acceptable because this is a non-rendering
 		// period, but in case any bugs arise, they should be looked into.
-		this->spriteShiftRegisters.shiftRegisters.at(sprite) <<= 8;
+		this->spriteShiftRegisters.at(sprite) <<= 8;
 
 		// Transfering the location of the sprite.
-		this->spriteShiftRegisters.shiftRegisters.at(sprite).x = spriteX;
+		this->spriteShiftRegisters.at(sprite).x = spriteX;
 
 		// And lastly, the attribute data.
-		this->spriteShiftRegisters.shiftRegisters.at(sprite).attributeShiftRegisterLow = 0xff * getBit(attributes, 0);
-		this->spriteShiftRegisters.shiftRegisters.at(sprite).attributeShiftRegisterHigh = 0xff * getBit(attributes, 1);		
+		this->spriteShiftRegisters.at(sprite).attributeShiftRegisterLow = 0xff * getBit(attributes, 0);
+		this->spriteShiftRegisters.at(sprite).attributeShiftRegisterHigh = 0xff * getBit(attributes, 1);		
 	}
 }
 
@@ -714,12 +714,12 @@ void PPU::drawPixel() {
 	
 	int spriteIdx = 0;
 
-	uint8_t spritePaletteIdx = getBit(this->spriteShiftRegisters.shiftRegisters.at(spriteIdx).patternShiftRegisterHigh >> 1, (7 - this->x)) << 1;
-	spritePaletteIdx += getBit(this->spriteShiftRegisters.shiftRegisters.at(spriteIdx).patternShiftRegisterLow >> 1, (7 - this->x));
+	//uint8_t spritePaletteIdx = getBit(this->spriteShiftRegisters.at(spriteIdx).patternShiftRegisterHigh >> 1, (7 - this->x)) << 1;
+	//spritePaletteIdx += getBit(this->spriteShiftRegisters.at(spriteIdx).patternShiftRegisterLow >> 1, (7 - this->x));
 
-	uint8_t spritePalette = getBit(this->spriteShiftRegisters.shiftRegisters.at(spriteIdx).attributeShiftRegisterHigh, this->x) << 1;
-	spritePalette += getBit(this->spriteShiftRegisters.shiftRegisters.at(spriteIdx).attributeShiftRegisterLow, this->x);
-	spritePalette *= 4;
+	//uint8_t spritePalette = getBit(this->spriteShiftRegisters.at(spriteIdx).attributeShiftRegisterHigh, this->x) << 1;
+	//spritePalette += getBit(this->spriteShiftRegisters.at(spriteIdx).attributeShiftRegisterLow, this->x);
+	//spritePalette *= 4;
 
 
 	/*
@@ -730,19 +730,16 @@ void PPU::drawPixel() {
 	*/
 
 	// Indexing the palette. NOTE: Might make a method to make this shorter.
-	uint8_t paletteIdx = getBit(this->backgroundShiftRegisters.patternShiftRegisterHigh >> 1, (7 - this->x)) << 1;
-	paletteIdx += getBit(this->backgroundShiftRegisters.patternShiftRegisterLow >> 1, (7 - this->x));
+	uint8_t paletteIdx = this->backgroundShiftRegisters.getPattern(this->x);
 	// Indexing which palette we want.
 
-	uint8_t palette = getBit(this->backgroundShiftRegisters.attributeShiftRegisterHigh, this->x) << 1;
-	palette += getBit(this->backgroundShiftRegisters.attributeShiftRegisterLow, this->x);
-	palette *= 4;
+	uint8_t paletteAddr = this->backgroundShiftRegisters.getAttribute(this->x);
 	
-	if (this->spriteShiftRegisters.shiftRegisters.at(spriteIdx).patternShiftRegisterLow != 0 && this->spriteShiftRegisters.shiftRegisters.at(spriteIdx).x == 0) {
-		addr += spritePalette + spritePaletteIdx;
-	}
-	else {
-		addr += palette + paletteIdx;
+	if (true/*this->spriteShiftRegisters.at(spriteIdx).patternShiftRegisterLow != 0 && this->spriteShiftRegisters.at(spriteIdx).x == 0*/) {
+	//	addr += spritePalette + spritePaletteIdx;
+	//}
+	//else {
+		addr += (4 * paletteAddr) + paletteIdx;
 	}
 	// Now, using this addr, we will get the color located at that addr.
 	uint8_t colorIdx = this->databus.read(addr);
@@ -764,6 +761,17 @@ BackgroundShiftRegisters::BackgroundShiftRegisters() :
 	attributeShiftRegisterHigh(0)
 {}
 BackgroundShiftRegisters::~BackgroundShiftRegisters() {}
+uint8_t BackgroundShiftRegisters::getPattern(int x) const {
+	x = 7 - x;  // Keep in mind that the index starts from left to right.
+	uint8_t pattern = getBit(this->patternShiftRegisterHigh >> 1, x) << 1;  // Fetching the high bit.
+	pattern |= getBit(this->patternShiftRegisterLow >> 1, x);  // Then the low bit.
+	return pattern;
+}
+uint8_t BackgroundShiftRegisters::getAttribute(int x) const {
+	uint8_t pattern = getBit(this->attributeShiftRegisterHigh >> 1, x) << 1;  // Fetching the high bit.
+	pattern |= getBit(this->attributeShiftRegisterLow >> 1, x);  // Then the low bit.
+	return pattern;
+}
 BackgroundShiftRegisters& BackgroundShiftRegisters::operator>>=(const int& n) {
 	this->patternShiftRegisterHigh >>= 1;
 	this->patternShiftRegisterLow >>= 1;
@@ -898,6 +906,17 @@ SpriteShiftUnit::SpriteShiftUnit() :
 	x(0)
 {}
 SpriteShiftUnit::~SpriteShiftUnit() {}
+uint8_t SpriteShiftUnit::getPattern(int x) const {
+	x = 7 - x;  // Keep in mind that the index starts from left to right.
+	uint8_t pattern = getBit(this->patternShiftRegisterHigh >> 1, x) << 1;  // Fetching the high bit.
+	pattern |= getBit(this->patternShiftRegisterLow >> 1, x);  // Then the low bit.
+	return pattern;
+}
+uint8_t SpriteShiftUnit::getAttribute(int x) const {
+	uint8_t pattern = getBit(this->attributeShiftRegisterHigh >> 1, x) << 1;  // Fetching the high bit.
+	pattern |= getBit(this->attributeShiftRegisterLow >> 1, x);  // Then the low bit.
+	return pattern;
+}
 SpriteShiftUnit& SpriteShiftUnit::operator>>=(int n) {
 	 
 	// Make sure x is fully decremented before shifting any of the registers.
@@ -929,6 +948,13 @@ SpriteShiftUnit& SpriteShiftUnit::operator<<=(int n) {
 
 SpriteShiftRegisters::SpriteShiftRegisters() {}
 SpriteShiftRegisters::~SpriteShiftRegisters() {}
+SpriteShiftUnit& SpriteShiftRegisters::at(int idx) {
+	// If an invalid index is given, default to index 0.
+	if (idx >= 8 || idx < 0) {
+		idx = 0;
+	}
+	return this->shiftRegisters.at(idx);
+}
 void SpriteShiftRegisters::shiftRegister(int sprite) {
 	this->shiftRegisters.at(sprite) >>= 1;
 }

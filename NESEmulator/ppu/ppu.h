@@ -13,7 +13,7 @@
 // - For PPU::transferSpriteData the planned modulo methods will help. I can also add a relative pos method, but this might
 // be getting too fine grained.
 // - PPU::drawPixel is the worst implemented function. It is esoteric, repeats itself, and is in general unwieldly.
-//    - I might combine shift registers into one class, then inherit for the background and sprite.
+//    - I might combine shift registers into one class, then inherit for the background and sprite. (INHERITANCE CANCELED; but methods will be made to fetch both the low and high bits at once).
 //       - Using this, I can then simplify getting the low and high bits (which currently take up 2 full lines containing multiple operations).
 //       - This will also make it easier to deal w/ sprite 0 hits and other similar stuff.
 
@@ -58,6 +58,10 @@ struct SpriteShiftUnit {
 	SpriteShiftUnit();
 	~SpriteShiftUnit();
 
+	// Fetches the 2 bits in the low and high shift registers w/ an offset indicating which of the lower 8 bits to get.
+	uint8_t getPattern(int x) const;
+	uint8_t getAttribute(int x) const;
+
 	// Important Note: These shift operators do not work in the traditional sense. See methods for more details.
 	SpriteShiftUnit& operator>>=(int n);
 	SpriteShiftUnit& operator<<=(int n);
@@ -70,6 +74,10 @@ struct BackgroundShiftRegisters {
 
 	BackgroundShiftRegisters();
 	~BackgroundShiftRegisters();
+
+	// Fetches the 2 bits in the low and high shift registers w/ an offset indicating which of the lower 8 bits to get.
+	uint8_t getPattern(int x) const;
+	uint8_t getAttribute(int x) const;
 
 	BackgroundShiftRegisters& operator>>=(const int& n);
 
@@ -97,12 +105,15 @@ struct SpriteShiftRegisters {
 	SpriteShiftRegisters();
 	~SpriteShiftRegisters();
 
-	// Shifts the registers associated w/ a given sprite right once.
-	void shiftRegister(int sprite);
+	// Returns a reference to a shift unit at the given index.
+	SpriteShiftUnit& at(int idx);
 
 	// Performs a shift operation for all shift units/sprites.
 	void operator>>=(const int& n);
 	void operator<<=(const int& n);
+
+	// Shifts the registers associated w/ a given sprite right once. NOTE: Likely to be removed.
+	void shiftRegister(int sprite);
 };
 
 // Position of the PPU's "beam", i.e. what dot and cycle it is on.
