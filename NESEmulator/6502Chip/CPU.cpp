@@ -66,7 +66,17 @@ CPUCycleOutcomes _6502_CPU::executeCycle() {
 
 	++this->totalCyclesElapsed;
 	++this->opcodeCyclesElapsed;
-	
+
+	if (this->registers.PC == 0xc870) {  // DMA instruction in NMI
+		int _ = 0;
+	} else if (this->registers.PC == 0xc875) {  // 2 instructions after DMA.
+		int _ = 0;
+	}
+
+	if (this->totalCyclesElapsed == 14351) {
+		int _ = 0;
+	}
+
 	return outcome;
 }
 

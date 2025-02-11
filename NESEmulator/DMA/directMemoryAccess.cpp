@@ -14,11 +14,22 @@ bool OAMDMAUnit::performDMACycle(bool cpuCycleType) {
 	// Write/read
 	if (this->readOrWrite == DMACycles::CycleType::WRITE && cpuCycleType) {  // Write (put, true)
 		// Write to OAM via OAMDATA. The address in the PPU for OAMDATA increments automatically when OAMDATA is written to.
+
+		if (this->address == 0x2a0) {
+			int _ = 0;
+		}
+		if (this->address == 0x2ff) {
+			int _ = 0;
+		}
+
 		this->databus->write(OAMDATA, this->OAMDataToTransfer);
 		this->readOrWrite = DMACycles::CycleType::READ;
 	}
 	else if (this->readOrWrite == DMACycles::CycleType::READ && !cpuCycleType) {  // Read (get, false)
 		this->OAMDataToTransfer = this->databus->read(this->address);
+		if (this->OAMDataToTransfer != 0x7f && this->address == 0x200) {  // NOTE: This failed to catch the "blink" of the sprite...
+			int _ = 0;
+		}
 		this->readOrWrite = DMACycles::CycleType::WRITE;
 		++this->address;
 	}

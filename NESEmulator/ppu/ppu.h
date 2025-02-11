@@ -4,18 +4,10 @@
 #pragma once
 
 //  TODO: Make the nametables memory mappings.
-//  TODO: Fix and organize timing control.
-// - for PPU::performBackgroundFetches, I have to implement methods for PPUPosition regarding the modulo of a position. CANCELED
-//    - I also might make it void again. DONE
-// - Sprite evaluation, especially methods surrounding it, need to be cleaned up. I might create a new struct which
-// handles knowing when and what to transfer.  DONE
-// - I might give SpriteShiftRegisters an access method to make accesses less wordy.
-// - For PPU::transferSpriteData the planned modulo methods will help. I can also add a relative pos method, but this might
-// be getting too fine grained.
-// - PPU::drawPixel is the worst implemented function. It is esoteric, repeats itself, and is in general unwieldly.
-//    - I might combine shift registers into one class, then inherit for the background and sprite. (INHERITANCE CANCELED; but methods will be made to fetch both the low and high bits at once).
-//       - Using this, I can then simplify getting the low and high bits (which currently take up 2 full lines containing multiple operations).
-//       - This will also make it easier to deal w/ sprite 0 hits and other similar stuff.
+//  TODO: Fully implement PPUSTATUS
+//  TODO: Bugs:
+//			- Make sure NMI behavior is correct (it likely isn't at the moment).
+//			- Last column of sprites have wrong palette (only when emulated)
 
 #include <map>
 #include <array>
@@ -107,6 +99,10 @@ struct SpriteShiftRegisters {
 
 	// Returns a reference to a shift unit at the given index.
 	SpriteShiftUnit& at(int idx);
+	
+	// Gets the 2 pattern and attribute bits associated w/ a single sprite. This sprite is determined based on the priority, location, and transparency of other sprites and their pixels.
+	uint8_t getPattern(int x);
+	uint8_t getAttribute(int x);
 
 	// Performs a shift operation for all shift units/sprites.
 	void operator>>=(const int& n);
@@ -241,6 +237,7 @@ protected:
 
 	// Updates the PPUSTATUS register; should be called every PPU cycle. This might be removed or put into a larger function which updates the internal states of the PPU.
 	void updatePPUSTATUS();
+	
 
 	// Updates the location of the scanning beam. NOTE: might remove.
 	void updateBeamLocation();
@@ -255,8 +252,14 @@ protected:
 
 	void incrementScrolling(bool axis = false);  // Increments the x and v registers, handling overflow for both appropriately. false - x axis, true - y axis.
 
+	// Gets the color index associated w/ the background given the values in the current shift and internal registers.
+	uint8_t getBGColor();
+	// Gets the color index associated w/ the sprite given the values in the current shift and internal registers.
+	uint8_t getSpriteColor();
+
 	void drawPixel();  // Draws a pixel to graphics depending on the internal register values. (see the NESdev's page on PPU Rendering for details).
 	
+
 	const std::map<uint16_t, uint32_t> paletteMap;
 
 	// Internal latches which will transfer to the shift registers every 8 cycles.  
@@ -311,6 +314,7 @@ protected:
 	uint8_t mask;  // Written via PPUMASK.
 	uint8_t status;  // Read via PPUSTATUS
 	uint8_t OAMAddr;
+	uint8_t TEST_OAMAddr;
 
 	uint8_t PPUDATABuffer;  // A buffer to hold the value at the last VRAM address; used in conjunction w/ reads on PPUDATA.
 	uint8_t ioBus;  // The I/O data bus; this must be at least partly emulated to make some PPU register read/write operations work. It is also used for primary-to-secondary OAM data transfer.

@@ -1,6 +1,6 @@
 ﻿#include "NESEmulator.h"
 
-NES::NES() : DMAUnit(nullptr), haltCPUOAM(false), scheduleHalt(false), totalMachineCycles(0) {  // Not recommended to initialize w/ this; this will cause a memory leak later. NOTE: Might just make these nullptrs.
+NES::NES() : DMAUnit(nullptr), haltCPUOAM(false), scheduleHalt(false), totalMachineCycles(0), totalCPUCycles(0) {  // Not recommended to initialize w/ this; this will cause a memory leak later. NOTE: Might just make these nullptrs.
 	this->memory = new Memory(0x10000);  // 0x10000 is the size of the addressing space.
 	this->ram = new RAM();
 	this->databus = new NESDatabus(this->memory);
@@ -14,7 +14,7 @@ NES::NES() : DMAUnit(nullptr), haltCPUOAM(false), scheduleHalt(false), totalMach
 	this->CPU->powerOn();
 }
 
-NES::NES(NESDatabus* databus, _6502_CPU* CPU, RAM* ram, Memory* vram, PPU* ppu) : DMAUnit(databus), haltCPUOAM(false), scheduleHalt(false), totalMachineCycles(0) {
+NES::NES(NESDatabus* databus, _6502_CPU* CPU, RAM* ram, Memory* vram, PPU* ppu) : DMAUnit(databus), haltCPUOAM(false), scheduleHalt(false), totalMachineCycles(0), totalCPUCycles(0) {
 	this->ram = ram;
 	this->ppu = ppu;
 	this->VRAM = vram;
@@ -65,6 +65,7 @@ void NES::attachVRAM(Memory* vram) {
 void NES::powerOn() {
 	// the CPU takes 7 CPU cycles to power on, so perform 21 machine cycles in the mean time.
 	this->totalMachineCycles += 21;
+	this->totalCPUCycles += 7;
 	for (int i = 0; i < 21; ++i) {
 		this->ppu->executePPUCycle();
 	}
@@ -118,6 +119,8 @@ NESCycleOutcomes NES::performCPUCycle() {
 	// Lastly, alternate the CPU cycle type.
 	this->CPU->alternateCycle();
 
+	++this->totalCPUCycles;
+
 	return nesResult;
 }
 
@@ -144,6 +147,11 @@ NESCycleOutcomes NES::executeMachineCycle() {
 	if (this->totalMachineCycles % 3 == 0) {
 		nesResult = this->performCPUCycle();
 	}
+
+	if (this->totalMachineCycles == 0x3a9e56) {  // NOTE: This is the cycle when OAMADDR is set to 0 while OAMDMA is occuring; this causes subsequent bytes to be accidentally put earlier than they are supposed to be.
+		int _ = 0;
+	}
+
 	this->performPPUCycle();
 
 	++this->totalMachineCycles; 

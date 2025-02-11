@@ -2,7 +2,7 @@
 
 // MAIN TODO: 
 // - Work on the PPU's pixel-by-pixel display.
-// - Connect PPU to Graphics module.
+//    - Get sprite rendering to work.
 // - Fix issues w/ PPU Registers.
 
 #include "debuggingTools/suites/basicDebugSuite.hpp"
@@ -11,6 +11,7 @@
 #include "debuggingTools/PPUDebug.h"
 #include "debuggingTools/debugDisplays/tableDisplayer.h"
 #include "debuggingTools/debugDisplays/paletteDisplayer.h"
+#include "input/cmdInput.h"
 #include "ppu/ppu.h"
 
 #include "graphics/graphics.h"
@@ -23,9 +24,6 @@
 #undef main  // Deals w/ the definition of main in SDL.
 int main() { 
 
-	//debuggingSuite();
-
-	
 	Memory VRAM{ 0x800 };
 	PPUDebug ppu;
 	NESDatabus databus;
@@ -40,18 +38,10 @@ int main() {
 	nes.attachCartridgeMemory(&cartridgeMemory);
 	nes.loadROM("testROMS/donkey kong.nes");
 	nes.powerOn();
-	//for (int i = 0; i < 3'000'000; ++i) {
-		//if (!nes.executeMachineCycle()) {
-			//std::cout << "Illegal opcode encountered!" << std::endl;
-			//break;
-		//}
-	//}
-
 	
-	ppu.dumpOAMData(16);
-
 	PatternTableDisplayer PTDisplayer;
 	NametableDisplayer NTDisplayer;
+	CommandlineInput CLI;
 	
 	SDL_Init(SDL_INIT_EVERYTHING);
 	Graphics graphics{514, 256};
@@ -61,9 +51,9 @@ int main() {
 	SDL_Renderer* renderer = SDL_CreateRenderer(window, 0, 0);
 	SDL_Surface* windowSurface = SDL_GetWindowSurface(window);
 
-	for (int i = 0; i < 3570954; ++++i) {
-		nes.executeMachineCycle();
-	}
+	//for (int i = 0; i < 3570954; ++++i) {
+		//nes.executeMachineCycle();
+	//}
 
 	//graphics.lockDisplay();
 	// Width in px 
@@ -83,11 +73,18 @@ int main() {
 
 	bool quit = false;
 
+	int numFrames = 1;
+	int numElapsed = 0;
+
 	uint8_t a = 0, oldA = 0;
 	SDL_Event event;
 	while (!quit) {
 		for (int i = 0; i < 357954; ++++i) {
 			quit = !nes.executeMachineCycle();
+		}
+
+		if (quit) {
+			int _ = 0;
 		}
 
 		while (SDL_PollEvent(&event)) {
@@ -107,13 +104,24 @@ int main() {
 		}
 
 		ppu.displayVisibleSprites();
-
+		
 		PTDisplayer.displayPatternTable(graphics, ppu, patternTable, x + 256, y, 2);
 		displayPalette(graphics, ppu, 0, 240, 8);
 		graphics.blitDisplay(windowSurface);
 		SDL_UpdateWindowSurface(window);
 
 		SDL_Delay(1.0 / 60.0);
+
+		if (numElapsed >= numFrames) {
+			numElapsed = 0;
+			char dump = CLI.getUserChar("Dump OAM? (y/n)");
+			if (dump == 'y') {
+				ppu.dumpOAMData(16);
+				std::cout << std::endl;
+			}
+			numFrames = CLI.getUserInt("Elapse how many more frames? ");
+		}
+		++numElapsed;
 	}
 
 	SDL_Quit();

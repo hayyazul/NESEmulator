@@ -143,6 +143,10 @@ void PPUDebug::displayVisibleSprites(int x, int y) {
 		spriteData.pattern = this->OAM.getByte(i + 1);
 		spriteData.attribute = this->OAM.getByte(i + 2);
 		spriteData.x = this->OAM.getByte(i + 3);
+
+		if (i == 0 && spriteData.y != 0x7f) {
+			int _ = 0;
+		}
 		
 		this->displaySprite(spriteData, spriteData.x + x, spriteData.y + y);
 	}

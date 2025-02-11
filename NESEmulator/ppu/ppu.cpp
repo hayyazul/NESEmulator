@@ -89,6 +89,19 @@ void PPU::executePPUCycle() {
 	//this->VRAM->setByte(0x2001, 0x40);
 
 	this->updatePPUSTATUS();
+
+	if (this->frameCount == 0x2a) {
+		int _ = 0;
+		if (this->beamPos.lineInRange(0x101, 0x101) && this->cycleCount == 0x3a9801) {
+			int __ = 0;
+		}
+	}
+
+	if (this->cycleCount == 0x3a9e56) {
+		int _ = 0;
+	}
+
+	//if (this->OAMAddr != 0)
 	
 	if (this->isRendering(true)) {
 		this->updateRenderingRegisters();
@@ -101,7 +114,6 @@ void PPU::executePPUCycle() {
 	this->updateBeamLocation();
 	++this->cycleCount;
 }
-
 uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 	// Deduces what register the operation should occur on, then performs the appropriate operation.
 	
@@ -138,7 +150,16 @@ uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 		-----
 		*/
 		// Following the above note's advice, this write is ignored during rendering.
+
+
 		if (!this->isRendering()) {
+			if (this->OAMAddr == 0 && data != 0x7f) {
+				int _ = 0;
+			}
+			else if (data == 0x7f && this->OAMAddr != 0) {
+				int _ = 0;
+			}
+
 			this->OAM.setByte(this->OAMAddr, data);
 			++this->OAMAddr;  // OAMADDR is incremented only on writes to OAMDATA, not reads.
 		}
@@ -196,6 +217,9 @@ uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 		 - OAM DMA has a lower priority than DMC DMA. If a DMC DMA get occurs during OAM DMA, OAM DMA is briefly paused. (See DMC DMA during OAM DMA)
 		    - Only need to worry about this when implementing the APU.
 		*/
+		if (this->frameCount == 0x2a && this->beamPos.lineInRange(0x0ff, 0x105)) {
+			int _ = 0;
+		}
 		this->requestingOAMDMA = true;
 		this->dmaPage = data;
 		oldValue = 0xff;  // There is no specific old value associated w/ OAMDMA. Defaut to 0xff.
@@ -207,7 +231,6 @@ uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 
 	return oldValue;
 }
-
 uint8_t PPU::readRegister(uint16_t address) {
 	// Returns I/O bus after setting some bits based on the register being read; some parts of the bus may be untouched and returned anyway (open bus).
 	// Example: a read on PPUMASK, a write-only register, will result in the open bus being read.
@@ -238,16 +261,14 @@ uint8_t PPU::readRegister(uint16_t address) {
 
 	return this->ioBus;
 }
-
 bool PPU::requestingNMI() const {
 	// We request an NMI when we are in Vblank AND the 7th bit in PPUCTRL is set.
-	bool requestNMI = (getBit(this->control, 7)) && this->beamPos.inVblank();
+	bool requestNMI = (getBit(this->control, 7)) && this->beamPos.inVblank(true);
 	if (requestNMI) {
 		int a = 0;
 	}
 	return requestNMI;
 }
-
 bool PPU::reqeuestingDMA() {
 	if (this->requestingOAMDMA) { 
 		this->requestingOAMDMA = false;  // Remember to set the request to false when it is true.
@@ -255,11 +276,9 @@ bool PPU::reqeuestingDMA() {
 	}
 	return false;
 }
-
 uint8_t PPU::getDMAPage() const {
 	return this->dmaPage;
 }
-
 bool PPU::isRendering(bool includePrerender) const {
 	// The PPU is rendering if 1. either background OR sprite rendering is on, 2. it is inbetween scanlines 0 and 239 inclusive.
 	bool backgroundRendering = getBit(this->mask, 3);
@@ -269,7 +288,6 @@ bool PPU::isRendering(bool includePrerender) const {
 
 	return (backgroundRendering || spriteRendering) && onRenderLines; // NOTE: For now, this function will return whether rendering is enabled.
 }
-
 void PPU::updatePPUSTATUS() {  // TODO: Implement sprite overflow and sprite 0 hit flags.
 	if (this->beamPos.inVblank(true)) {
 		setBit(this->status, 7);
@@ -277,7 +295,6 @@ void PPU::updatePPUSTATUS() {  // TODO: Implement sprite overflow and sprite 0 h
 		clrBit(this->status, 7);
 	}
 }
-
 void PPU::updateRenderingRegisters() {
 	// The PPU will update differently based on the current cycle.
 	// See frame timing diagram for more info.
@@ -343,8 +360,17 @@ void PPU::updateRenderingRegisters() {
 	} else if (this->beamPos.dotInRange(0x101, 0x140)) {  // 2ndOAM-to-shiftRegister transfer period.
 		this->transferSpriteData();
 	}
-}
 
+	// Misc
+	// "OAMADDR is set to 0 during each of ticks 257–320 (the sprite tile loading interval) of the pre-render and visible scanlines" -- NESDev, OAMADDR
+	bool a, b, c;
+	a = this->beamPos.lineInRange(0, 239);
+	b = this->beamPos.lineInRange(261, 261);
+	c = this->beamPos.dotInRange(257, 320);
+	if ((this->beamPos.lineInRange(0, 239) || this->beamPos.lineInRange(261, 261)) && this->beamPos.dotInRange(257, 320)) {
+		this->OAMAddr = 0;
+	}
+}
 void PPU::fetchPatternData(uint8_t patternID, bool table, bool high, int line, uint16_t& pattern, bool flipH, bool flipV) {
 	
 	if (line > 7 || line < 0) {
@@ -366,12 +392,11 @@ void PPU::fetchPatternData(uint8_t patternID, bool table, bool high, int line, u
 
 	uint16_t patternLatch = this->databus.read(addr);
 	if (flipH) {  // Reverse the bits if flipping horizontally.
-		patternLatch = reverseBits(pattern, 8);
+		patternLatch = reverseBits(patternLatch, 8);
 	}
 
 	pattern = patternLatch;
 }
-
 // TODO: Refactor
 void PPU::performBackgroundFetches() {
 	// TODO: Give this variable and function a better name.
@@ -484,7 +509,6 @@ void PPU::performBackgroundFetches() {
 
 	}
 }
-
 void PPU::performSpriteEvaluation() {
 	/* From NESDev
 	The value of OAMADDR at this tick determines the starting address for sprite evaluation for 
@@ -498,12 +522,13 @@ void PPU::performSpriteEvaluation() {
 	*/
 	// this->OAMAddr SHOULD be 0, but if it isn't this function should emulate this inappropriate behavior accordingly.
 	
-	switch (this->spriteEvalCycle.byteType) {
+	
+	
+	return;
+	switch (this->spriteEvalCycle.evalState) { 
+		// NOTE: The sprite flicker bug occurs here because the code inside the block causes the bug (having .byteType prevents the bug from occuring by preventing any of this code from executing.)
 	case(FINDING_SPRITES): {
 	
-		// Commented out because I (likely) won't make it cycle-accurate.
-		// uint8_t byteIdx = ((this->beamPos.dot - 65) / 2) % 4;  // Index of the byte associated w/ a sprite.
-
 		//if (this->spriteIdx >= 64) {
 		// 	int _ = 0;  // This should never happen.
 		//}
@@ -565,14 +590,14 @@ void PPU::performSpriteEvaluation() {
 	case(POINTLESS_COPYING): {
 		// NOTE: the failed writes are not emulated.
 		//this->secondaryOAM.setFreeByte(this->OAM.getByte(4 * this->spriteIdx));
-		++this->OAMAddr %= 64;
+		//++this->OAMAddr %= 64;
+		this->OAMAddr = 0;
 		break;
 	}
 	default:
 		break;
 	}
 }
-
 void PPU::transferSpriteData() {
 	// This period should last for 64 cycles, 2 cycles for each byte, and another 2 to idle while the PPU fetches sprite pattern data.
 	int relativeDot = (this->beamPos.dot - 0x101);  // Ranges from 0 to 63.
@@ -609,7 +634,7 @@ void PPU::transferSpriteData() {
 			return;
 		}
 
-		bool flipH = getBit(attributes, 6);
+		bool flipH = !getBit(attributes, 6);  // Due to the way the shift register works, sprites are flipped when they enter. NOTE: I think this behavior applies to backgrounds too; I might include it in the fetchPatternData function.
 		bool flipV = getBit(attributes, 7);
 
 		// Now we fetch the patterns. 
@@ -639,7 +664,6 @@ void PPU::transferSpriteData() {
 		this->spriteShiftRegisters.at(sprite).attributeShiftRegisterHigh = 0xff * getBit(attributes, 1);		
 	}
 }
-
 void PPU::updateSpriteShiftRegisters() {
 	// Assumptions: Sprite shift registers were already loaded the line before, we are on the dot to be rendered.
 	// This method will execute every cycle between cycles 1 and 256.
@@ -654,7 +678,6 @@ void PPU::updateSpriteShiftRegisters() {
 	// down into a position which allows its first pixel to be rendered.
 	this->spriteShiftRegisters >>= 1;
 }
-
 void PPU::updateBeamLocation() { 
 	if (this->beamPos.updatePosition(this->frameCount & 1)) {
 		++this->frameCount;
@@ -691,7 +714,42 @@ void PPU::incrementScrolling(bool axis) {  // Increments scrolling
 		}
 	}
 }
+uint8_t PPU::getBGColor() {  // TODO
+	const uint16_t backgroundPaletteAddress = 0x3f00;  // The starting address for the background palette.
 
+	// Indexing the palette.
+	uint8_t bgPaletteIdx = this->backgroundShiftRegisters.getPattern(this->x);
+	// Indexing which palette we want.
+	uint8_t bgPalette = this->backgroundShiftRegisters.getAttribute(this->x);
+
+	// Creating the address to take the color index from.
+	uint16_t addr = backgroundPaletteAddress;
+	addr += 4 * bgPalette + bgPaletteIdx;
+
+	// Reading and returning the color index.
+	uint8_t colorIdx = this->databus.read(addr);
+	return colorIdx;
+}
+uint8_t PPU::getSpriteColor() {
+	// Search for a non-transparent (if it exists) pixel w/ the lowest sprite index possible at the current location.
+	const uint16_t spritePaletteAddress = 0x3f10;
+	uint16_t color = 0;
+	// Find the first non-transparent pixel.
+	for (int i = 0; i < 8; ++i) {
+		uint8_t pattern = this->spriteShiftRegisters.at(i).getPattern(x);
+		// If the pattern is 0b00, then it is considered transparent. If the resulting color is 0b00, it is also transparent.
+		if (!pattern) continue;
+		// Now get the color.
+		uint8_t palette = this->spriteShiftRegisters.at(i).getAttribute(x);
+		uint16_t colorAddr = spritePaletteAddress + 4 * palette + pattern;  
+		color = this->databus.read(colorAddr);
+		// Now we check the color
+		if (!color) continue;
+		break;  // If both cases are passed, then we will return this color.
+	}
+
+	return color;
+}
 void PPU::drawPixel() {
 	if (this->graphics == nullptr) {  // If we are not given a graphics object, do not attempt to draw.
 		std::cout << "Warning: No graphics object provided for PPU; no output will be displayed." << std::endl;
@@ -705,54 +763,21 @@ void PPU::drawPixel() {
 
 	// Now we have to find the color index for this pixel.
 	// Getting the high and low bits of the pattern at the appropriate point.
-	const uint16_t backgroundPaletteAddress = 0x3f00;  // The starting address for the background palette.
 	const uint16_t spritePaletteAddress = 0x3f10;
 
+
+	uint8_t spriteColorIdx = this->getSpriteColor();
+	uint8_t bgColorIdx = this->getBGColor();  // Note: bg stands for background.
 	
-
-	uint16_t addr = backgroundPaletteAddress;
-	
-	int spriteIdx = 0;
-
-	//uint8_t spritePaletteIdx = getBit(this->spriteShiftRegisters.at(spriteIdx).patternShiftRegisterHigh >> 1, (7 - this->x)) << 1;
-	//spritePaletteIdx += getBit(this->spriteShiftRegisters.at(spriteIdx).patternShiftRegisterLow >> 1, (7 - this->x));
-
-	//uint8_t spritePalette = getBit(this->spriteShiftRegisters.at(spriteIdx).attributeShiftRegisterHigh, this->x) << 1;
-	//spritePalette += getBit(this->spriteShiftRegisters.at(spriteIdx).attributeShiftRegisterLow, this->x);
-	//spritePalette *= 4;
-
-
-	/*
-	Problems: 
-		- The pattern registers are 1 bit too to the left.
-			- Check if this is still a problem; it likely isn't anymore.
-
-	*/
-
-	// Indexing the palette. NOTE: Might make a method to make this shorter.
-	uint8_t paletteIdx = this->backgroundShiftRegisters.getPattern(this->x);
-	// Indexing which palette we want.
-
-	uint8_t palette = this->backgroundShiftRegisters.getAttribute(this->x);
-	
-	//palette = getBit(this->backgroundShiftRegisters.attributeShiftRegisterHigh, this->x) << 1;
-//	palette += getBit(this->backgroundShiftRegisters.attributeShiftRegisterLow, this->x);
-	//palette *= 4;
-
-	if (true/*this->spriteShiftRegisters.at(spriteIdx).patternShiftRegisterLow != 0 && this->spriteShiftRegisters.at(spriteIdx).x == 0*/) {
-	//	addr += spritePalette + spritePaletteIdx;
-	//}
-	//else {
-		addr += 4 * palette + paletteIdx;
+	// TODO: Take into account sprite vs bg priority; for now, sprites are always given priority.
+	if (false and spriteColorIdx) {
+		colorKey |= spriteColorIdx;
+	} else {
+		colorKey |= bgColorIdx;
 	}
-
-	// Now, using this addr, we will get the color located at that addr.
-	uint8_t colorIdx = this->databus.read(addr);
-	colorKey |= colorIdx;
 
 	if (this->beamPos.dot < 0x100 && this->beamPos.scanline < 0xf0) {  // Do not draw past dot 255 or scanline 240
 		// NOTE: Temporary solution; I am not sure why but using Graphics::drawPixel results in a slight barber pole effect instead of a stable picture.
-
 		this->graphics->drawSquare(this->paletteMap.at(colorKey), this->beamPos.dot, this->beamPos.scanline, 1);
 	}
 }
@@ -913,13 +938,13 @@ SpriteShiftUnit::SpriteShiftUnit() :
 SpriteShiftUnit::~SpriteShiftUnit() {}
 uint8_t SpriteShiftUnit::getPattern(int x) const {
 	x = 7 - x;  // Keep in mind that the index starts from left to right.
-	uint8_t pattern = getBit(this->patternShiftRegisterHigh >> 1, x) << 1;  // Fetching the high bit.
-	pattern |= getBit(this->patternShiftRegisterLow >> 1, x);  // Then the low bit.
+	uint8_t pattern = getBit(this->patternShiftRegisterHigh, x) << 1;  // Fetching the high bit.
+	pattern |= getBit(this->patternShiftRegisterLow, x);  // Then the low bit.
 	return pattern;
 }
 uint8_t SpriteShiftUnit::getAttribute(int x) const {
-	uint8_t pattern = getBit(this->attributeShiftRegisterHigh >> 1, x) << 1;  // Fetching the high bit.
-	pattern |= getBit(this->attributeShiftRegisterLow >> 1, x);  // Then the low bit.
+	uint8_t pattern = getBit(this->attributeShiftRegisterHigh, x) << 1;  // Fetching the high bit.
+	pattern |= getBit(this->attributeShiftRegisterLow, x);  // Then the low bit.
 	return pattern;
 }
 SpriteShiftUnit& SpriteShiftUnit::operator>>=(int n) {
@@ -943,10 +968,10 @@ SpriteShiftUnit& SpriteShiftUnit::operator>>=(int n) {
 	return *this;
 }
 SpriteShiftUnit& SpriteShiftUnit::operator<<=(int n) {
-	this->patternShiftRegisterHigh <<= 1;
-	this->patternShiftRegisterLow <<= 1;
-	this->attributeShiftRegisterHigh <<= 1;
-	this->attributeShiftRegisterLow <<= 1;
+	this->patternShiftRegisterHigh <<= n;
+	this->patternShiftRegisterLow <<= n;
+	this->attributeShiftRegisterHigh <<= n;
+	this->attributeShiftRegisterLow <<= n;
 	
 	return *this;
 }
@@ -959,6 +984,12 @@ SpriteShiftUnit& SpriteShiftRegisters::at(int idx) {
 		idx = 0;
 	}
 	return this->shiftRegisters.at(idx);
+}
+uint8_t SpriteShiftRegisters::getPattern(int x) {
+	return 0;
+}
+uint8_t SpriteShiftRegisters::getAttribute(int x) {
+	return 0;
 }
 void SpriteShiftRegisters::shiftRegister(int sprite) {
 	this->shiftRegisters.at(sprite) >>= 1;
