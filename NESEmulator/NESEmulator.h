@@ -23,7 +23,6 @@ enum NESCycleOutcomes {
 	OAMDMA_CYCLE  // The NES is currently doing OAM DMA and has suspended the CPU.
 };
 
-// TODO: Add poweron and reset features.
 class NES {
 public:
 	NES();
@@ -36,6 +35,7 @@ public:
 	void reset();  // Performs the actions the NES should perform when reset.
 
 	// Sets the pointer to a part to the given pointer. Also attaches any relevant parts to the given pointed object, so this operation may change the input object.
+	virtual void attachCPU(_6502_CPU* CPU);
 	virtual void attachRAM(RAM* ram);
 	virtual void attachCartridgeMemory(Memory* memory);
 	virtual void attachDataBus(NESDatabus* databus);

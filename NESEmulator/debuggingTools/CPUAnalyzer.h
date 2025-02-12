@@ -375,29 +375,8 @@ public:
 	CPUCycleOutcomes executeCycle() override;
 
 	bool pcAt(uint16_t address);  // Tells you when the PC has reached a certain value; useful for breakpoints.
-
-	void attach(DebugDatabus* databus);
-
-	CPUCycleOutcomes undoCPUCycle();
-
-	//bool undoCyclesUntilInstruction();  // Undos CPU cycles until 
-
-	// Returns the last executed instruction
-	ExecutedInstruction getLastExecutedInstruction();
 	
-	// Checks the current vector of executed instructions and sees if it and the log agree (that is, the opcodes, operands, old registers, etc. are equal w/
-	// its corresponding entry in the log). checkLast only checks the last entry present.
-	bool correspondsWithLog(std::vector<ExecutedOpcodeLogEntry>& log, bool checkLast=false);
-
-	// Gets a fill list, in order, of the executed instructions this CPU has performed.
-	// You almost never want a full dump.
-	std::vector<CycleAction> getCycleActions();
-	std::vector<CycleAction> getCycleActions(unsigned int lastN);
-
-	std::vector<ExecutedInstruction> getExecutedInstructions();
-	std::vector<ExecutedInstruction> getExecutedInstructions(unsigned int lastN);
-
-	void clearExecutedInstructions();
+	virtual void attach(DataBus* databus) override;
 
 public:
 	// Basic debugging operations which do not affect the internal stack.
@@ -421,21 +400,6 @@ public:
 	// Outputs all the values in the stack.
 	std::array<uint8_t, 0x100> dumpStack();
 private:
-
-	// Undos an instruction in the stack.
-	bool undoInstruction(ExecutedInstruction instruction);
-
-	bool undoIRQ();
-
-	bool undoNMI();
-
-	DebugDatabus* databus;
-	
-	// Stack containing the cycle actions executed in order.
-	std::vector<CycleAction> cycleActions;
-
-	// NOTE: This is a legacy variable to be depricated. It is here to allow functions which expect a stack of executed instructions to still work.
-	std::vector<ExecutedInstruction> executedInstructions;
-
+	DataBus* databus;
 };
 

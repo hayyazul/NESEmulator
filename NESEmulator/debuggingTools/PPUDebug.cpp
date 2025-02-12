@@ -14,6 +14,10 @@ PPUDebug::~PPUDebug()
 {
 }
 
+PPUPosition PPUDebug::getPosition() const {
+	return this->beamPos;
+}
+
 void PPUDebug::displayNametable(int table) const {
 	if (table < 0 || table > 3) {
 		return;

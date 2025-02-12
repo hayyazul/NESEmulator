@@ -1,3 +1,5 @@
+// NOTE: This file will likely be removed. It is currently deprecated and no future changes will respect this file's functionality.
+
 #pragma once
 
 #include "NESEmulator.h"

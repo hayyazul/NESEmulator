@@ -7,7 +7,8 @@
 //  TODO: Fully implement PPUSTATUS
 //  TODO: Bugs:
 //			- Make sure NMI behavior is correct (it likely isn't at the moment).
-//			- Last column of sprites have wrong palette (only when emulated)
+//			- Last column of sprites have wrong palette (only when emulated).
+//          - Sprites are a bit too much to the left (by ~1 tile).
 
 #include <map>
 #include <array>
@@ -264,7 +265,6 @@ protected:
 
 	// Internal latches which will transfer to the shift registers every 8 cycles.  
 	BackgroundLatches latches;
-
 	// Internal shift registers relating to drawing.
 	BackgroundShiftRegisters backgroundShiftRegisters;
 	// NOTE: There is little information on where sprite patterns are located; I am assuming there are 8 shift registers. 
@@ -314,7 +314,6 @@ protected:
 	uint8_t mask;  // Written via PPUMASK.
 	uint8_t status;  // Read via PPUSTATUS
 	uint8_t OAMAddr;
-	uint8_t TEST_OAMAddr;
 
 	uint8_t PPUDATABuffer;  // A buffer to hold the value at the last VRAM address; used in conjunction w/ reads on PPUDATA.
 	uint8_t ioBus;  // The I/O data bus; this must be at least partly emulated to make some PPU register read/write operations work. It is also used for primary-to-secondary OAM data transfer.

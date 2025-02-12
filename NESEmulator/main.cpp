@@ -5,7 +5,6 @@
 //    - Get sprite rendering to work.
 // - Fix issues w/ PPU Registers.
 
-#include "debuggingTools/suites/basicDebugSuite.hpp"
 
 #include "debuggingTools/NESDebug.h"
 #include "debuggingTools/PPUDebug.h"
@@ -18,12 +17,17 @@
 #include "graphics/textRenderer.hpp"
 
 
-#include <SDL.h>
+//#include <SDL.h>
 #include <bitset>
+
+#include "debuggingTools/suites/generalDebugSuite.hpp"
 
 #undef main  // Deals w/ the definition of main in SDL.
 int main() { 
 
+	debuggingSuite();
+
+	/*
 	Memory VRAM{ 0x800 };
 	PPUDebug ppu;
 	NESDatabus databus;
@@ -32,10 +36,12 @@ int main() {
 	_6502_CPU CPU;
 
 	NES nes;
+	nes.attachCPU(&CPU);
 	nes.attachPPU(&ppu);
 	nes.attachVRAM(&VRAM);
 	nes.attachRAM(&ram);
 	nes.attachCartridgeMemory(&cartridgeMemory);
+	nes.attachDataBus(&databus);
 	nes.loadROM("testROMS/donkey kong.nes");
 	nes.powerOn();
 	
@@ -126,6 +132,5 @@ int main() {
 
 	SDL_Quit();
 	//*/
-
 	return 0;
 }

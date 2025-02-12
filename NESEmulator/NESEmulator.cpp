@@ -1,6 +1,20 @@
 ﻿#include "NESEmulator.h"
 
-NES::NES() : DMAUnit(nullptr), haltCPUOAM(false), scheduleHalt(false), totalMachineCycles(0), totalCPUCycles(0) {  // Not recommended to initialize w/ this; this will cause a memory leak later. NOTE: Might just make these nullptrs.
+NES::NES() : 
+	memory(nullptr),
+	ram(nullptr),
+	databus(nullptr),
+	CPU(nullptr),
+	VRAM(nullptr),
+	ppu(nullptr),
+	DMAUnit(nullptr), 
+	haltCPUOAM(false), 
+	scheduleHalt(false), 
+	totalMachineCycles(0), 
+	totalCPUCycles(0) {  // Not recommended to initialize w/ this; this will cause a memory leak later. NOTE: Might just make these nullptrs.
+	
+	
+	/*
 	this->memory = new Memory(0x10000);  // 0x10000 is the size of the addressing space.
 	this->ram = new RAM();
 	this->databus = new NESDatabus(this->memory);
@@ -10,8 +24,7 @@ NES::NES() : DMAUnit(nullptr), haltCPUOAM(false), scheduleHalt(false), totalMach
 	this->ppu = new PPU(this->VRAM, nullptr);
 	
 	this->DMAUnit.attachDatabus(this->databus);
-
-	this->CPU->powerOn();
+	*/
 }
 
 NES::NES(NESDatabus* databus, _6502_CPU* CPU, RAM* ram, Memory* vram, PPU* ppu) : DMAUnit(databus), haltCPUOAM(false), scheduleHalt(false), totalMachineCycles(0), totalCPUCycles(0) {
@@ -28,6 +41,11 @@ NES::NES(NESDatabus* databus, _6502_CPU* CPU, RAM* ram, Memory* vram, PPU* ppu) 
 }
 
 NES::~NES() {}
+
+void NES::attachCPU(_6502_CPU* CPU) {
+	this->CPU = CPU;
+	this->CPU->attach(this->databus);
+}
 
 void NES::attachRAM(RAM* ram) {
 	this->ram = ram;
@@ -47,19 +65,26 @@ void NES::attachDataBus(NESDatabus* databus) {
 	this->databus = databus;
 	this->databus->attach(this->memory);
 	this->databus->attach(this->ppu);
-	this->databus->attach(this->memory);
-	
+	if (this->CPU != nullptr) {
+		this->CPU->attach(this->databus);
+	}
+	this->databus->attach(this->ram);
 	this->DMAUnit.attachDatabus(this->databus);
 }
 
 void NES::attachPPU(PPU* ppu) {
 	this->ppu = ppu;
-	this->databus->attach(ppu);
+	this->ppu->attachVRAM(this->VRAM);
+	if (this->databus != nullptr) {
+		this->databus->attach(ppu);
+	}
 }
 
 void NES::attachVRAM(Memory* vram) {
 	this->VRAM = vram;
-	this->ppu->attachVRAM(vram);
+	if (this->ppu != nullptr) {
+		this->ppu->attachVRAM(vram);
+	}
 }
 
 void NES::powerOn() {

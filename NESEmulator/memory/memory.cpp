@@ -16,6 +16,13 @@ uint8_t Memory::getByte(uint16_t address) const {
 	return this->data.at(address);
 }
 
+void Memory::operator=(Memory& memory) {
+	int bytesToCopy = this->data.size() > memory.data.size() ? memory.data.size() : this->data.size();
+	for (int i = 0; i < bytesToCopy; ++i) {
+		this->data.at(i) = memory.data.at(i);
+	}
+}
+
 uint8_t Memory::setByte(uint16_t address, uint8_t value) {
 	// NOTE: experimenting with just using the modulo of the address.
 	address %= this->data.size();
