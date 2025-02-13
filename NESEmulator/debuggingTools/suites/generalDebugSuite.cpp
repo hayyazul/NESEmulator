@@ -10,6 +10,7 @@
 
 #include <SDL.h>
 #include <minmax.h>
+#include <set>
 
 /*
 Debugging toolset reqs:
@@ -50,7 +51,14 @@ GeneralDebugSuite::GeneralDebugSuite() :
 	renderer(SDL_CreateRenderer(window, 0, 0)),
 	windowSurface(SDL_GetWindowSurface(window)),
 	BLACK(graphics.getRGB(0x00, 0xff, 0xff)), 
-	YELLOW(graphics.getRGB(0x00, 0xff, 0xff)) {}
+	YELLOW(graphics.getRGB(0x00, 0xff, 0xff)),
+	INPUT_OPTIONS({
+		{'q', {'q', "Quit"}},
+		{'e', {'e', "Execute cycle"} },
+		{'E', {'E', "Execute [n] cycles"}},
+		{'b', {'b', "Display nametable"}},
+		{'p', {'p', "Dump PPU internals (excludes VRAM and CHRDATA)"}}})
+{}
 GeneralDebugSuite::~GeneralDebugSuite() {}
 
 void GeneralDebugSuite::run() {
@@ -73,8 +81,7 @@ void GeneralDebugSuite::run() {
 	char inputChar = '0';
 	PPUPosition lastPos;
 	while (inputChar != 'q') {
-		msg = "\n --- What to Perform ---\n - q: Quit\n - e: Execute cycle\n - E [n]: Execute n cycles.\n - b: Display nametable w/ this->graphics.\n - p: Dump PPU internal registers and stored external othis->nes.\n  Your option: ";
-		inputChar = this->CLIInputHandler.getUserChar(msg);
+		inputChar = this->queryForOption();
 		std::cout << std::endl;
 		switch (inputChar) {
 		case('e'): {
@@ -138,7 +145,7 @@ void GeneralDebugSuite::run() {
          |+-------PPU master / slave select \n\
          |         (0: read backdrop from EXT pins; 1: output color on EXT pins) \n\
          +--------Vblank NMI enable(0: off, 1 : on) \n";
-
+			break;
 		}
 		default:
 			break;
@@ -147,6 +154,29 @@ void GeneralDebugSuite::run() {
 
 	SDL_Quit();
 
+}
+
+char GeneralDebugSuite::queryForOption() {
+	// Get an input from the user; if it is not valid, then get it again.
+	char inputChar = ' ';
+	bool choiceMade = false;
+	do {
+		std::string msg;
+		// If this is our first time asking the user, don't say they made an invalid option.
+		if (choiceMade) {
+			msg = "Invalid Option";
+		}
+		choiceMade = true;
+		msg += "\n --- What to Perform ---\n";
+		// Output all options available to the user.
+		for (const auto& pair : this->INPUT_OPTIONS) {
+			msg += pair.second.format() + "\n";
+		}
+		msg += "Your option : ";
+		inputChar = this->CLIInputHandler.getUserChar(msg);  // Get their input.
+	} while (!INPUT_OPTIONS.contains(inputChar));
+	
+	return inputChar;
 }
 
 void GeneralDebugSuite::updateDisplay() {
@@ -159,4 +189,19 @@ void GeneralDebugSuite::updateDisplay() {
 	displayPalette(this->graphics, this->nes.debugPPU, 341, 0, 3);
 	this->graphics.blitDisplay(this->windowSurface);
 	SDL_UpdateWindowSurface(this->window);
+}
+
+std::string InputOptions::format() const {
+	std::string formatted = "";
+	// Add some spacing depending on offset.
+	for (int i = 0; i < this->offset; ++i) {
+		formatted += "   ";
+	}
+	// Add the bullet point.
+	formatted += " - ";
+	formatted += this->input;  // Then the input character.
+	formatted += ": ";  // Then the input-description divider.
+	formatted += this->description;  // Lastly the description.
+
+	return formatted;
 }
