@@ -20,12 +20,13 @@
 //#include <SDL.h>
 #include <bitset>
 
-#include "debuggingTools/suites/generalDebugSuite.hpp"
+#include "debuggingTools/suites/generalDebugSuite.h"
 
 #undef main  // Deals w/ the definition of main in SDL.
 int main() { 
 
-	debuggingSuite();
+	GeneralDebugSuite debuggingSuite;
+	debuggingSuite.run();
 
 	/*
 	Memory VRAM{ 0x800 };
