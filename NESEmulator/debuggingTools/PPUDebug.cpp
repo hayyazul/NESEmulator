@@ -14,6 +14,23 @@ PPUDebug::~PPUDebug()
 {
 }
 
+PPUInternals PPUDebug::getInternals() const {
+	// TODO: Complete implementation.
+	PPUInternals ppuInternals;
+	ppuInternals.backgroundShiftRegisters = this->backgroundShiftRegisters;
+	ppuInternals.latches = this->latches;
+	ppuInternals.spriteShiftRegisters = this->spriteShiftRegisters;
+	ppuInternals.x = this->x;
+	ppuInternals.t = this->t;
+	ppuInternals.v = this->v;
+	ppuInternals.w = this->w;
+	ppuInternals.control = this->control;
+	ppuInternals.mask = this->mask;
+	ppuInternals.status = this->status;
+
+	return ppuInternals;
+}
+
 PPUPosition PPUDebug::getPosition() const {
 	return this->beamPos;
 }

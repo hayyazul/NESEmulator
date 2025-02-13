@@ -43,7 +43,7 @@ void debuggingSuite() {
 	char inputChar = '0';
 	PPUPosition lastPos;
 	while (inputChar != 'q') {
-		msg = "\n --- What to Perform ---\n - q: Quit\n - e: Execute cycle\n - E [n]: Execute n cycles.\n - b: Display nametable w/ graphics.\n  Your option: ";
+		msg = "\n --- What to Perform ---\n - q: Quit\n - e: Execute cycle\n - E [n]: Execute n cycles.\n - b: Display nametable w/ graphics.\n - p: Dump PPU internal registers and stored external ones.\n  Your option: ";
 		inputChar = input.getUserChar(msg);
 		std::cout << std::endl;
 		switch (inputChar) {
@@ -92,6 +92,33 @@ void debuggingSuite() {
 			SDL_UpdateWindowSurface(window);
 			break;
 		}
+		case('p'): {
+			// TODO: Fully implement; currently only outputs control.
+			PPUInternals ppuInternals = nes.getPPUInternals();
+			std::cout << "x: " << displayBinary(ppuInternals.x, 3) << 
+				"\nw: " << ppuInternals.w << 
+				"\nt: " << displayBinary(ppuInternals.t, 15) << 
+				"\nv: " << displayBinary(ppuInternals.v, 15) << std::endl;
+
+
+
+			std::cout << "Control: " << displayBinary(ppuInternals.control, 8) << std::endl;
+			std::cout << "         -------- \n\
+         VPHBSINN \n\
+         |||||||| \n\
+         ||||||++-Base nametable address \n\
+         ||||||    (0 = $2000; 1 = $2400; 2 = $2800; 3 = $2C00) \n\
+         |||||+---VRAM address increment per CPU read / write of PPUDATA \n\
+         |||||     (0: add 1, going across; 1: add 32, going down) \n\
+         ||||+----Sprite pattern table address for 8x8 sprites \n\
+         ||||      (0: $0000; 1: $1000; ignored in 8x16 mode) \n\
+         |||+-----Background pattern table address(0: $0000; 1: $1000) \n\
+         ||+------Sprite size(0: 8x8 pixels; 1: 8x16 pixels – see PPU OAM Byte 1) \n\
+         |+-------PPU master / slave select \n\
+         |         (0: read backdrop from EXT pins; 1: output color on EXT pins) \n\
+         +--------Vblank NMI enable(0: off, 1 : on) \n";
+				
+ 		}
 		default:
 			break;
 		}

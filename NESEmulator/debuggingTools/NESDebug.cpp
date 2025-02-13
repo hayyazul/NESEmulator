@@ -30,3 +30,9 @@ bool NESDebug::frameFinished() const {
 	bool atEndOfFrame = this->debugPPU.getPosition().inRange(239, 239, 256, 256);
 	return atEndOfFrame;
 }
+
+PPUInternals NESDebug::getPPUInternals() const {
+	// TODO: Complete implementation;
+	PPUInternals ppuInternals = debugPPU.getInternals();
+	return ppuInternals;
+}

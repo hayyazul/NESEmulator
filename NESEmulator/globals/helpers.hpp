@@ -6,9 +6,12 @@
 #ifdef ASSERT_PARAMETERS
 #include <iostream>
 #include <iomanip>
+#include <bitset>
 #endif
 
-#define displayHex(x, digits) "0x" << std::hex << std::setfill('0') << std::setw(digits) << (int)x
+// If the digit to display is too big, it will truncate the left most digits first (so it will display the lower nibbles first).
+#define displayHex(x, digits) "0x" << std::hex << std::setfill('0') << std::setw(digits) << ((int)x & ((1 << (digits * 4)) - 1)) 
+#define displayBinary(x, digits) std::bitset<digits>((int)x)
 
 // Bool-to-string
 inline const std::string btos(bool b) {

@@ -28,6 +28,42 @@ constexpr uint8_t PALETTE_RAM_SIZE_IN_BYTES = 0x20;
 
 constexpr uint8_t MAX_SPRITE_COUNT = 0x40;
 
+// Collection of all internal and shift registers, latches, and other non-memory elements of the PPU., associated w/ the PPU
+struct PPUInternals {
+	BackgroundLatches latches;
+	BackgroundShiftRegisters backgroundShiftRegisters;
+	SpriteShiftRegisters spriteShiftRegisters;
+
+	PPUPosition beamPos;  // Represents the current dot and scanline 
+	int cycleCount, frameCount;  // NOTE: there might be issues with overflow; look into this risk more.
+
+	PPUDatabus databus;  // Databus which maps to VRAM, CHRDATA, and palette RAM. This is NOT connected to OAM, which has its own memory.
+	Memory paletteControl;
+	Memory OAM;  // Internal memory inside the PPU which contains 256 bytes, 4 bytes defining 1 sprite for 64 sprites.
+	SecondaryOAM secondaryOAM;  // used for rendering sprites.
+	SpriteEvalCycle spriteEvalCycle;
+
+	bool requestingOAMDMA;  // Whether the PPU is requesting an OAMDMA. This gets set true when a write to OAMDMA occurs and false when the requestingDMA method is called and this is true.
+	uint8_t dmaPage;
+
+	bool w;  // 1 bit
+	uint16_t v, t;  // 15 bits
+	uint8_t x;  // 3 bits
+
+	uint8_t control;  // Written via PPUCTRL.
+	uint8_t mask;  // Written via PPUMASK.
+	uint8_t status;  // Read via PPUSTATUS
+	uint8_t OAMAddr;
+
+	uint8_t PPUDATABuffer;  // A buffer to hold the value at the last VRAM address; used in conjunction w/ reads on PPUDATA.
+	uint8_t ioBus;  // The I/O data bus; this must be at least partly emulated to make some PPU register read/write operations work. It is also used for primary-to-secondary OAM data transfer.
+
+	PPUInternals() {
+
+	}
+	~PPUInternals() {}
+};
+
 class PPUDebug : public PPU {
 public:
 	PPUDebug();
@@ -35,8 +71,9 @@ public:
 	~PPUDebug();
 
 	// Debug Methods
-
+	PPUInternals getInternals() const;  // Returns a struct containing all internals (excludes VRAM and CHRDATA) of the PPU.
 	PPUPosition getPosition() const;  // Gets the position of the "beam"
+
 
 	// Displays the nametable and its attribute table from VRAM using the given table id; displays nothing upon
 	// invalid input.
@@ -53,6 +90,5 @@ public:
 	void displayVisibleSprites(int x = 0, int y = 0);
 	void dumpOAMData(unsigned int lineSize = 4) const;  // Prints out OAM bytes in a string of bytes.
 private:
-
 	void displaySprite(SpriteData spriteData, int x, int y);
 };
