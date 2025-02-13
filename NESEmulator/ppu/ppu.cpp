@@ -522,9 +522,6 @@ void PPU::performSpriteEvaluation() {
 	*/
 	// this->OAMAddr SHOULD be 0, but if it isn't this function should emulate this inappropriate behavior accordingly.
 	
-	
-	
-	return;
 	switch (this->spriteEvalCycle.evalState) { 
 		// NOTE: The sprite flicker bug occurs here because the code inside the block causes the bug (having .byteType prevents the bug from occuring by preventing any of this code from executing.)
 	case(FINDING_SPRITES): {
@@ -770,7 +767,7 @@ void PPU::drawPixel() {
 	uint8_t bgColorIdx = this->getBGColor();  // Note: bg stands for background.
 	
 	// TODO: Take into account sprite vs bg priority; for now, sprites are always given priority.
-	if (false and spriteColorIdx) {
+	if (spriteColorIdx) {
 		colorKey |= spriteColorIdx;
 	} else {
 		colorKey |= bgColorIdx;

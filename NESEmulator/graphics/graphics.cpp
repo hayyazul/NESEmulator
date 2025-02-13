@@ -64,6 +64,7 @@ void Graphics::drawSquare(uint32_t rgb, unsigned int x, unsigned int y, unsigned
 }
 
 void Graphics::drawPixel(uint32_t rgb, unsigned int x, unsigned int y) {
+	auto a = this->pixels[x + y * this->w];
 	this->pixels[x + y * this->w] = rgb;
 }
 

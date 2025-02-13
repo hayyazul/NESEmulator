@@ -13,6 +13,11 @@
 #include <iostream>
 #include <algorithm>
 
+/* TODO:
+* - Save states; a state of all values inside the nes at a given point in time, 
+* able to be reloaded at whim, serialized, and deserialized.
+* - 
+*/
 
 inline uint32_t memAddrToiNESAddr(uint16_t memAddr) {
 	return (memAddr - 0x8000 + 0x10) % 0x4000;

@@ -20,12 +20,14 @@ void debuggingSuite() {
 	nes.powerOn();
 	
 	SDL_Init(SDL_INIT_EVERYTHING);
-	Graphics graphics{ 514, 256 };
+	Graphics graphics{ 514, 262 };
 	nes.debugPPU.attachGraphics(&graphics);
 
 	SDL_Window* window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1024, 480, SDL_WINDOW_RESIZABLE);
 	SDL_Renderer* renderer = SDL_CreateRenderer(window, 0, 0);
 	SDL_Surface* windowSurface = SDL_GetWindowSurface(window);
+	const uint32_t YELLOW = graphics.getRGB(0xff, 0xff, 0);
+	const uint32_t BLACK = graphics.getRGB(0, 0, 0);
 
 	PatternTableDisplayer PTDisplayer;
 	NametableDisplayer NTDisplayer;
@@ -39,19 +41,32 @@ void debuggingSuite() {
 	CommandlineInput input;
 	bool outputResults = true;
 	char inputChar = '0';
+	PPUPosition lastPos;
 	while (inputChar != 'q') {
 		msg = "\n --- What to Perform ---\n - q: Quit\n - e: Execute cycle\n - E [n]: Execute n cycles.\n - b: Display nametable w/ graphics.\n  Your option: ";
 		inputChar = input.getUserChar(msg);
 		std::cout << std::endl;
 		switch (inputChar) {
 		case('e'): {
+			
 			nes.executeMachineCycle();
+			
+			if (lastPos.dotInRange(256, 340) || lastPos.lineInRange(240, 261)) {
+				graphics.drawPixel(BLACK, lastPos.dot, lastPos.scanline);
+			}
+			PPUPosition pos = nes.debugPPU.getPosition();
+			lastPos = pos;
+			graphics.drawPixel(YELLOW, pos.dot, pos.scanline);
+			displayPalette(graphics, nes.debugPPU, 341, 0, 3);
+			graphics.blitDisplay(windowSurface);
+			SDL_UpdateWindowSurface(window);
 			break;
 		}
 		case('E'): {
 			int cyclesToExecute = input.getUserInt("How many cycles?\n");
 			if (cyclesToExecute < 0) break;
 			std::cout << std::endl;
+			PPUPosition pos;
 			for (int i = 0; i < cyclesToExecute; ++i) {
 				nes.executeMachineCycle();
 				if (nes.frameFinished()) {
@@ -59,6 +74,16 @@ void debuggingSuite() {
 					SDL_UpdateWindowSurface(window);
 				}
 			}
+
+			if (lastPos.dotInRange(256, 340) || lastPos.lineInRange(240, 261)) {
+				graphics.drawPixel(BLACK, lastPos.dot, lastPos.scanline);
+			}
+			pos = nes.debugPPU.getPosition();
+			lastPos = pos;
+			graphics.drawPixel(YELLOW, pos.dot, pos.scanline);
+			displayPalette(graphics, nes.debugPPU, 341, 0, 3);
+			graphics.blitDisplay(windowSurface);
+			SDL_UpdateWindowSurface(window);
 			break;
 		}
 		case('b'): {
