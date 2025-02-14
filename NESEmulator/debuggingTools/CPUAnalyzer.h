@@ -13,7 +13,7 @@
 #include <iostream>
 #include <iomanip>
 
-struct ExecutedOpcodeLogEntry;
+struct ExecutedInstruction;
 
 // Map between bytes and their associated instructions as strings.
 const std::map<uint8_t, std::string> OPCODE_TO_NAME = {
@@ -274,97 +274,25 @@ const std::map<uint8_t, std::string> OPCODE_TO_NAME = {
 {0xFE, "INC ABSX_"},
 {0xFF, "??? ?????"} };
 
-// Contains basic info regarding the execution of the most recent instruction.
-struct ExecutedInstruction {
-	// We record both the byte and the instruction just in case an opcode was assigned to the wrong instruction.
+// Contains all of the internals relevant to the CPU.
+struct CPUInternals {
+	Registers registers;
 
-	std::string instructionName;
-	uint8_t opcodeExecuted;  
-	Instruction* instructionExecuted;  // This will also contain other important info, like how many operands were involved.
-	unsigned int executedIndex;  // The index of when this execution was executed. 
+	bool interruptRequested;  // Whether a REQUEST for an interrupt has been made.
+	bool performInterrupt;  // Whether to PERFORM an interrupt in the current cpu cycle.
 
-	int numOfOperands, numOfCycles, lastCycleCount;
-	uint8_t operands[2];  // The upto two operands involved in the instruction. Default values are 0.
-	
+	bool nmiRequested;  // Whether a REQUEST for an NMI has been made.
+	bool lastNMISignal;  // The last NMI signal; so if the PPU is on Vblank, this gets set to true. This also prevents another NMI from being requested (assuming the PPU's Vblank status is still true).
 
-	// OLD NOTE: I might not need to access the DatabusAction(s) located in here directly; I could just get the size, then ask
-	// the databus to undo [size] number of memory operations. This vector might be removed, though I also might keep it for 
-	// other debugging purposes.
-	//std::vector<DatabusAction> actionsInvolved;  // Also record the memory actions involved; useful for undoing an instruction.
-	unsigned int numOfActionsInvolved;
-	Registers oldRegisters;
+	bool getOrPutCycle;  // Bool indicating whether the current cycle is a get (false) or a put (true) cycle. Starts as a get cycle, alternates back and forth every cycle. 
+	long unsigned int totalCyclesElapsed;  // Total CPU cycles elapsed since startup. NOTE: Buggy because it does not count DMA cycles.
+	unsigned int opcodeCyclesElapsed;  // A cycle counter that is present since the CPU began executing a given instruction. Resets when it reaches the number of cycles for a given instruction.
+	unsigned int currentOpcodeCycleLen;  // The number of cycles the current opcode uses.
 
-	ExecutedInstruction() : instructionName("NO INSTRT"), opcodeExecuted(0), instructionExecuted(nullptr), executedIndex(-1), numOfOperands(0), numOfCycles(-1), lastCycleCount(-1), numOfActionsInvolved(0), oldRegisters(Registers()) {
-		this->operands[0] = 0;
-		this->operands[0] = 0;
-	};
-	ExecutedInstruction(uint8_t opcode, Instruction* instruction, unsigned int numActions, Registers registers, uint8_t operands[2], unsigned int idx, int lastCycleCount) :
-		opcodeExecuted(opcode),
-		instructionExecuted(instruction),
-		numOfActionsInvolved(numActions),
-		oldRegisters(registers),
-		numOfOperands(instruction->numBytes - 1),
-		executedIndex(idx),
-		lastCycleCount(lastCycleCount)
-	{
-		this->instructionName = OPCODE_TO_NAME.at(opcode);
-		this->numOfCycles = instruction->cycleCount;
-		this->operands[0] = operands[0];
-		this->operands[1] = operands[1];
-	};
-	~ExecutedInstruction() {};
-
-	// NOTE: I might return a string containing the message instead.
-	// Outputs the instruction executed, the operands, and the values of the registers BEFORE execution.
-	void print() {
-		// JMP ABSLT | Operands: 0x02, 0x04 | Old Values of A: 0x00, X: 0x02, Y:0x09, SP: 0xf3, PC: 0x0110 | Flags C:0 Z:0 I:0 D:0 V:0 N:0
-		std::cout << this->instructionName << " | ";  // Opcode name
-		std::cout << "Operands: ";  // Now the operands
-		for (unsigned int i = 0; i < 2; ++i) {
-			if (i < this->numOfOperands) {
-				std::cout << displayHex(this->operands[i], 2);
-			}
-			else {
-				std::cout << "____";
-			}
-
-			if (i == 0) {
-				std::cout << ", ";
-			}
-		}
-		// Now the registers (excluding flags)
-		std::cout << " | Old values of A: " << displayHex(oldRegisters.A, 2)
-			<< ", X: " << displayHex(oldRegisters.X, 2)
-			<< ", Y: " << displayHex(oldRegisters.Y, 2)
-			<< ", SP: " << displayHex(oldRegisters.SP, 2)
-			<< ", PC: " << displayHex(oldRegisters.PC, 4) << " | Flags " << displayHex(oldRegisters.S, 2) << " C:";
-
-		// Lastly, the flags.
-		std::cout << oldRegisters.getStatus('C')
-			<< ", Z: " << oldRegisters.getStatus('Z')
-			<< ", I: " << oldRegisters.getStatus('I')
-			<< ", D: " << oldRegisters.getStatus('D')
-			<< ", V: " << oldRegisters.getStatus('V')
-			<< ", N: " << oldRegisters.getStatus('N');
-
-		std::cout << " | Old Cycle #: " << std::dec << this->lastCycleCount << " | (" << this->executedIndex << ")";
-	};
-	
+	CPUInternals() {};
+	~CPUInternals() {};
 };
 
-// Describes what happened in a given cycle.
-struct CycleAction {
-	bool instructionExecuted;  // Whether an instruction was executed this cycle.
-	ExecutedInstruction* executedInstruction;  // Pointer to the info regarding the instruction executed this cycle (if one was executed this cycle).
-
-	CycleAction() : instructionExecuted(false), executedInstruction(nullptr) {}
-	CycleAction(bool instructionExecuted, ExecutedInstruction* executedInstruction) : instructionExecuted(instructionExecuted), executedInstruction(executedInstruction) {}
-
-	~CycleAction() {}
-
-};
-
-// TODO: Give this a better name.
 class CPUDebugger : public _6502_CPU {
 public:
 	CPUDebugger();
@@ -373,11 +301,13 @@ public:
 
 	// Note: Currently one cycle = one instruction, but in reality it is different and depends on the specific instruction.
 	CPUCycleOutcomes executeCycle() override;
+	virtual void attach(DataBus* databus) override;
+	
+	// Returns the internals of the CPU (does not include things the CPU writes and reads to like RAM).
+	CPUInternals getInternals() const;
 
 	bool pcAt(uint16_t address);  // Tells you when the PC has reached a certain value; useful for breakpoints.
 	
-	virtual void attach(DataBus* databus) override;
-
 public:
 	// Basic debugging operations which do not affect the internal stack.
 

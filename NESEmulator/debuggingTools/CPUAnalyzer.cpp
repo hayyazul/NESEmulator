@@ -5,7 +5,6 @@
 #include <minmax.h>
 #include "../memory/memory.h"
 #include "../input/cmdInput.h"
-#include "../loadingData/parseLogData.h"
 
 CPUDebugger::CPUDebugger() : _6502_CPU(this->databus) {
 }
@@ -44,6 +43,21 @@ CPUCycleOutcomes CPUDebugger::executeCycle() {
 
 bool CPUDebugger::pcAt(uint16_t address) {
 	return this->registers.PC == address;
+}
+
+CPUInternals CPUDebugger::getInternals() const {
+	CPUInternals internals;
+	internals.registers = this->registers;
+	internals.interruptRequested = this->interruptRequested;
+	internals.performInterrupt = this->performInterrupt;
+	internals.nmiRequested = this->nmiRequested;
+	internals.lastNMISignal = this->lastNMISignal;
+	internals.getOrPutCycle = this->getOrPutCycle;
+	internals.totalCyclesElapsed = this->totalCyclesElapsed;
+	internals.opcodeCyclesElapsed = this->opcodeCyclesElapsed;
+	internals.currentOpcodeCycleLen = this->currentOpcodeCycleLen;
+
+	return internals;
 }
 
 void CPUDebugger::attach(DataBus* databus) {
@@ -112,3 +126,4 @@ std::array<uint8_t, 0x100> CPUDebugger::dumpStack() {
 	}
 	return stack;
 }
+

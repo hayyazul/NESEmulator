@@ -36,3 +36,7 @@ PPUInternals NESDebug::getPPUInternals() const {
 	PPUInternals ppuInternals = debugPPU.getInternals();
 	return ppuInternals;
 }
+
+CPUInternals NESDebug::getCPUInternals() const {
+	return this->debugCPU.getInternals();
+}

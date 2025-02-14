@@ -24,9 +24,10 @@ inline uint32_t memAddrToiNESAddr(uint16_t memAddr) {
 };
 
 // Contains all updateable internals of the NES.
-//struct NESInternals {
-	
-//};
+struct NESInternals {
+	PPUInternals ppuInternals;
+	CPUInternals cpuInternals;
+};
 
 class NESDebug : public NES {
 public:
@@ -41,6 +42,7 @@ public:
 	bool frameFinished() const;  // Returns true when the frame is finished drawing.
 	
 	PPUInternals getPPUInternals() const;  // Returns a struct containing the value of every internal (excludes VRAM and CHRDATA) element of the PPU.
+	CPUInternals getCPUInternals() const;
 
 	// Instances of the debugger versions of the databus and CPU.
 	PPUDebug debugPPU;

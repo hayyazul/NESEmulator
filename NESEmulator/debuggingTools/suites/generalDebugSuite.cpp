@@ -56,7 +56,9 @@ GeneralDebugSuite::GeneralDebugSuite() :
 		{'q', {'q', "Quit"}},
 		{'e', {'e', "Execute cycle"} },
 		{'E', {'E', "Execute [n] cycles"}},
-		{'p', {'p', "Dump PPU internals (excludes VRAM and CHRDATA)"}}})
+		{'p', {'p', "Dump PPU internals (excludes VRAM and CHRDATA)"}},
+		{'c', {'c', "Dump CPU internals (excludes RAM and DMA data)"}} 
+		})
 {}
 GeneralDebugSuite::~GeneralDebugSuite() {}
 
@@ -102,6 +104,10 @@ void GeneralDebugSuite::run() {
 		case('p'): {
 			// TODO: Fully implement; currently only outputs control.
 			this->printPPUInternals();
+			break;
+		}
+		case('c'): {
+			this->printCPUInternals();
 			break;
 		}
 		default:
@@ -156,37 +162,37 @@ void GeneralDebugSuite::printPPUInternals() const {
 		"         -------- \n\
          VPHBSINN \n\
          |||||||| \n\
-         ||||||++-Base nametable address \n\
-         ||||||    (0 = $2000; 1 = $2400; 2 = $2800; 3 = $2C00) \n\
-         |||||+---VRAM address increment per CPU read / write of PPUDATA \n\
-         |||||     (0: add 1, going across; 1: add 32, going down) \n\
-         ||||+----Sprite pattern table address for 8x8 sprites \n\
-         ||||      (0: $0000; 1: $1000; ignored in 8x16 mode) \n\
-         |||+-----Background pattern table address(0: $0000; 1: $1000) \n\
-         ||+------Sprite size(0: 8x8 pixels; 1: 8x16 pixels – see PPU OAM Byte 1) \n\
-         |+-------PPU master / slave select \n\
-         |         (0: read backdrop from EXT pins; 1: output color on EXT pins) \n\
-         +--------Vblank NMI enable(0: off, 1 : on) \n",
+         ||||||++- Base nametable address \n\
+         ||||||     (0 = $2000; 1 = $2400; 2 = $2800; 3 = $2C00) \n\
+         |||||+--- VRAM address increment per CPU read / write of PPUDATA \n\
+         |||||      (0: add 1, going across; 1: add 32, going down) \n\
+         ||||+---- Sprite pattern table address for 8x8 sprites \n\
+         ||||       (0: $0000; 1: $1000; ignored in 8x16 mode) \n\
+         |||+----- Background pattern table address(0: $0000; 1: $1000) \n\
+         ||+------ Sprite size(0: 8x8 pixels; 1: 8x16 pixels – see PPU OAM Byte 1) \n\
+         |+------- PPU master / slave select \n\
+         |          (0: read backdrop from EXT pins; 1: output color on EXT pins) \n\
+         +-------- Vblank NMI enable(0: off, 1 : on) \n",
 
 		"         -------- \n\
          BGRsbMmG \n\
          |||||||| \n\
-         |||||||+-Greyscale(0: normal color, 1 : greyscale) \n\
-         ||||||+--1: Show background in leftmost 8 pixels of screen, 0 : Hide \n\
-         |||||+---1 : Show sprites in leftmost 8 pixels of screen, 0 : Hide \n\
-         ||||+----1 : Enable background rendering \n\
-         |||+-----1 : Enable sprite rendering \n\
-         ||+------Emphasize red(green on PAL / Dendy) \n\
-         |+-------Emphasize green(red on PAL / Dendy) \n\
-         +--------Emphasize blue \n",
+         |||||||+- Greyscale(0: normal color, 1 : greyscale) \n\
+         ||||||+-- 1: Show background in leftmost 8 pixels of screen, 0 : Hide \n\
+         |||||+--- 1 : Show sprites in leftmost 8 pixels of screen, 0 : Hide \n\
+         ||||+---- 1 : Enable background rendering \n\
+         |||+----- 1 : Enable sprite rendering \n\
+         ||+------ Emphasize red(green on PAL / Dendy) \n\
+         |+------- Emphasize green(red on PAL / Dendy) \n\
+         +-------- Emphasize blue \n",
 
 		"         -------- \n\
          VSOxxxxx \n\
          |||||||| \n\
-         |||+++++-(PPU open bus or 2C05 PPU identifier [Emudev Note: This is not emulated.]) \n\
-         ||+-------Sprite overflow flag (buggy in real PPUs; this buggyness is emulated) \n\
-         |+--------Sprite 0 hit flag \n\
-         +---------Vblank flag, cleared on read (unreliable due to a bug in real PPUs; this is emulated) \n"
+         |||+++++- (PPU open bus or 2C05 PPU identifier [Emudev Note: This is not emulated.]) \n\
+         ||+------ Sprite overflow flag (buggy in real PPUs; this buggyness is emulated) \n\
+         |+------- Sprite 0 hit flag \n\
+         +-------- Vblank flag, cleared on read (unreliable due to a bug in real PPUs; this is emulated) \n"
 	};
 
 	PPUInternals ppuInternals = this->nes.getPPUInternals();
@@ -203,6 +209,40 @@ void GeneralDebugSuite::printPPUInternals() const {
 		"\nt: " << displayBinary(ppuInternals.t, 15) <<
 		"\nv: " << displayBinary(ppuInternals.v, 15) << std::endl;
 
+}
+
+void GeneralDebugSuite::printCPUInternals() {
+	// Getting the inernals of the CPU (excludes the DMA, which is not internal to the CPU).
+	CPUInternals cpuInternals = this->nes.getCPUInternals();
+	
+	// Print everything as hex except the status flag; print that as binary.
+	std::cout << "PC: " << displayHex(cpuInternals.registers.PC, 4) << std::endl;
+	std::cout << "A:  " << displayHex(cpuInternals.registers.A, 2) << std::endl;
+	std::cout << "X:  " << displayHex(cpuInternals.registers.X, 2) << std::endl;
+	std::cout << "Y:  " << displayHex(cpuInternals.registers.Y, 2) << std::endl;
+	std::cout << "SP: " << displayHex(cpuInternals.registers.SP, 2) << std::endl;
+	std::cout << "S: " << displayBinary(cpuInternals.registers.S, 8) << std::endl;
+	std::cout << "   -------- \n\
+   NV1BDIZC \n\
+   |||||||| \n\
+   |||||||+- Carry \n\
+   ||||||+-- Zero \n\
+   |||||+--- Interrupt Disable \n\
+   ||||+---- Decimal \n\
+   |||+----- (No CPU effect; see: the B flag) \n\
+   ||+------ (No CPU effect; always pushed as 1) \n\
+   |+------- Overflow \n\
+   +-------- Negative" << std::endl;
+
+	// We will also print the PC vectors. NOTE: These reads are potentially dangerous because read does not guarantee non-modification of any internal values.
+	// However, the locations being read SHOULD not affect anything internally.
+	std::array<uint16_t, 3> PC_VECTORS;
+	PC_VECTORS.at(0) = this->nes.debugDatabus.read(0xfffa) | (this->nes.debugDatabus.read(0xfffb) << 8);
+	PC_VECTORS.at(1) = this->nes.debugDatabus.read(0xfffc) | (this->nes.debugDatabus.read(0xfffd) << 8);
+	PC_VECTORS.at(2) = this->nes.debugDatabus.read(0xfffe) | (this->nes.debugDatabus.read(0xffff) << 8);
+	std::cout << "NMI Vector:   " << displayHex(PC_VECTORS.at(0), 4) << std::endl;
+	std::cout << "RESET Vector: " << displayHex(PC_VECTORS.at(1), 4) << std::endl;
+	std::cout << "IRQ Vector:   " << displayHex(PC_VECTORS.at(2), 4) << std::endl;
 }
 
 std::string InputOptions::format() const {

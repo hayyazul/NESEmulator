@@ -34,8 +34,9 @@ private:
 	// Update the display by blitting the screen and position the PPU beam pos marker.
 	void updateDisplay();
 
-	// Prints all the PPU internals in a formatted way.
+	// Prints all the internals of the associated component in a formatted way.
 	void printPPUInternals() const;
+	void printCPUInternals();
 
 	// Extra debug variables ("globals")
 	const std::map<char, InputOptions> INPUT_OPTIONS;  // Set of inputs and their descriptions.

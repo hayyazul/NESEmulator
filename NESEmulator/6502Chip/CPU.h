@@ -171,7 +171,7 @@ protected:
 	bool lastNMISignal;  // The last NMI signal; so if the PPU is on Vblank, this gets set to true. This also prevents another NMI from being requested (assuming the PPU's Vblank status is still true).
 
 	bool getOrPutCycle;  // Bool indicating whether the current cycle is a get (false) or a put (true) cycle. Starts as a get cycle, alternates back and forth every cycle. 
-	long unsigned int totalCyclesElapsed = 0;  // Total CPU cycles elapsed since startup. 
+	long unsigned int totalCyclesElapsed = 0;  // Total CPU cycles elapsed since startup. NOTE: Buggy; when DMA is activated, this is not iterated.
 	unsigned int opcodeCyclesElapsed = 0;  // A cycle counter that is present since the CPU began executing a given instruction. Resets when it reaches the number of cycles for a given instruction.
 	unsigned int currentOpcodeCycleLen = 0;  // The number of cycles the current opcode uses.
 
