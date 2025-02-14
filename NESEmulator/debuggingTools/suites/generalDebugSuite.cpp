@@ -47,16 +47,15 @@ Debugging toolset reqs:
 GeneralDebugSuite::GeneralDebugSuite() : 
 	nes(), 
 	graphics(514, 262), 
-	window(SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1024, 480, SDL_WINDOW_RESIZABLE)),
+	window(SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1024, 480, SDL_WINDOW_RESIZABLE | SDL_WINDOW_FULLSCREEN_DESKTOP)),
 	renderer(SDL_CreateRenderer(window, 0, 0)),
 	windowSurface(SDL_GetWindowSurface(window)),
-	BLACK(graphics.getRGB(0x00, 0xff, 0xff)), 
-	YELLOW(graphics.getRGB(0x00, 0xff, 0xff)),
+	BLACK(graphics.getRGB(0x00, 0x00, 0x00)), 
+	YELLOW(graphics.getRGB(0xff, 0xff, 0x00)),
 	INPUT_OPTIONS({
 		{'q', {'q', "Quit"}},
 		{'e', {'e', "Execute cycle"} },
 		{'E', {'E', "Execute [n] cycles"}},
-		{'b', {'b', "Display nametable"}},
 		{'p', {'p', "Dump PPU internals (excludes VRAM and CHRDATA)"}}})
 {}
 GeneralDebugSuite::~GeneralDebugSuite() {}
@@ -84,67 +83,25 @@ void GeneralDebugSuite::run() {
 		inputChar = this->queryForOption();
 		std::cout << std::endl;
 		switch (inputChar) {
-		case('e'): {
-
-			this->nes.executeMachineCycle();
-
-			if (lastPos.dotInRange(256, 340) || lastPos.lineInRange(240, 261)) {
-				this->graphics.drawPixel(BLACK, lastPos.dot, lastPos.scanline);
-			}
-			PPUPosition pos = this->nes.debugPPU.getPosition();
-			lastPos = pos;
-			this->graphics.drawPixel(YELLOW, pos.dot, pos.scanline);
-			displayPalette(this->graphics, this->nes.debugPPU, 341, 0, 3);
-			this->graphics.blitDisplay(this->windowSurface);
-			SDL_UpdateWindowSurface(this->window);
-			break;
-		}
 		case('E'): {
 			int cyclesToExecute = this->CLIInputHandler.getUserInt("How many cycles?\n");
-			if (cyclesToExecute < 0) break;
 			std::cout << std::endl;
-			PPUPosition pos;
 			for (int i = 0; i < cyclesToExecute; ++i) {
 				this->nes.executeMachineCycle();
-				if (this->nes.frameFinished()) {
-					this->graphics.blitDisplay(this->windowSurface);
-					SDL_UpdateWindowSurface(this->window);
+				if (this->nes.frameFinished() || i == cyclesToExecute - 1) {
+					this->updateDisplay();
 				}
 			}
-
 			break;
 		}
-		case('b'): {
-			NTDisplayer.displayNametable(this->graphics, this->nes.debugPPU, 0, 256, 0, 1, false);
-			this->graphics.blitDisplay(this->windowSurface);
-			SDL_UpdateWindowSurface(this->window);
+		case('e'): {
+			this->nes.executeMachineCycle();
+			this->updateDisplay();
 			break;
 		}
 		case('p'): {
 			// TODO: Fully implement; currently only outputs control.
-			PPUInternals ppuInternals = this->nes.getPPUInternals();
-			std::cout << "x: " << displayBinary(ppuInternals.x, 3) <<
-				"\nw: " << ppuInternals.w <<
-				"\nt: " << displayBinary(ppuInternals.t, 15) <<
-				"\nv: " << displayBinary(ppuInternals.v, 15) << std::endl;
-
-
-
-			std::cout << "Control: " << displayBinary(ppuInternals.control, 8) << std::endl;
-			std::cout << "         -------- \n\
-         VPHBSINN \n\
-         |||||||| \n\
-         ||||||++-Base nametable address \n\
-         ||||||    (0 = $2000; 1 = $2400; 2 = $2800; 3 = $2C00) \n\
-         |||||+---VRAM address increment per CPU read / write of PPUDATA \n\
-         |||||     (0: add 1, going across; 1: add 32, going down) \n\
-         ||||+----Sprite pattern table address for 8x8 sprites \n\
-         ||||      (0: $0000; 1: $1000; ignored in 8x16 mode) \n\
-         |||+-----Background pattern table address(0: $0000; 1: $1000) \n\
-         ||+------Sprite size(0: 8x8 pixels; 1: 8x16 pixels – see PPU OAM Byte 1) \n\
-         |+-------PPU master / slave select \n\
-         |         (0: read backdrop from EXT pins; 1: output color on EXT pins) \n\
-         +--------Vblank NMI enable(0: off, 1 : on) \n";
+			this->printPPUInternals();
 			break;
 		}
 		default:
@@ -180,6 +137,9 @@ char GeneralDebugSuite::queryForOption() {
 }
 
 void GeneralDebugSuite::updateDisplay() {
+	bool a, b;
+	a = this->lastPos.dotInRange(256, 340);
+	b = this->lastPos.lineInRange(240, 261);
 	if (this->lastPos.dotInRange(256, 340) || this->lastPos.lineInRange(240, 261)) {
 		this->graphics.drawPixel(BLACK, this->lastPos.dot, this->lastPos.scanline);
 	}
@@ -189,6 +149,60 @@ void GeneralDebugSuite::updateDisplay() {
 	displayPalette(this->graphics, this->nes.debugPPU, 341, 0, 3);
 	this->graphics.blitDisplay(this->windowSurface);
 	SDL_UpdateWindowSurface(this->window);
+}
+
+void GeneralDebugSuite::printPPUInternals() const {
+	const std::array<std::string, 3> PPU_REGISTER_ANNOTATIONS = {
+		"         -------- \n\
+         VPHBSINN \n\
+         |||||||| \n\
+         ||||||++-Base nametable address \n\
+         ||||||    (0 = $2000; 1 = $2400; 2 = $2800; 3 = $2C00) \n\
+         |||||+---VRAM address increment per CPU read / write of PPUDATA \n\
+         |||||     (0: add 1, going across; 1: add 32, going down) \n\
+         ||||+----Sprite pattern table address for 8x8 sprites \n\
+         ||||      (0: $0000; 1: $1000; ignored in 8x16 mode) \n\
+         |||+-----Background pattern table address(0: $0000; 1: $1000) \n\
+         ||+------Sprite size(0: 8x8 pixels; 1: 8x16 pixels – see PPU OAM Byte 1) \n\
+         |+-------PPU master / slave select \n\
+         |         (0: read backdrop from EXT pins; 1: output color on EXT pins) \n\
+         +--------Vblank NMI enable(0: off, 1 : on) \n",
+
+		"         -------- \n\
+         BGRsbMmG \n\
+         |||||||| \n\
+         |||||||+-Greyscale(0: normal color, 1 : greyscale) \n\
+         ||||||+--1: Show background in leftmost 8 pixels of screen, 0 : Hide \n\
+         |||||+---1 : Show sprites in leftmost 8 pixels of screen, 0 : Hide \n\
+         ||||+----1 : Enable background rendering \n\
+         |||+-----1 : Enable sprite rendering \n\
+         ||+------Emphasize red(green on PAL / Dendy) \n\
+         |+-------Emphasize green(red on PAL / Dendy) \n\
+         +--------Emphasize blue \n",
+
+		"         -------- \n\
+         VSOxxxxx \n\
+         |||||||| \n\
+         |||+++++-(PPU open bus or 2C05 PPU identifier [Emudev Note: This is not emulated.]) \n\
+         ||+-------Sprite overflow flag (buggy in real PPUs; this buggyness is emulated) \n\
+         |+--------Sprite 0 hit flag \n\
+         +---------Vblank flag, cleared on read (unreliable due to a bug in real PPUs; this is emulated) \n"
+	};
+
+	PPUInternals ppuInternals = this->nes.getPPUInternals();
+	
+	// Printing the main internals of the PPU.
+	std::cout << "Control: " << displayBinary(ppuInternals.control, 8) << std::endl;
+	std::cout << PPU_REGISTER_ANNOTATIONS.at(0) << std::endl;
+	std::cout << "Mask:    " << displayBinary(ppuInternals.mask, 8) << std::endl;
+	std::cout << PPU_REGISTER_ANNOTATIONS.at(1) << std::endl;
+	std::cout << "Status:  " << displayBinary(ppuInternals.status, 8) << std::endl;
+	std::cout << PPU_REGISTER_ANNOTATIONS.at(2) << std::endl;
+	std::cout << "x: " << displayBinary(ppuInternals.x, 3) <<
+		"\nw: " << ppuInternals.w <<
+		"\nt: " << displayBinary(ppuInternals.t, 15) <<
+		"\nv: " << displayBinary(ppuInternals.v, 15) << std::endl;
+
 }
 
 std::string InputOptions::format() const {

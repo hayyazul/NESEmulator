@@ -18,18 +18,24 @@ struct InputOptions {
 	std::string format() const;
 };
 
+// NOTE: For now, this assumes cartridge data is unmodified (so no cartridge RAM).
+// This will change once I start working on more advanced mappers.
 class GeneralDebugSuite {
 public:
 	GeneralDebugSuite();
 	~GeneralDebugSuite();
 
 	void run();
-
+	
 private:
 	// Queries the user for an option in the main part of the 
 	char queryForOption();
-	
+
+	// Update the display by blitting the screen and position the PPU beam pos marker.
 	void updateDisplay();
+
+	// Prints all the PPU internals in a formatted way.
+	void printPPUInternals() const;
 
 	// Extra debug variables ("globals")
 	const std::map<char, InputOptions> INPUT_OPTIONS;  // Set of inputs and their descriptions.

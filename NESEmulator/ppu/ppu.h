@@ -317,6 +317,7 @@ protected:
 
 	uint8_t PPUDATABuffer;  // A buffer to hold the value at the last VRAM address; used in conjunction w/ reads on PPUDATA.
 	uint8_t ioBus;  // The I/O data bus; this must be at least partly emulated to make some PPU register read/write operations work. It is also used for primary-to-secondary OAM data transfer.
+	
 	/* This is mainly because of 1. reads to write - only registers should return the I / O bus value; 2. PPUSTATUS returns the first 5 bits of this bus.
 	 On the actual console, the values in this bus decay, but I won't emulate that (for now?).
 	

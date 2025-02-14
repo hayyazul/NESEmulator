@@ -23,7 +23,10 @@ inline uint32_t memAddrToiNESAddr(uint16_t memAddr) {
 	return (memAddr - 0x8000 + 0x10) % 0x4000;
 };
 
-
+// Contains all updateable internals of the NES.
+//struct NESInternals {
+	
+//};
 
 class NESDebug : public NES {
 public:

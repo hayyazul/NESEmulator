@@ -27,6 +27,19 @@ PPUInternals PPUDebug::getInternals() const {
 	ppuInternals.control = this->control;
 	ppuInternals.mask = this->mask;
 	ppuInternals.status = this->status;
+	ppuInternals.beamPos = this->beamPos;
+	ppuInternals.cycleCount = this->cycleCount;
+	ppuInternals.frameCount = this->frameCount;
+	ppuInternals.paletteControl = this->paletteControl;
+	ppuInternals.OAM = this->OAM;
+	ppuInternals.secondaryOAM = this->secondaryOAM;
+	ppuInternals.spriteEvalCycle = this->spriteEvalCycle;
+	ppuInternals.requestingOAMDMA = this->requestingOAMDMA;
+	ppuInternals.dmaPage = this->dmaPage;
+	ppuInternals.OAMAddr = this->OAMAddr;
+	ppuInternals.PPUDATABuffer = this->PPUDATABuffer;
+	ppuInternals.ioBus = this->ioBus;
+	ppuInternals.VRAM = (*this->VRAM);
 
 	return ppuInternals;
 }

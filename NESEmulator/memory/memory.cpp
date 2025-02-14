@@ -1,6 +1,6 @@
 #include "memory.h"
 
-Memory::Memory() : Memory(BYTES_OF_MEMORY) {}
+Memory::Memory() : Memory(0) {}
 Memory::Memory(unsigned int size) {
 	for (unsigned int i = 0; i < size; ++i) {
 		this->data.push_back(0);
@@ -16,11 +16,24 @@ uint8_t Memory::getByte(uint16_t address) const {
 	return this->data.at(address);
 }
 
-void Memory::operator=(Memory& memory) {
-	int bytesToCopy = this->data.size() > memory.data.size() ? memory.data.size() : this->data.size();
+Memory& Memory::operator=(const Memory& memory) {
+	// Copy only as many bytes as we can store UNLESS our size is 0; in which case, increase the size of this
+	// module to account for that.
+	int bytesToCopy;
+	if (this->data.size()) {
+		bytesToCopy = this->data.size() > memory.data.size() ? memory.data.size() : this->data.size();
+	} else {
+		bytesToCopy = memory.data.size();
+		for (int i = 0; i < bytesToCopy; ++i) {
+			this->data.push_back(0);
+		}
+	}
+
 	for (int i = 0; i < bytesToCopy; ++i) {
 		this->data.at(i) = memory.data.at(i);
 	}
+
+	return *this;
 }
 
 uint8_t Memory::setByte(uint16_t address, uint8_t value) {
