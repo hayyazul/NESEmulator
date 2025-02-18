@@ -26,9 +26,14 @@ void _6502_CPU::attach(DataBus* databus) {
 	this->databus = databus;
 }
 
-CPUCycleOutcomes _6502_CPU::executeCycle() {
+CPUCycleOutcomes _6502_CPU::executeCycle(bool DMACycle) {
 	// Outdated comment // First check if the number of cycles elapsed corresponds with the number of cycles the instruction takes up. If so, execute the next instruction.
 	CPUCycleOutcomes outcome = PASS;
+
+	if (DMACycle) {
+		++this->totalCyclesElapsed;
+		return outcome;
+	}
 
 	if (this->opcodeCyclesElapsed == this->currentOpcodeCycleLen) {  // Performs the actions for an instruction in a CPU cycle.
 		if (this->nmiRequested) {
@@ -75,16 +80,6 @@ CPUCycleOutcomes _6502_CPU::executeCycle() {
 
 	++this->totalCyclesElapsed;
 	++this->opcodeCyclesElapsed;
-
-	if (this->registers.PC == 0xc870) {  // DMA instruction in NMI
-		int _ = 0;
-	} else if (this->registers.PC == 0xc875) {  // 2 instructions after DMA.
-		int _ = 0;
-	}
-
-	if (this->totalCyclesElapsed == 14351) {
-		int _ = 0;
-	}
 
 	return outcome;
 }
@@ -150,6 +145,7 @@ void _6502_CPU::performInterruptActions() {
 	this->registers.setStatus('I', true);
 	this->performInterrupt = false;
 	this->interruptRequested = false;
+	this->totalCyclesElapsed += 7;
 }
 
 void _6502_CPU::performNMIActions() {
@@ -173,6 +169,7 @@ void _6502_CPU::performNMIActions() {
 
 	this->registers.setStatus('I', true);
 	this->nmiRequested = false;
+	this->totalCyclesElapsed += 7;
 }
 
 void _6502_CPU::executeOpcode(uint8_t opcode) {

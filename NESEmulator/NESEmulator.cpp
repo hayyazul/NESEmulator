@@ -117,21 +117,21 @@ NESCycleOutcomes NES::performCPUCycle() {
 	CPUCycleOutcomes cpuResult = PASS;
 
 	// Execute a CPU cycle.
-	if (!this->haltCPUOAM) {  // First, check if the CPU is halted or not for DMA.
-		cpuResult = this->CPU->executeCycle();
+	cpuResult = this->CPU->executeCycle(this->haltCPUOAM);
 
-		switch (cpuResult) {
-		case(INSTRUCTION_EXECUTED):
-			nesResult = INSTRUCTION_AND_PPU_CYCLE;
-			break;
-		case(FAIL):
-			nesResult = FAIL_CYCLE;
-			break;
-		default:
-			nesResult = BOTH_CYCLE;
-			break;
-		}
-	} else {  // If it is halted, then perform the appropriate DMA action. NOTE: I will need to later expand this to work with the APU's DMA.
+	switch (cpuResult) {
+	case(INSTRUCTION_EXECUTED):
+		nesResult = INSTRUCTION_AND_PPU_CYCLE;
+		break;
+	case(FAIL):
+		nesResult = FAIL_CYCLE;
+		break;
+	default:
+		nesResult = BOTH_CYCLE;
+		break;
+	}
+	
+	if (this->haltCPUOAM) {  // If it is halted, then perform the appropriate DMA action. NOTE: I will need to later expand this to work with the APU's DMA.
 		this->haltCPUOAM = this->DMAUnit.performDMACycle(this->CPU->getCycleType());
 	}
 

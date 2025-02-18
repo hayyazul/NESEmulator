@@ -214,7 +214,7 @@ struct Instruction {
 		default:
 			break;
 		}
-	}
+ 	}
 };
 
 namespace helperByteOps {

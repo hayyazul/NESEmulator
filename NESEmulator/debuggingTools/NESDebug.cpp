@@ -53,12 +53,12 @@ OAMDMAUnit NESDebug::getOAMDMAUnit() const {
 	return this->DMAUnit;
 }
 
-void NESDebug::getRAM(RAM* ram) {
-	*ram = this->debugRAM;
+void NESDebug::getRAM(RAM& ram) {
+	ram = this->debugRAM;
 }
 
-void NESDebug::getVRAM(Memory* vram) {
-	*vram = this->debugVRAM;
+void NESDebug::getVRAM(Memory& vram) {
+	vram = this->debugVRAM;
 }
 
 NESInternals::NESInternals() {

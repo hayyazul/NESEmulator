@@ -56,6 +56,8 @@ GeneralDebugSuite::GeneralDebugSuite() :
 		{'q', {'q', "Quit"}},
 		{'e', {'e', "Execute cycle"} },
 		{'E', {'E', "Execute [n] cycles"}},
+		{'F', {'F', "Execute till PC is at [x], trying for [n] machine cycles"}},
+		{'f', {'f', "Execute till next instruction"}},
 		{'p', {'p', "Dump PPU internals (excludes VRAM and CHRDATA)"}},
 		{'c', {'c', "Dump CPU internals (excludes RAM and DMA data)"}},
 		{'s', {'s', "Save NES internals (includes RAM, VRAM, and DMA data)"}},
@@ -100,8 +102,39 @@ void GeneralDebugSuite::run() {
 			}
 			break;
 		}
+		case('F'): {
+			int attemptsAllowed = this->CLIInputHandler.getUserInt("How many machine cycles?\n");
+			std::cout << std::endl;
+			uint16_t PCBreakPoint = this->CLIInputHandler.getUserHex("PC to stop at?\n");
+			std::cout << std::endl;
+			for (int i = 0; i < attemptsAllowed; ++i) {
+				NESCycleOutcomes outcome = this->nes.executeMachineCycle();
+				// Update the display if we finish a frame or execution.
+				if (this->nes.debugCPU.pcAt(PCBreakPoint) || this->nes.frameFinished() || i == attemptsAllowed - 1) {
+					this->updateDisplay();
+				}
+				// Check if we reached the breakpoint; inform the user if we did.
+				if (this->nes.debugCPU.pcAt(PCBreakPoint)) {
+						std::cout << " * Break at " << displayHex(PCBreakPoint, 4) << std::endl;
+						break;
+				}
+				// If we have not reached the breakpoint and we were on our last attempt, we failed to reach it.
+				if (i == attemptsAllowed - 1) {
+					std::cout << " * Failed to find breakpoint " << displayHex(PCBreakPoint, 4) << std::endl;
+				}
+			}
+			break;
+		}
 		case('e'): {
 			this->nes.executeMachineCycle();
+			this->updateDisplay();
+			break;
+		}
+		case('f'): {
+			NESCycleOutcomes outcome;
+			do {
+				outcome = this->nes.executeMachineCycle();
+			} while (outcome != INSTRUCTION_AND_PPU_CYCLE && outcome != FAIL_CYCLE);
 			this->updateDisplay();
 			break;
 		}
@@ -130,6 +163,7 @@ void GeneralDebugSuite::run() {
 		case('v'): {
 			int idxToLoad = this->CLIInputHandler.getUserInt("What index to load?\n");
 			this->loadState(idxToLoad);
+			break;
 		}
 		default:
 			break;
@@ -203,8 +237,8 @@ void GeneralDebugSuite::printPPUInternals(PPUInternals ppuInternals) const {
          |||||+--- 1 : Show sprites in leftmost 8 pixels of screen, 0 : Hide \n\
          ||||+---- 1 : Enable background rendering \n\
          |||+----- 1 : Enable sprite rendering \n\
-         ||+------ Emphasize red(green on PAL / Dendy) \n\
-         |+------- Emphasize green(red on PAL / Dendy) \n\
+         ||+------ Emphasize red \n\
+         |+------- Emphasize green \n\
          +-------- Emphasize blue \n",
 
 		"         -------- \n\
@@ -227,8 +261,11 @@ void GeneralDebugSuite::printPPUInternals(PPUInternals ppuInternals) const {
 	std::cout << PPU_REGISTER_ANNOTATIONS.at(2) << std::endl;
 	std::cout << "x: " << displayBinary(ppuInternals.x, 3) <<
 		"\nw: " << ppuInternals.w <<
-		"\nt: " << displayBinary(ppuInternals.t, 15) <<
-		"\nv: " << displayBinary(ppuInternals.v, 15) << std::endl;
+		"\nt: " << displayBinary(ppuInternals.t, 15) << " | " << displayHex(ppuInternals.t, 4) <<
+		"\nv: " << displayBinary(ppuInternals.v, 15) << " | " << displayHex(ppuInternals.v, 4) << std::endl;
+	std::cout << std::dec << "dot: " << ppuInternals.beamPos.dot <<
+		"\nline: " << ppuInternals.beamPos.scanline;
+	std::cout << "\ncycles: " << ppuInternals.cycleCount << std::endl;
 
 }
 
@@ -237,6 +274,7 @@ void GeneralDebugSuite::printCPUInternals(CPUInternals cpuInternals) {
 	//CPUInternals cpuInternals = this->nes.getCPUInternals();
 	
 	// Print everything as hex except the status flag; print that as binary.
+	std::cout << "CPU Cycle Count: " << std::dec << cpuInternals.totalCyclesElapsed << std::endl;
 	std::cout << "PC: " << displayHex(cpuInternals.registers.PC, 4) << std::endl;
 	std::cout << "A:  " << displayHex(cpuInternals.registers.A, 2) << std::endl;
 	std::cout << "X:  " << displayHex(cpuInternals.registers.X, 2) << std::endl;
@@ -291,7 +329,7 @@ void GeneralDebugSuite::saveState() {
 	// We save the internals of the CPU, PPU, RAM, and VRAM.
 	internals.cpuInternals = this->nes.getCPUInternals();
 	internals.ppuInternals = this->nes.getPPUInternals();
-	this->nes.getRAM(&internals.ram);
+	this->nes.getRAM(internals.ram);
 	internals.oamDMAUnit = this->nes.getOAMDMAUnit();
 
 	this->saveStates.push_back(internals);

@@ -48,6 +48,7 @@ private:
 	// Loads a saveState.
 	void loadState(int idx);
 
+
 	// Extra debug variables ("globals")
 	const std::map<char, InputOptions> INPUT_OPTIONS;  // Set of inputs and their descriptions.
 	PPUPosition lastPos;

@@ -14,13 +14,13 @@ CPUDebugger::CPUDebugger(DebugDatabus* databus) : databus(databus), _6502_CPU(da
 CPUDebugger::~CPUDebugger() {}
 
 // Make it return an error code instead of a bool.
-CPUCycleOutcomes CPUDebugger::executeCycle() {
+CPUCycleOutcomes CPUDebugger::executeCycle(bool DMACycle) {
 	
 	// Data that needs to be recorded before execution.
 	uint8_t opcode = this->databus->read(this->registers.PC);
 	if (!INSTRUCTION_SET.count(opcode)) {
 		int _ = 0;
-		//return FAIL;
+		return FAIL;
 	}
 
 	Instruction* instruction = &INSTRUCTION_SET.at(opcode);
@@ -31,7 +31,7 @@ CPUCycleOutcomes CPUDebugger::executeCycle() {
 	for (int i = 1; i < instruction->numBytes; ++i) {
 		operands[i - 1] = this->databus->read(this->registers.PC + i);
 	}
-	CPUCycleOutcomes outcome = _6502_CPU::executeCycle();
+	CPUCycleOutcomes outcome = _6502_CPU::executeCycle(DMACycle);
 
 	// TODO: Fix the bug where the constant 1 is allowed to be unset; it should not, the CPU should check if it is unset and re-set it to 1.
 	// DEBUG:

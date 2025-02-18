@@ -241,6 +241,8 @@ uint8_t PPU::readRegister(uint16_t address) {
 		// on some flags.
 		this->ioBus &= 0b00011111;  // First, clear out the last 3 bits of ioBus.
 		this->ioBus += this->status;  // Then, add the last 3 bits of PPUSTATUS to it (the other btis in PPUSTATUS should be 0).
+		// Now we clear the V blank flag of status:
+		this->status &= 0b01111111;
 		break;
 	case(0x2004):  // OAMDATA
 		this->ioBus = this->OAM.getByte(this->OAMAddr);  // Simply gets the value from OAM at OAMADDR.

@@ -300,7 +300,7 @@ public:
 	~CPUDebugger();
 
 	// Note: Currently one cycle = one instruction, but in reality it is different and depends on the specific instruction.
-	CPUCycleOutcomes executeCycle() override;
+	CPUCycleOutcomes executeCycle(bool DMACycle=false) override;
 	virtual void attach(DataBus* databus) override;
 	
 	// Returns the internals of the CPU (does not include things the CPU writes and reads to like RAM).

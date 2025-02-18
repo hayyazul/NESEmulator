@@ -52,8 +52,8 @@ public:
 	PPUInternals getPPUInternals() const;  // Returns a struct containing the value of every internal (excludes VRAM and CHRDATA) element of the PPU.
 	CPUInternals getCPUInternals() const;
 	OAMDMAUnit getOAMDMAUnit() const;  // Returns a reference to the OAM DMA unit inside the NES.
-	void getRAM(RAM* RAM);  // Copies the current values inside RAM to the memory indicated by the argument.
-	void getVRAM(Memory* VRAM);  // Like getRAM but gets VRAM instead. NOTE: Might be removed.
+	void getRAM(RAM& RAM);  // Copies the current values inside RAM to the memory indicated by the argument.
+	void getVRAM(Memory& VRAM);  // Like getRAM but gets VRAM instead. NOTE: Might be removed.
 
 	// Instances of the debugger versions of the databus and CPU.
 	PPUDebug debugPPU;

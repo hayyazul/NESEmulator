@@ -242,7 +242,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void BCC(Registers& registers, uint8_t data, bool& branched) {
         int8_t offset = data;  // Treat the data as signed.
         if (!registers.getStatus('C')) {
-            registers.PC += offset;
+            registers.PC += (int8_t)offset;
             branched = true;
         } else {
             branched = false;
@@ -260,7 +260,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void BCS(Registers& registers, uint8_t data, bool& branched) {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('C')) {
-            registers.PC += data;
+            registers.PC += (int8_t)data;
             branched = true;
         } else {
             branched = false;
@@ -280,7 +280,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void BEQ(Registers& registers, uint8_t data, bool& branched) {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('Z')) {
-            registers.PC += offset;
+            registers.PC += (int8_t)offset;
             branched = true;
         } else {
             branched = false;
@@ -325,7 +325,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void BMI(Registers& registers, uint8_t data, bool& branched) {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('N')) {
-            registers.PC += offset;
+            registers.PC += (int8_t)offset;
             branched = true;
         } else {
             branched = false;
@@ -343,7 +343,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void BNE(Registers& registers, uint8_t data, bool& branched) {
         int8_t offset = data;  // Treat the data as signed.
         if (!registers.getStatus('Z')) {
-            registers.PC += offset;
+            registers.PC += (int8_t)offset;
             branched = true;
         } else {
             branched = false;
@@ -361,7 +361,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void BPL(Registers& registers, uint8_t data, bool& branched) {
         int8_t offset = data;  // Treat the data as signed.
         if (!registers.getStatus('N')) {
-            registers.PC += offset;
+            registers.PC += (int8_t)offset;
             branched = true;
         } else {
             branched = false;
@@ -411,7 +411,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void BVC(Registers& registers, uint8_t data, bool& branched) {
         int8_t offset = data;  // Treat the data as signed.
         if (!registers.getStatus('V')) {
-            registers.PC += offset;
+            registers.PC += (int8_t)offset;
             branched = true;
         } else {
             branched = false;
@@ -429,7 +429,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void BVS(Registers& registers, uint8_t data, bool& branched) {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('V')) {
-            registers.PC += offset;
+            registers.PC += (int8_t)offset;
             branched = true;
         }  else {
             branched = false;

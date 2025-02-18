@@ -125,7 +125,7 @@ public:
 	Executes a machine cycle which for now is equivalent to one cpu cycle. Returns True if the cycle has been successful, false if
 	otherwise (e.g. illegal opcode).
 	*/
-	virtual CPUCycleOutcomes executeCycle();
+	virtual CPUCycleOutcomes executeCycle(bool DMACycle = false);
 
 	// Makes a request for an IRQ interrupt; ignored if the Interrupt Disable Flag (I) is set to 1.
 	virtual void requestInterrupt();
