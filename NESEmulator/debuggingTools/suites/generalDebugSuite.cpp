@@ -57,7 +57,11 @@ GeneralDebugSuite::GeneralDebugSuite() :
 		{'e', {'e', "Execute cycle"} },
 		{'E', {'E', "Execute [n] cycles"}},
 		{'p', {'p', "Dump PPU internals (excludes VRAM and CHRDATA)"}},
-		{'c', {'c', "Dump CPU internals (excludes RAM and DMA data)"}} 
+		{'c', {'c', "Dump CPU internals (excludes RAM and DMA data)"}},
+		{'s', {'s', "Save NES internals (includes RAM, VRAM, and DMA data)"}},
+		{'t', {'t', "Print available save states (prints the machine cycle associated w/ it)"}},
+		{'u', {'u', "Delete a given save state"}},
+		{'v', {'v', "Loads a given save state"}}
 		})
 {}
 GeneralDebugSuite::~GeneralDebugSuite() {}
@@ -73,9 +77,9 @@ void GeneralDebugSuite::run() {
 	PatternTableDisplayer PTDisplayer;
 	NametableDisplayer NTDisplayer;
 
-	CPUCycleOutcomes cpuCycleOutcome = FAIL;
-
 	std::cout << "Entering Debugging mode..." << std::endl;
+	
+	CPUCycleOutcomes cpuCycleOutcome;
 
 	std::string msg;
 	bool outputResults = true;
@@ -103,12 +107,29 @@ void GeneralDebugSuite::run() {
 		}
 		case('p'): {
 			// TODO: Fully implement; currently only outputs control.
-			this->printPPUInternals();
+			this->printPPUInternals(this->nes.getPPUInternals());
 			break;
 		}
 		case('c'): {
-			this->printCPUInternals();
+			this->printCPUInternals(this->nes.getCPUInternals());
 			break;
+		}
+		case('s'): {
+			this->saveState();
+			break;
+		}
+		case('t'): {
+			this->printSavedStates();
+			break;
+		}
+		case('u'): {
+			int idxToDel = this->CLIInputHandler.getUserInt("What index to delete?\n");
+			this->deleteSavedState(idxToDel);
+			break;
+		}
+		case('v'): {
+			int idxToLoad = this->CLIInputHandler.getUserInt("What index to load?\n");
+			this->loadState(idxToLoad);
 		}
 		default:
 			break;
@@ -157,7 +178,7 @@ void GeneralDebugSuite::updateDisplay() {
 	SDL_UpdateWindowSurface(this->window);
 }
 
-void GeneralDebugSuite::printPPUInternals() const {
+void GeneralDebugSuite::printPPUInternals(PPUInternals ppuInternals) const {
 	const std::array<std::string, 3> PPU_REGISTER_ANNOTATIONS = {
 		"         -------- \n\
          VPHBSINN \n\
@@ -195,7 +216,7 @@ void GeneralDebugSuite::printPPUInternals() const {
          +-------- Vblank flag, cleared on read (unreliable due to a bug in real PPUs; this is emulated) \n"
 	};
 
-	PPUInternals ppuInternals = this->nes.getPPUInternals();
+	//PPUInternals ppuInternals = this->nes.getPPUInternals();
 	
 	// Printing the main internals of the PPU.
 	std::cout << "Control: " << displayBinary(ppuInternals.control, 8) << std::endl;
@@ -211,9 +232,9 @@ void GeneralDebugSuite::printPPUInternals() const {
 
 }
 
-void GeneralDebugSuite::printCPUInternals() {
+void GeneralDebugSuite::printCPUInternals(CPUInternals cpuInternals) {
 	// Getting the inernals of the CPU (excludes the DMA, which is not internal to the CPU).
-	CPUInternals cpuInternals = this->nes.getCPUInternals();
+	//CPUInternals cpuInternals = this->nes.getCPUInternals();
 	
 	// Print everything as hex except the status flag; print that as binary.
 	std::cout << "PC: " << displayHex(cpuInternals.registers.PC, 4) << std::endl;
@@ -234,6 +255,7 @@ void GeneralDebugSuite::printCPUInternals() {
    |+------- Overflow \n\
    +-------- Negative" << std::endl;
 
+	/*
 	// We will also print the PC vectors. NOTE: These reads are potentially dangerous because read does not guarantee non-modification of any internal values.
 	// However, the locations being read SHOULD not affect anything internally.
 	std::array<uint16_t, 3> PC_VECTORS;
@@ -243,6 +265,48 @@ void GeneralDebugSuite::printCPUInternals() {
 	std::cout << "NMI Vector:   " << displayHex(PC_VECTORS.at(0), 4) << std::endl;
 	std::cout << "RESET Vector: " << displayHex(PC_VECTORS.at(1), 4) << std::endl;
 	std::cout << "IRQ Vector:   " << displayHex(PC_VECTORS.at(2), 4) << std::endl;
+	*/
+}
+
+void GeneralDebugSuite::printSavedStates() const {
+	for (int i = 0; i < this->saveStates.size(); ++i) {
+		NESInternals internals = this->saveStates.at(i);
+		std::cout << "    * Save " << std::dec << i + 1 << " Cycles: " << internals.getMachineCycles() << std::endl;
+	}
+}
+
+void GeneralDebugSuite::deleteSavedState(int idx) {
+	// First check if the given index is within bounds.
+	if (idx > this->saveStates.size() || idx < 1) {
+		std::cout << "    * Invalid index " << std::dec << idx << " for save state vector of size " << this->saveStates.size() << std::endl;
+		return;
+	}
+
+	// Now erase the given index.
+	this->saveStates.erase(this->saveStates.begin() + idx - 1);
+}
+
+void GeneralDebugSuite::saveState() {
+	NESInternals internals;
+	// We save the internals of the CPU, PPU, RAM, and VRAM.
+	internals.cpuInternals = this->nes.getCPUInternals();
+	internals.ppuInternals = this->nes.getPPUInternals();
+	this->nes.getRAM(&internals.ram);
+	internals.oamDMAUnit = this->nes.getOAMDMAUnit();
+
+	this->saveStates.push_back(internals);
+}
+
+void GeneralDebugSuite::loadState(int idx) {
+	// First check if the given index is within bounds.
+	if (idx > this->saveStates.size() || idx < 1) {
+		std::cout << "    * Invalid index " << std::dec << idx << " for save state vector of size " << this->saveStates.size() << std::endl;
+		return;
+	}
+
+	// Then load the given state. 
+	NESInternals internals = this->saveStates.at(idx - 1);
+	this->nes.loadInternals(internals);
 }
 
 std::string InputOptions::format() const {

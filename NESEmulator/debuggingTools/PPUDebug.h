@@ -59,7 +59,7 @@ struct PPUInternals {
 
 	Memory VRAM;
 
-	PPUInternals() {}
+	PPUInternals() : VRAM(VRAM_SIZE) {}
 	~PPUInternals() {}
 };
 
@@ -71,6 +71,7 @@ public:
 
 	// Debug Methods
 	PPUInternals getInternals() const;  // Returns a struct containing all internals (excludes VRAM and CHRDATA) of the PPU.
+	bool loadInternals(PPUInternals ppuInternals);  // Loads in some given ppu internals.
 
 	PPUPosition getPosition() const;  // Gets the position of the "beam"
 

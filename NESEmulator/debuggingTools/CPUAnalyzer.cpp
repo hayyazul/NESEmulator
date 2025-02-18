@@ -19,7 +19,8 @@ CPUCycleOutcomes CPUDebugger::executeCycle() {
 	// Data that needs to be recorded before execution.
 	uint8_t opcode = this->databus->read(this->registers.PC);
 	if (!INSTRUCTION_SET.count(opcode)) {
-		return FAIL;
+		int _ = 0;
+		//return FAIL;
 	}
 
 	Instruction* instruction = &INSTRUCTION_SET.at(opcode);
@@ -63,6 +64,18 @@ CPUInternals CPUDebugger::getInternals() const {
 void CPUDebugger::attach(DataBus* databus) {
 	this->databus = databus;
 	_6502_CPU::attach(databus);
+}
+
+void CPUDebugger::loadInternals(CPUInternals cpuInternals) {
+	this->registers = cpuInternals.registers;
+	this->interruptRequested = cpuInternals.interruptRequested;
+	this->performInterrupt = cpuInternals.performInterrupt;
+	this->nmiRequested = cpuInternals.nmiRequested;
+	this->lastNMISignal = cpuInternals.lastNMISignal;
+	this->getOrPutCycle = cpuInternals.getOrPutCycle;
+	this->totalCyclesElapsed = cpuInternals.totalCyclesElapsed;
+	this->opcodeCyclesElapsed = cpuInternals.opcodeCyclesElapsed;
+	this->currentOpcodeCycleLen = cpuInternals.currentOpcodeCycleLen;
 }
 
 std::vector<uint8_t> CPUDebugger::memDump(uint16_t startAddr, uint16_t endAddr) {

@@ -47,3 +47,12 @@ void OAMDMAUnit::setPage(uint8_t page) {
 void OAMDMAUnit::attachDatabus(NESDatabus* CPUDatabus) {
 	this->databus = CPUDatabus;
 }
+
+OAMDMAUnit& OAMDMAUnit::operator=(const OAMDMAUnit& otherDMAUnit) {
+	this->readOrWrite = otherDMAUnit.readOrWrite;
+	this->endAddress = otherDMAUnit.endAddress;
+	this->address = otherDMAUnit.address;
+	this->OAMDataToTransfer = otherDMAUnit.OAMDataToTransfer;
+
+	return *this;
+}

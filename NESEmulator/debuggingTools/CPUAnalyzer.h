@@ -305,6 +305,7 @@ public:
 	
 	// Returns the internals of the CPU (does not include things the CPU writes and reads to like RAM).
 	CPUInternals getInternals() const;
+	void loadInternals(CPUInternals cpuInternals);  // Loads in some given CPU internals.
 
 	bool pcAt(uint16_t address);  // Tells you when the PC has reached a certain value; useful for breakpoints.
 	

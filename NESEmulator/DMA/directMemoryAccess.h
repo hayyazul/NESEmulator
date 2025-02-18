@@ -65,6 +65,9 @@ public:
 	// Things needed to attach
 	void attachDatabus(NESDatabus* CPUDatabus);  // Attached a databus to this unit; the databus you attach should be the same one used by the CPU.
 
+	// Copies the values inside a given dma unit to this one EXCEPT the pointer to the databus.
+	OAMDMAUnit& operator=(const OAMDMAUnit& otherDMAUnit);
+
 private:
 	DMACycles::CycleType readOrWrite;  // Whether this DMA unit needs to read (false) or write (true).
 	uint16_t endAddress;  // The address to stop transfering data on.  

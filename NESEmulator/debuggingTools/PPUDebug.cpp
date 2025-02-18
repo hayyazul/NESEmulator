@@ -44,6 +44,35 @@ PPUInternals PPUDebug::getInternals() const {
 	return ppuInternals;
 }
 
+bool PPUDebug::loadInternals(PPUInternals ppuInternals) {
+	// TODO: Complete implementation.
+	this->backgroundShiftRegisters = ppuInternals.backgroundShiftRegisters;
+	this->latches = ppuInternals.latches;
+	this->spriteShiftRegisters = ppuInternals.spriteShiftRegisters;
+	this->x = ppuInternals.x;
+	this->t = ppuInternals.t;
+	this->v = ppuInternals.v;
+	this->w = ppuInternals.w;
+	this->control = ppuInternals.control;
+	this->mask = ppuInternals.mask;
+	this->status = ppuInternals.status;
+	this->beamPos = ppuInternals.beamPos;
+	this->cycleCount = ppuInternals.cycleCount;
+	this->frameCount = ppuInternals.frameCount;
+	this->paletteControl = ppuInternals.paletteControl;
+	this->OAM = ppuInternals.OAM;
+	this->secondaryOAM = ppuInternals.secondaryOAM;
+	this->spriteEvalCycle = ppuInternals.spriteEvalCycle;
+	this->requestingOAMDMA = ppuInternals.requestingOAMDMA;
+	this->dmaPage = ppuInternals.dmaPage;
+	this->OAMAddr = ppuInternals.OAMAddr;
+	this->PPUDATABuffer = ppuInternals.PPUDATABuffer;
+	this->ioBus = ppuInternals.ioBus;
+	*this->VRAM = ppuInternals.VRAM;
+
+	return true;
+}
+
 PPUPosition PPUDebug::getPosition() const {
 	return this->beamPos;
 }

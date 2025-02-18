@@ -31,6 +31,14 @@ bool NESDebug::frameFinished() const {
 	return atEndOfFrame;
 }
 
+
+void NESDebug::loadInternals(NESInternals internals) {
+	this->debugCPU.loadInternals(internals.cpuInternals);
+	this->debugPPU.loadInternals(internals.ppuInternals);
+	this->DMAUnit = internals.oamDMAUnit;
+	*this->ram = internals.ram;
+}
+
 PPUInternals NESDebug::getPPUInternals() const {
 	// TODO: Complete implementation;
 	PPUInternals ppuInternals = debugPPU.getInternals();
@@ -39,4 +47,25 @@ PPUInternals NESDebug::getPPUInternals() const {
 
 CPUInternals NESDebug::getCPUInternals() const {
 	return this->debugCPU.getInternals();
+}
+
+OAMDMAUnit NESDebug::getOAMDMAUnit() const {
+	return this->DMAUnit;
+}
+
+void NESDebug::getRAM(RAM* ram) {
+	*ram = this->debugRAM;
+}
+
+void NESDebug::getVRAM(Memory* vram) {
+	*vram = this->debugVRAM;
+}
+
+NESInternals::NESInternals() {
+}
+
+NESInternals::~NESInternals() {}
+
+int NESInternals::getMachineCycles() const {
+	return this->ppuInternals.cycleCount;
 }

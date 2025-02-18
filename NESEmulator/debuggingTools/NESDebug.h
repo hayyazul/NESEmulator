@@ -27,6 +27,12 @@ inline uint32_t memAddrToiNESAddr(uint16_t memAddr) {
 struct NESInternals {
 	PPUInternals ppuInternals;
 	CPUInternals cpuInternals;
+	OAMDMAUnit oamDMAUnit;
+	RAM ram;
+
+	NESInternals();
+	~NESInternals();
+	int getMachineCycles() const;
 };
 
 class NESDebug : public NES {
@@ -41,8 +47,13 @@ public:
 	// --- Debug Methods ---
 	bool frameFinished() const;  // Returns true when the frame is finished drawing.
 	
+	// Loads CPU, PPU, DMA, RAM, and VRAM internals
+	void loadInternals(NESInternals internals);
 	PPUInternals getPPUInternals() const;  // Returns a struct containing the value of every internal (excludes VRAM and CHRDATA) element of the PPU.
 	CPUInternals getCPUInternals() const;
+	OAMDMAUnit getOAMDMAUnit() const;  // Returns a reference to the OAM DMA unit inside the NES.
+	void getRAM(RAM* RAM);  // Copies the current values inside RAM to the memory indicated by the argument.
+	void getVRAM(Memory* VRAM);  // Like getRAM but gets VRAM instead. NOTE: Might be removed.
 
 	// Instances of the debugger versions of the databus and CPU.
 	PPUDebug debugPPU;

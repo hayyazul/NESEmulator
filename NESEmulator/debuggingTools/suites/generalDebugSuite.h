@@ -35,12 +35,23 @@ private:
 	void updateDisplay();
 
 	// Prints all the internals of the associated component in a formatted way.
-	void printPPUInternals() const;
-	void printCPUInternals();
+	void printPPUInternals(PPUInternals ppuInternals) const;
+	void printCPUInternals(CPUInternals cpuInternals);
+
+	// Saves the internal state at the given cycle.
+	void printSavedStates() const;
+	// Deletes a given save state (if the index exists).
+	void deleteSavedState(int idx);
+
+	// Creates a savestate of the NES at the current cycle.
+	void saveState();
+	// Loads a saveState.
+	void loadState(int idx);
 
 	// Extra debug variables ("globals")
 	const std::map<char, InputOptions> INPUT_OPTIONS;  // Set of inputs and their descriptions.
 	PPUPosition lastPos;
+	std::vector<NESInternals> saveStates;
 
 	// Necessary variables 
 	NESDebug nes;
