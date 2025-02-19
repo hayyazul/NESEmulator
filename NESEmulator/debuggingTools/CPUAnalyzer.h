@@ -289,8 +289,10 @@ struct CPUInternals {
 	unsigned int opcodeCyclesElapsed;  // A cycle counter that is present since the CPU began executing a given instruction. Resets when it reaches the number of cycles for a given instruction.
 	unsigned int currentOpcodeCycleLen;  // The number of cycles the current opcode uses.
 
-	CPUInternals() {};
-	~CPUInternals() {};
+	CPUInternals();
+	~CPUInternals();
+
+	std::string getSerialFormat() const;
 };
 
 class CPUDebugger : public _6502_CPU {

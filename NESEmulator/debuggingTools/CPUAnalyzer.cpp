@@ -3,6 +3,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <minmax.h>
+#include <sstream>
 #include "../memory/memory.h"
 #include "../input/cmdInput.h"
 
@@ -140,3 +141,31 @@ std::array<uint8_t, 0x100> CPUDebugger::dumpStack() {
 	return stack;
 }
 
+CPUInternals::CPUInternals() {};
+CPUInternals::~CPUInternals() {};
+
+std::string CPUInternals::getSerialFormat() const {
+
+	std::stringstream preSerializedStr;
+
+	preSerializedStr << "REGISTERS: " << (int)registers.PC;
+	preSerializedStr << ", " << (int)registers.A;
+	preSerializedStr << ", " << (int)registers.X;
+	preSerializedStr << ", " << (int)registers.Y;
+	preSerializedStr << ", " << (int)registers.SP;
+	preSerializedStr << ", " << (int)registers.S << '\n';
+
+	preSerializedStr << "IRQREQ: " << (int)interruptRequested << '\n';
+	preSerializedStr << "IRQPERFORM: " << (int)performInterrupt << '\n';
+
+	preSerializedStr << "NMIREQ: " << (int)nmiRequested << '\n';
+	preSerializedStr << "LASTNMI: " << (int)lastNMISignal << '\n';
+
+	preSerializedStr << "CYCLETYPE: " << (int)getOrPutCycle << '\n';
+
+	preSerializedStr << "TOTALCYCLES: " << (int)totalCyclesElapsed << '\n';
+	preSerializedStr << "OPCODECYCLES: " << (int)opcodeCyclesElapsed << '\n';
+	preSerializedStr << "CURRCYCLELEN: " << (int)currentOpcodeCycleLen << '\n';
+
+	return preSerializedStr.str();
+}

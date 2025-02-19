@@ -11,6 +11,7 @@
 #include <SDL.h>
 #include <minmax.h>
 #include <set>
+#include <fstream>
 
 /*
 Debugging toolset reqs:
@@ -63,7 +64,8 @@ GeneralDebugSuite::GeneralDebugSuite() :
 		{'s', {'s', "Save NES internals (includes RAM, VRAM, and DMA data)"}},
 		{'t', {'t', "Print available save states (prints the machine cycle associated w/ it)"}},
 		{'u', {'u', "Delete a given save state"}},
-		{'v', {'v', "Loads a given save state"}}
+		{'v', {'v', "Loads a given save state"}},
+		{'x', {'x', "Serializes a given save state"}}
 		})
 {}
 GeneralDebugSuite::~GeneralDebugSuite() {}
@@ -163,6 +165,10 @@ void GeneralDebugSuite::run() {
 		case('v'): {
 			int idxToLoad = this->CLIInputHandler.getUserInt("What index to load?\n");
 			this->loadState(idxToLoad);
+			break;
+		}
+		case('x'): {
+			this->serializeState(0);
 			break;
 		}
 		default:
@@ -345,6 +351,26 @@ void GeneralDebugSuite::loadState(int idx) {
 	// Then load the given state. 
 	NESInternals internals = this->saveStates.at(idx - 1);
 	this->nes.loadInternals(internals);
+}
+
+void GeneralDebugSuite::serializeState(int idx) {
+	std::string path = this->CLIInputHandler.getUserLine("Directory path (full path): ");
+	// Checking if there is a dot in the path, suggesting the user accidentally input a file.
+	if (strchr(path.c_str(), '.') != nullptr) {
+		std::cout << " * Invalid path; leads to a file not a directory.\n";
+		return;
+	}
+	// Checking if the last character isn't a slash, fixing the path if it isn't present.
+	if (path.back() != '/') {
+		path += '/';
+	}
+	std::string filename = "testFile.nesstate";
+	filename = path + filename;
+	std::ofstream file{ filename };
+	
+	file << this->CURRENT_VERSION << '\n';
+	if (this->saveStates.size() == 0) return;
+	file << this->saveStates.at(0).getSerialFormat();
 }
 
 std::string InputOptions::format() const {

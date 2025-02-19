@@ -32,7 +32,11 @@ struct NESInternals {
 
 	NESInternals();
 	~NESInternals();
+
 	int getMachineCycles() const;
+
+	// Returns a string meant to be written to a file containing various parts of the internals seperated by new lines.
+	std::string getSerialFormat() const;
 };
 
 class NESDebug : public NES {

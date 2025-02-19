@@ -2,6 +2,7 @@
 #include "debugDatabus.h"
 #include "CPUAnalyzer.h"
 #include <minmax.h>
+#include <sstream>
 
 NESDebug::NESDebug() : NES() {
 	NES::attachCartridgeMemory(&this->debugMemory);
@@ -68,4 +69,37 @@ NESInternals::~NESInternals() {}
 
 int NESInternals::getMachineCycles() const {
 	return this->ppuInternals.cycleCount;
+}
+
+std::string NESInternals::getSerialFormat() const {
+	/* FORMAT:
+	* 
+	* cpuInternals
+	* ppuInternals
+	* OAMDMAUnit
+	* RAM
+	* 
+	* Each unit will be seperated by 2 lines. Each item in each unit will be seperated by a line.
+	* It will also have a label preceeding the variable it is saving. For example,
+	* 
+	* Registers: 1234 [PC], 10 [A], [etc...]
+	* OR
+	* lastNMISignal: 1
+	* 
+	* Note that anything inside square brackets and the square brackets themselves are not a part of the string.
+	* Also note that nothing is stored as hex; everything will be stored as decimal.
+	* 
+	* Lastly, also note how any sub-sub elements (PC is a sub element of Registers, which is in turn a sub element of cpuInternals)
+	* are seperated by comma.
+	* 
+	* When loading in this data, there will be a map of various labels to a single label. This is done so if a variable name changes
+	* in the future, some backwards compatability will be maintained.
+	* 
+	*/
+	
+	std::stringstream dataToSerialize;
+
+	dataToSerialize << this->cpuInternals.getSerialFormat();
+
+	return dataToSerialize.str();
 }

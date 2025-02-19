@@ -47,7 +47,10 @@ private:
 	void saveState();
 	// Loads a saveState.
 	void loadState(int idx);
+	// Serializes a save state. See implementation for more details
+	void serializeState(int idx);
 
+	const std::string CURRENT_VERSION = "26f4c8e3";
 
 	// Extra debug variables ("globals")
 	const std::map<char, InputOptions> INPUT_OPTIONS;  // Set of inputs and their descriptions.

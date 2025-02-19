@@ -19,3 +19,8 @@ replace it w/ a pointer which did allow me to replace it w/ my debugger w/o any 
 allow me to easily and cleanly display the internal encoded JSON. This did two things: One, I learned a good amount
 about how to handle the nested nature of JSON, helping me when I eventually wrote my decoder; two, it made debugging
 1000x easier; bugs were extremely easy to spot and squash on the spot.
+
+6. I again reiterate, MAKE A DEBUGGER. It makes life much easier.
+
+7. Collorary of 6, make a save-state system. A debugger is good, but handicapped if it can't
+return to certain states. 
