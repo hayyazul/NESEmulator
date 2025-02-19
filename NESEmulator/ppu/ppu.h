@@ -45,7 +45,7 @@ struct BackgroundLatches {
 
 struct SpriteShiftUnit {
 	uint16_t patternShiftRegisterLow, patternShiftRegisterHigh;
-	uint8_t attributeShiftRegisterLow, attributeShiftRegisterHigh;
+	int attributeBits;  // Ranges from 0-3 and indicates the palette index.
 	uint8_t x;  // The x coordinate of where the sprite is located; used to know when to start rendering this sprite.
 
 	SpriteShiftUnit();
@@ -53,7 +53,7 @@ struct SpriteShiftUnit {
 
 	// Fetches the 2 bits in the low and high shift registers w/ an offset indicating which of the lower 8 bits to get.
 	uint8_t getPattern(int x) const;
-	uint8_t getAttribute(int x) const;
+	uint8_t getAttribute() const;
 
 	// Important Note: These shift operators do not work in the traditional sense. See methods for more details.
 	SpriteShiftUnit& operator>>=(int n);

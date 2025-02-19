@@ -618,8 +618,7 @@ void PPU::transferSpriteData() {
 		if (spriteY == 0xff) {  // This is an "empty" sprite slot; fill all values w/ 0xff00 and 0xff
 			this->spriteShiftRegisters.at(sprite).patternShiftRegisterLow = 0xff00;
 			this->spriteShiftRegisters.at(sprite).patternShiftRegisterHigh = 0xff00;
-			this->spriteShiftRegisters.at(sprite).attributeShiftRegisterLow = 0xff;
-			this->spriteShiftRegisters.at(sprite).attributeShiftRegisterHigh = 0xff;
+			this->spriteShiftRegisters.at(sprite).attributeBits = 0xb11;
 			this->spriteShiftRegisters.at(sprite).x = 0xff;
 			return;
 		}
@@ -659,8 +658,7 @@ void PPU::transferSpriteData() {
 		this->spriteShiftRegisters.at(sprite).x = spriteX;
 
 		// And lastly, the attribute data.
-		this->spriteShiftRegisters.at(sprite).attributeShiftRegisterLow = 0xff * getBit(attributes, 0);
-		this->spriteShiftRegisters.at(sprite).attributeShiftRegisterHigh = 0xff * getBit(attributes, 1);		
+		this->spriteShiftRegisters.at(sprite).attributeBits = getBits(attributes, 0, 1);		
 	}
 }
 void PPU::updateSpriteShiftRegisters() {
@@ -739,7 +737,7 @@ uint8_t PPU::getSpriteColor() {
 		// If the pattern is 0b00, then it is considered transparent. If the resulting color is 0b00, it is also transparent.
 		if (!pattern) continue;
 		// Now get the color.
-		uint8_t palette = this->spriteShiftRegisters.at(i).getAttribute(x);
+		uint8_t palette = this->spriteShiftRegisters.at(i).getAttribute();
 		uint16_t colorAddr = spritePaletteAddress + 4 * palette + pattern;  
 		color = this->databus.read(colorAddr);
 		// Now we check the color
@@ -930,8 +928,7 @@ bool PPUPosition::inTrueVblank(bool reached) const {
 SpriteShiftUnit::SpriteShiftUnit() : 
 	patternShiftRegisterLow(0), 
 	patternShiftRegisterHigh(0), 
-	attributeShiftRegisterLow(0),
-	attributeShiftRegisterHigh(0),
+	attributeBits(0),
 	x(0)
 {}
 SpriteShiftUnit::~SpriteShiftUnit() {}
@@ -941,10 +938,8 @@ uint8_t SpriteShiftUnit::getPattern(int x) const {
 	pattern |= getBit(this->patternShiftRegisterLow, x);  // Then the low bit.
 	return pattern;
 }
-uint8_t SpriteShiftUnit::getAttribute(int x) const {
-	uint8_t pattern = getBit(this->attributeShiftRegisterHigh, x) << 1;  // Fetching the high bit.
-	pattern |= getBit(this->attributeShiftRegisterLow, x);  // Then the low bit.
-	return pattern;
+uint8_t SpriteShiftUnit::getAttribute() const {
+	return this->attributeBits;
 }
 SpriteShiftUnit& SpriteShiftUnit::operator>>=(int n) {
 	 
@@ -961,16 +956,12 @@ SpriteShiftUnit& SpriteShiftUnit::operator>>=(int n) {
 
 	this->patternShiftRegisterHigh >>= n;
 	this->patternShiftRegisterLow >>= n;
-	this->attributeShiftRegisterHigh >>= n;
-	this->attributeShiftRegisterLow >>= n;
 
 	return *this;
 }
 SpriteShiftUnit& SpriteShiftUnit::operator<<=(int n) {
 	this->patternShiftRegisterHigh <<= n;
 	this->patternShiftRegisterLow <<= n;
-	this->attributeShiftRegisterHigh <<= n;
-	this->attributeShiftRegisterLow <<= n;
 	
 	return *this;
 }
