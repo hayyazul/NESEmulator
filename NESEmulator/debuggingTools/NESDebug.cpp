@@ -99,8 +99,11 @@ std::string NESInternals::getSerialFormat() const {
 	
 	std::stringstream dataToSerialize;
 
+	// Gets the strings of the various internal structures and variables.
 	dataToSerialize << this->cpuInternals.getSerialFormat() << '\n';
 	dataToSerialize << this->ppuInternals.getSerialFormat() << '\n';
+	dataToSerialize << this->oamDMAUnit.getInternals().getSerialFormat() << '\n';
+	dataToSerialize << "RAM: " << this->ram.getDataAsStr();
 
 	return dataToSerialize.str();
 }

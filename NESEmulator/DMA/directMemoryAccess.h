@@ -2,6 +2,7 @@
 #pragma once
 
 #include "../databus/nesDatabus.h"
+#include <string>
 
 namespace DMACycles {
 	enum CycleType {
@@ -49,6 +50,21 @@ void OAMDMAUnit::attachDatabus(DataBus* CPUDatabus) {
 }
 */
 
+// Contains the internal state of a OAMDMA unit; excludes the NESDatabus pointer.
+struct OAMDMAInternals {
+	DMACycles::CycleType readOrWrite;  
+	uint16_t endAddress;
+	uint16_t address;  
+	uint8_t OAMDataToTransfer;  
+
+	OAMDMAInternals();
+	OAMDMAInternals(DMACycles::CycleType rOrW, uint16_t endAddr, uint16_t addr, uint8_t dataToTransfer);
+	~OAMDMAInternals();
+
+	// Gets the serial format of the unit (used in serializing save states).
+	std::string getSerialFormat() const;
+};
+
 // A DMA unit for the PPU. First, it connects to the same databus the CPU uses, then, when the NES needs to use this, it calls the DMA unit to perform its action.
 class OAMDMAUnit {
 public:
@@ -67,6 +83,9 @@ public:
 
 	// Copies the values inside a given dma unit to this one EXCEPT the pointer to the databus.
 	OAMDMAUnit& operator=(const OAMDMAUnit& otherDMAUnit);
+
+	// Returns a copy of the internal state of this unit.
+	OAMDMAInternals getInternals() const;
 
 private:
 	DMACycles::CycleType readOrWrite;  // Whether this DMA unit needs to read (false) or write (true).

@@ -1,4 +1,5 @@
 #include "directMemoryAccess.h"
+#include <sstream>
 
 OAMDMAUnit::OAMDMAUnit() : address(0), endAddress(0x100), OAMDataToTransfer(0), readOrWrite(DMACycles::CycleType::READ), databus(nullptr) {}
 OAMDMAUnit::OAMDMAUnit(NESDatabus* CPUDatabus) : address(0), endAddress(0x100), OAMDataToTransfer(0), readOrWrite(DMACycles::CycleType::READ), databus(CPUDatabus) {}
@@ -55,4 +56,33 @@ OAMDMAUnit& OAMDMAUnit::operator=(const OAMDMAUnit& otherDMAUnit) {
 	this->OAMDataToTransfer = otherDMAUnit.OAMDataToTransfer;
 
 	return *this;
+}
+
+OAMDMAInternals OAMDMAUnit::getInternals() const {
+	return OAMDMAInternals();
+}
+
+OAMDMAInternals::OAMDMAInternals()
+{
+}
+
+OAMDMAInternals::OAMDMAInternals(DMACycles::CycleType rOrW, uint16_t endAddr, uint16_t addr, uint8_t dataToTransfer) :
+	readOrWrite(rOrW),
+	endAddress(endAddr),
+	address(addr),
+	OAMDataToTransfer(dataToTransfer)
+{}
+
+OAMDMAInternals::~OAMDMAInternals()
+{
+}
+
+std::string OAMDMAInternals::getSerialFormat() const {
+	std::stringstream preSerialStr;
+	preSerialStr << "RORW: " << (int)this->readOrWrite << '\n';
+	preSerialStr << "ENDADDR: " << (int)this->endAddress << '\n';
+	preSerialStr << "ADDR: " << (int)this->address << '\n';
+	preSerialStr << "DATATOTRANS: " << (int)this->OAMDataToTransfer << '\n';
+
+	return preSerialStr.str();
 }
