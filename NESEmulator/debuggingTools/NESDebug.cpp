@@ -99,7 +99,8 @@ std::string NESInternals::getSerialFormat() const {
 	
 	std::stringstream dataToSerialize;
 
-	dataToSerialize << this->cpuInternals.getSerialFormat();
+	dataToSerialize << this->cpuInternals.getSerialFormat() << '\n';
+	dataToSerialize << this->ppuInternals.getSerialFormat() << '\n';
 
 	return dataToSerialize.str();
 }

@@ -50,7 +50,7 @@ private:
 	// Serializes a save state. See implementation for more details
 	void serializeState(int idx);
 
-	const std::string CURRENT_VERSION = "26f4c8e3";
+	const std::string CURRENT_VERSION = "e7cbf894";
 
 	// Extra debug variables ("globals")
 	const std::map<char, InputOptions> INPUT_OPTIONS;  // Set of inputs and their descriptions.

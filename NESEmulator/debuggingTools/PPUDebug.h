@@ -3,6 +3,7 @@
 #include "../ppu/ppu.h"
 
 #include <array>
+#include <string>
 
 struct PPUActions;
 
@@ -59,8 +60,17 @@ struct PPUInternals {
 
 	Memory VRAM;
 
-	PPUInternals() : VRAM(VRAM_SIZE) {}
-	~PPUInternals() {}
+	PPUInternals();
+	~PPUInternals();
+
+	std::string getSerialFormat() const;
+private:
+	// Gets the serialized strings of the various components.
+	std::string getBGLatchSerialStr() const;
+	std::string getBGShiftSerialStr() const;
+	std::string getSPShiftSerialStr() const;
+	std::string getBeamPosSerialStr() const;
+	std::string getSpriteEvalSerialStr() const;
 };
 
 class PPUDebug : public PPU {

@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <vector>
 #include <memory>
+#include <string>
 
 constexpr int BYTES_OF_MEMORY = 0x10000;
 
@@ -24,10 +25,11 @@ public:
 
 	virtual uint8_t getByte(uint16_t address) const;
 	virtual uint8_t setByte(uint16_t address, uint8_t value);  // Returns the old value at the given address.
-
-	// Copies the data from one memory module to another as much as it can (limit is module w/ fewer allocated bytes).
+    // Copies the data from one memory module to another as much as it can (limit is module w/ fewer allocated bytes).
 	Memory& operator=(const Memory& memory);
 
+	// Gets the data contained in this memory module as a comma-seperated string.
+	std::string getDataAsStr() const;
 private:
 	std::vector<uint8_t> data;  // Might change from vector to array if this proves too slow..
 	friend Memory;

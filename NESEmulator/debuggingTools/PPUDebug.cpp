@@ -3,6 +3,7 @@
 #include "../globals/helpers.hpp"
 #include <iostream>
 #include <iomanip>
+#include <sstream>
 
 PPUDebug::PPUDebug() : PPU() {
 }
@@ -282,3 +283,90 @@ void PPUDebug::displaySprite(SpriteData spriteData, int x, int y) {
 
 SpriteData::SpriteData() : x(0xff), y(0xff), pattern(0xff), attribute(0xff) {}
 SpriteData::~SpriteData() {}
+
+PPUInternals::PPUInternals() : VRAM(VRAM_SIZE) {}
+
+PPUInternals::~PPUInternals() {}
+
+std::string PPUInternals::getSerialFormat() const {
+	std::stringstream preSerializedStr;
+
+	preSerializedStr << this->getBGLatchSerialStr();
+	preSerializedStr << this->getBGShiftSerialStr();
+	preSerializedStr << this->getSPShiftSerialStr();
+	preSerializedStr << this->getBeamPosSerialStr();
+	preSerializedStr << "PALETTE: " << this->paletteControl.getDataAsStr() << '\n';
+	preSerializedStr << "OAM: " << this->OAM.getDataAsStr() << '\n';
+	preSerializedStr << "OAM2: " << this->secondaryOAM.getDataAsStr() << '\n';
+	preSerializedStr << this->getSpriteEvalSerialStr();
+	preSerializedStr << "OAMDMAREQ: " << (int)this->requestingOAMDMA << '\n';
+	preSerializedStr << "DMAPAGE: " << (int)this->dmaPage << '\n';
+	preSerializedStr << "W: " << (int)this->w << '\n';
+	preSerializedStr << "V: " << (int)this->v << '\n';
+	preSerializedStr << "T: " << (int)this->t << '\n';
+	preSerializedStr << "X: " << (int)this->x << '\n';
+	preSerializedStr << "CTRL: " << (int)this->control << '\n';
+	preSerializedStr << "MASK: " << (int)this->mask << '\n';
+	preSerializedStr << "STATUS: " << (int)this->status << '\n';
+	preSerializedStr << "OAMADDR: " << (int)this->OAMAddr << '\n';
+	preSerializedStr << "PPUDATABUF: " << (int)this->PPUDATABuffer << '\n';
+	preSerializedStr << "IOBUS: " << (int)this->ioBus << '\n';
+	preSerializedStr << "VRAM: " << this->VRAM.getDataAsStr() << '\n';
+	preSerializedStr << "CYCLES: " << (int)this->cycleCount << '\n';
+	preSerializedStr << "FRAME: " << (int)this->frameCount << '\n';
+
+	return preSerializedStr.str();
+}
+
+std::string PPUInternals::getBGLatchSerialStr() const {
+	std::stringstream preSerializedStr;
+	preSerializedStr << "BGLATCHES: " << (int)latches.patternLatchLow;
+	preSerializedStr << ", " << (int)latches.patternLatchHigh;
+	preSerializedStr << ", " << (int)latches.attributeLatchLow;
+	preSerializedStr << ", " << (int)latches.attributeLatchHigh;
+	preSerializedStr << ", " << (int)latches.nametableByteLatch << '\n';
+	return preSerializedStr.str();
+}
+
+std::string PPUInternals::getBGShiftSerialStr() const {
+	std::stringstream preSerializedStr;
+	preSerializedStr << "BGSHIFT: " << (int)backgroundShiftRegisters.patternShiftRegisterLow;
+	preSerializedStr << ", " << (int)backgroundShiftRegisters.patternShiftRegisterHigh;
+	preSerializedStr << ", " << (int)backgroundShiftRegisters.attributeShiftRegisterLow;
+	preSerializedStr << ", " << (int)backgroundShiftRegisters.attributeShiftRegisterHigh << '\n';
+	return preSerializedStr.str();
+}
+
+std::string PPUInternals::getSPShiftSerialStr() const {
+	std::stringstream preSerializedStr;
+	
+	// First, we create the string w/ the first sprite shift register.
+	preSerializedStr << "SPSHIFT: ";
+	preSerializedStr << (int)spriteShiftRegisters.shiftRegisters.at(0).patternShiftRegisterLow;
+	preSerializedStr << ", " << (int)spriteShiftRegisters.shiftRegisters.at(0).patternShiftRegisterHigh;
+	preSerializedStr << ", " << (int)spriteShiftRegisters.shiftRegisters.at(0).attributeBits;
+	// Then we add in the other 7 values, now w/ the first element seperated by a comma too.
+	for (int i = 1; i < 8; ++i) {
+		preSerializedStr << ", " << (int)spriteShiftRegisters.shiftRegisters.at(i).patternShiftRegisterLow;
+		preSerializedStr << ", " << (int)spriteShiftRegisters.shiftRegisters.at(i).patternShiftRegisterHigh;
+		preSerializedStr << ", " << (int)spriteShiftRegisters.shiftRegisters.at(i).attributeBits;
+	}
+	preSerializedStr << '\n';
+
+	return preSerializedStr.str();
+}
+
+std::string PPUInternals::getBeamPosSerialStr() const {
+	std::stringstream preSerializedStr;
+	preSerializedStr << "BEAMPOS: " << this->beamPos.scanline;
+	preSerializedStr << ", " << this->beamPos.dot << '\n';
+	return preSerializedStr.str();
+}
+
+std::string PPUInternals::getSpriteEvalSerialStr() const {
+	std::stringstream preSerializedStr;
+	preSerializedStr << "SPEVALCYCLE: " << (int)this->spriteEvalCycle.byteType;
+	preSerializedStr << ", " << (int)this->spriteEvalCycle.evalState << '\n';
+
+	return preSerializedStr.str();
+}

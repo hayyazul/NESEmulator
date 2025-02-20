@@ -1,4 +1,5 @@
 #include "memory.h"
+#include <sstream>
 
 Memory::Memory() : Memory(0) {}
 Memory::Memory(unsigned int size) {
@@ -34,6 +35,20 @@ Memory& Memory::operator=(const Memory& memory) {
 	}
 
 	return *this;
+}
+
+std::string Memory::getDataAsStr() const {
+	std::stringstream serialStr;
+	// We will iterate through the data, appending it to the string as we go along.
+	if (this->data.size() == 0) return serialStr.str();  // Edge case: if we have no data, then return an empty string.
+	
+	// Append the first byte w/o a comma since it is the first element. 
+	serialStr << (int)this->data.at(0);
+	for (int i = 1; i < this->data.size(); ++i) {
+		serialStr << ", " << (int)this->data.at(i);
+	}
+
+	return serialStr.str();
 }
 
 uint8_t Memory::setByte(uint16_t address, uint8_t value) {
