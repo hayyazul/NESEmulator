@@ -33,6 +33,8 @@ private:
 
 	// Update the display by blitting the screen and position the PPU beam pos marker.
 	void updateDisplay();
+	// Clears the display by setting all pixels to black..
+	void clearDisplay();
 
 	// Prints all the internals of the associated component in a formatted way.
 	void printPPUInternals(PPUInternals ppuInternals) const;
@@ -54,7 +56,7 @@ private:
 	// Sets the directory of the save states.
 	void setSaveStateDir();
 		
-	const std::string CURRENT_VERSION = "42dd3423";
+	const std::string CURRENT_VERSION = "c0fe7bcd";
 
 	// Extra debug variables ("globals")
 	const std::map<char, InputOptions> INPUT_OPTIONS;  // Set of inputs and their descriptions.

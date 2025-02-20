@@ -65,7 +65,8 @@ GeneralDebugSuite::GeneralDebugSuite() :
 		{'s', {'s', "Save NES internals (includes RAM, VRAM, and DMA data)"}},
 		{'t', {'t', "Print available save states (prints the machine cycle associated w/ it)"}},
 		{'u', {'u', "Delete a given save state"}},
-		{'v', {'v', "Loads a given save state"}}
+		{'v', {'v', "Loads a given save state"}},
+		{'x', {'x', "Clears the screen"}}
 		})
 {}
 GeneralDebugSuite::~GeneralDebugSuite() {}
@@ -167,10 +168,14 @@ void GeneralDebugSuite::run() {
 			this->loadState(idxToLoad);
 			break;
 		}
-		// The bottom 3 are WIP.
 		case('x'): {
-			int idxToSerialize = this->CLIInputHandler.getUserInt("What index to serialize?\n");
-			this->serializeState(idxToSerialize);
+			
+			this->clearDisplay();
+			this->updateDisplay();
+
+			// Old function of 'x'
+			//int idxToSerialize = this->CLIInputHandler.getUserInt("What index to serialize?\n");
+			//this->serializeState(idxToSerialize);
 			break;
 		}
 		case('X'): {
@@ -226,6 +231,14 @@ void GeneralDebugSuite::updateDisplay() {
 	displayPalette(this->graphics, this->nes.debugPPU, 341, 0, 3);
 	this->graphics.blitDisplay(this->windowSurface);
 	SDL_UpdateWindowSurface(this->window);
+}
+
+void GeneralDebugSuite::clearDisplay() {
+	for (int i = 0; i < this->graphics.w; ++i) {
+		for (int j = 0; j < this->graphics.h; ++j) {
+			this->graphics.drawPixel(0x000000ff, i, j);
+		}
+	}
 }
 
 void GeneralDebugSuite::printPPUInternals(PPUInternals ppuInternals) const {
