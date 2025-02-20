@@ -138,6 +138,7 @@ NESInternals::NESInternals(std::filesystem::path filepath) {
 		}
 	}
 
+	// TODO: COMPLETE
 	// From then on, each component handles its own deserialization.
 	this->cpuInternals.deserializeData(cpuData);
 }

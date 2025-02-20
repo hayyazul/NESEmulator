@@ -65,10 +65,7 @@ GeneralDebugSuite::GeneralDebugSuite() :
 		{'s', {'s', "Save NES internals (includes RAM, VRAM, and DMA data)"}},
 		{'t', {'t', "Print available save states (prints the machine cycle associated w/ it)"}},
 		{'u', {'u', "Delete a given save state"}},
-		{'v', {'v', "Loads a given save state"}},
-		{'x', {'x', "Serializes a given save state"}},
-		{'X', {'X', "Set save state directory."}},
-		{'z', {'z', "Loads serialized states."}}
+		{'v', {'v', "Loads a given save state"}}
 		})
 {}
 GeneralDebugSuite::~GeneralDebugSuite() {}
@@ -170,6 +167,7 @@ void GeneralDebugSuite::run() {
 			this->loadState(idxToLoad);
 			break;
 		}
+		// The bottom 3 are WIP.
 		case('x'): {
 			int idxToSerialize = this->CLIInputHandler.getUserInt("What index to serialize?\n");
 			this->serializeState(idxToSerialize);
@@ -387,7 +385,7 @@ void GeneralDebugSuite::serializeState(int idx) {
 	file << internals.getSerialFormat();
 }
 
-void GeneralDebugSuite::loadSerializedStates() {
+void GeneralDebugSuite::loadSerializedStates() {  // TODO: COMPLETE
 	// First we ask the user if they want to continue after showing them the states in the directory.
 	if (!std::filesystem::is_directory(this->saveStateDir)) {
 		std::cout << " * Please input a valid save state directory first.\n";

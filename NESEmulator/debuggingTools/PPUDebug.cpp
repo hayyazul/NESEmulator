@@ -318,6 +318,178 @@ std::string PPUInternals::getSerialFormat() const {
 	return preSerializedStr.str();
 }
 
+void PPUInternals::deserializeData(std::stringstream& data) {
+	/* Sample input:
+BGLATCHES: 0 0 1 0 36
+BGSHIFT: 0 0 127 0
+SPSHIFT: 65280 65280 2833 65280 65280 2833 65280 65280 2833 65280 65280 2833 65280 65280 2833 65280 65280 2833 65280 65280 2833 65280 65280 2833
+BEAMPOS: 156 115
+PALETTE: 15 44 56 18 15 39 39 39 15 48 48 48 15 0 0 0 0 37 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+OAM: 127 162 0 56 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0 255 0 0 0
+OAM2: 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255
+SPEVALCYCLE: 0 1
+OAMDMAREQ: 0
+DMAPAGE: 2
+W: 0
+V: 17006
+T: 0
+X: 0
+CTRL: 144
+MASK: 30
+STATUS: 0
+OAMADDR: 100
+PPUDATABUF: 0
+IOBUS: 144
+VRAM: 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 98 98 98 36 36 98 98 98 36 98 36 36 98 36 98 36 36 98 36 98 98 98 36 98 36 98 36 36 36 36 36 36 98 98 36 98 36 98 36 98 36 98 98 36 98 36 98 98 98 36 36 98 36 36 36 98 36 98 36 36 36 36 36 36 98 98 36 98 36 98 36 98 36 98 98 98 98 36 98 98 36 36 36 98 98 98 36 98 98 98 36 36 36 36 36 36 98 98 36 98 36 98 36 98 36 98 36 98 98 36 98 36 98 36 36 98 36 36 36 36 98 36 36 36 36 36 36 36 98 98 98 36 36 98 98 98 36 98 36 36 98 36 98 36 36 98 36 98 98 98 36 36 98 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 98 36 36 98 36 98 98 98 36 98 36 36 98 36 98 98 98 98 36 36 36 36 36 36 36 36 36 36 36 36 36 36 98 98 98 36 36 98 36 98 36 98 98 36 98 36 98 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 98 98 36 36 36 98 36 98 36 98 98 98 98 36 98 36 98 98 36 36 36 36 36 36 36 36 36 36 36 36 36 36 98 36 98 36 36 98 36 98 36 98 36 98 98 36 98 36 36 98 36 36 36 36 36 36 36 36 36 36 36 36 36 36 98 36 36 98 36 98 98 98 36 98 36 36 98 36 98 98 98 98 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 1 36 25 21 10 34 14 27 36 16 10 22 14 36 10 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 1 36 25 21 10 34 14 27 36 16 10 22 14 36 11 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 2 36 25 21 10 34 14 27 36 16 10 22 14 36 10 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 2 36 25 21 10 34 14 27 36 16 10 22 14 36 11 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 211 1 9 8 1 36 23 18 23 29 14 23 13 24 36 12 24 101 21 29 13 100 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 22 10 13 14 36 18 23 36 19 10 25 10 23 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 36 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 85 85 85 85 85 85 85 85 85 85 85 85 85 85 85 85 170 170 170 170 170 170 170 170 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+CYCLES: 500021
+FRAME: 5
+	*/
+	// A map to a component enum; this is used so if I change the labels, I do not need to change the code which checks for the labels much.
+	enum Component {
+		BGLATCHES,
+		BGSHIFT,
+		SPSHIFT,
+		BEAMPOS,
+		PALETTE,
+		OAM,
+		SPEVALCYCLE,
+		OAMDMAREQ,
+		DMAPAGE,
+		W,
+		V,
+		T,
+		X,
+		CTRL,
+		MASK,
+		STATUS,
+		OAMADDR,
+		PPUDATABUF,
+		IOBUS,
+		VRAM,
+		CYCLES,
+		FRAME
+	};
+	const std::map<std::string, Component> LABEL_TO_COMPONENT = {
+		{"BGLATCHES:", BGLATCHES},
+		{"BGSHIFT:", BGSHIFT},
+		{"SPSHIFT:", SPSHIFT},
+		{"BEAMPOS:", BEAMPOS},
+		{"PALETTE:", PALETTE},
+		{"OAM:", OAM},
+		{"SPEVALCYCLE:", SPEVALCYCLE},
+		{"OAMDMAREQ:", OAMDMAREQ},
+		{"DMAPAGE:", DMAPAGE},
+		{"W:", W},
+		{"V:", V},
+		{"T:", T},
+		{"X:", X},
+		{"CTRL:", CTRL},
+		{"MASK:", MASK},
+		{"STATUS:", STATUS},
+		{"OAMADDR:", OAMADDR},
+		{"PPUDATABUF:", PPUDATABUF},
+		{"IOBUS:", IOBUS},
+		{"VRAM:", VRAM},
+		{"CYCLES:", CYCLES},
+		{"FRAME:", FRAME}
+	};
+
+	// First, get all the data into a string vector representing the datapoints.
+	std::vector<std::string> directMemberDatapoints;  // Internals which are stored as primitives e.g. internal registers.
+	std::vector<std::string> BGShiftDatapoints;
+	std::vector<std::string> LatchDatapoints;
+	std::vector<std::string> SPShiftDatapoints;
+
+	Component componentOn = BGLATCHES;
+	for (std::string datapoint; std::getline(data, datapoint, ' ');) {
+		if (LABEL_TO_COMPONENT.contains(datapoint)) {
+			componentOn = LABEL_TO_COMPONENT.at(datapoint);
+			continue;
+		}
+		//datapoints.push_back(datapoint);
+	}
+
+	componentOn = BGLATCHES;
+	for (std::string& datapoint : directMemberDatapoints) {
+		if (LABEL_TO_COMPONENT.contains(datapoint)) {
+			componentOn = LABEL_TO_COMPONENT.at(datapoint);
+			continue;
+		}
+
+		unsigned long value = std::stoll(datapoint);
+		// Insert the data differently given the component.
+		switch (componentOn) {
+		case BGLATCHES: {
+			break;
+		}
+		case BGSHIFT: {
+			break;
+		}
+		case SPSHIFT: {
+			break;
+		}
+		case BEAMPOS: {
+			break;
+		}
+		case PALETTE: {
+			break;
+		}
+		case OAM: {
+			break;
+		}
+		case SPEVALCYCLE: {
+			break;
+		}
+		case OAMDMAREQ: {
+			break;
+		}
+		case DMAPAGE: {
+			break;
+		}
+		case W: {
+			break;
+		}
+		case V: {
+			break;
+		}
+		case T: {
+			break;
+		}
+		case X: {
+			break;
+		}
+		case CTRL: {
+			break;
+		}
+		case MASK: {
+			break;
+		}
+		case STATUS: {
+			break;
+		}
+		case OAMADDR: {
+			break;
+		}
+		case PPUDATABUF: {
+			break;
+		}
+		case IOBUS: {
+			break;
+		}
+		case VRAM: {
+			break;
+		}
+		case CYCLES: {
+			break;
+		}
+		case FRAME: {
+			break;
+		}
+		}
+	}
+
+}
+
 std::string PPUInternals::getBGLatchSerialStr() const {
 	std::stringstream preSerializedStr;
 	preSerializedStr << "BGLATCHES: " << (unsigned long long)latches.patternLatchLow;

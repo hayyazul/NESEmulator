@@ -49,7 +49,7 @@ private:
 	void loadState(int idx);
 	// Serializes a save state. See implementation for more details
 	void serializeState(int idx);
-	// Loads in save states into the saveStates vector.
+	// Loads in save states into the saveStates vector. (WIP)
 	void loadSerializedStates();
 	// Sets the directory of the save states.
 	void setSaveStateDir();

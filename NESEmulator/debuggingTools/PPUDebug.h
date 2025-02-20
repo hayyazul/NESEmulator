@@ -63,7 +63,11 @@ struct PPUInternals {
 	PPUInternals();
 	~PPUInternals();
 
+	// Returns a formatted string representing the values in this struct.
 	std::string getSerialFormat() const;
+
+	// Takes in a chunk of text data, the same kind which getSerialFormat produces, and deserializes it.
+	void deserializeData(std::stringstream& data);  // TODO: COMPLETE
 private:
 	// Gets the serialized strings of the various components.
 	std::string getBGLatchSerialStr() const;
