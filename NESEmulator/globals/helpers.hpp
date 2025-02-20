@@ -1,7 +1,6 @@
 // helpers.hpp - A list of helper functions and definitions for use throughout this project.
 #pragma once
 #include <string>
-
 #define ASSERT_PARAMETERS
 #ifdef ASSERT_PARAMETERS
 #include <iostream>

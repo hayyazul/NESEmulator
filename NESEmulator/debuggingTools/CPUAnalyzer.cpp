@@ -142,30 +142,140 @@ std::array<uint8_t, 0x100> CPUDebugger::dumpStack() {
 }
 
 CPUInternals::CPUInternals() {};
-CPUInternals::~CPUInternals() {};
+CPUInternals::~CPUInternals() {}
+
+void CPUInternals::deserializeData(std::stringstream& data) {
+	
+	// A map to a component enum; this is used so if I change the labels, I do not need to change the code which checks for the labels much.
+	enum Component {
+		REGISTERS,
+		IRQREQ,
+		IRQPERFORM,
+		NMIREQ,
+		LASTNMI,
+		CYCLETYPE,
+		TOTALCYCLES,
+		OPCODECYCLES,
+		CURRCYCLELEN
+	};
+	const std::map<std::string, Component> LABEL_TO_COMPONENT = { 
+		{"REGISTERS:", REGISTERS},
+		{"IRQREQ:", IRQREQ},
+		{"IRQPERFORM:", IRQPERFORM},
+		{"NMIREQ:", NMIREQ},
+		{"LASTNMI:", LASTNMI},
+		{"CYCLETYPE:", CYCLETYPE},
+		{"TOTALCYCLES:", TOTALCYCLES},
+		{"OPCODECYCLES:", OPCODECYCLES},
+		{"CURRCYCLELEN:", CURRCYCLELEN}
+	};
+
+	// First, get all the data into a string vector representing the datapoints.
+	std::vector<std::string> datapoints;
+	for (std::string datapoint; std::getline(data, datapoint, ' ');) {
+		datapoints.push_back(datapoint);
+	}
+
+	// Then, we will iterate through the datapoints vector.
+	Component componentOn = REGISTERS;
+	int i = 0;
+	for (std::string& datapoint : datapoints) {
+		// If we are on a label, then update the component that we are on.
+		if (LABEL_TO_COMPONENT.contains(datapoint)) {
+			componentOn = LABEL_TO_COMPONENT.at(datapoint);
+			continue;
+		}
+
+		unsigned long value = std::stoll(datapoint);
+		// Insert the data differently given the component.
+		switch (componentOn) {
+		case(REGISTERS): {
+			// The order the registers are serialized: PC, A, X, Y, SP, S
+			switch (i) {
+			case(0):
+				this->registers.PC = (uint16_t)value;
+				break;
+			case(1):
+				this->registers.A = (uint8_t)value;
+				break;
+			case(2):
+				this->registers.X = (uint8_t)value;
+				break;
+			case(3):
+				this->registers.Y = (uint8_t)value;
+				break;
+			case(4):
+				this->registers.SP = (uint8_t)value;
+				break;
+			case(5):
+				this->registers.S = (uint8_t)value;
+				break;
+			default:
+				int _ = 0;  // This should never execute.
+				break;
+			}
+			break;
+		}
+		case(IRQREQ): {
+			this->interruptRequested = (bool)value;
+			break;
+		}
+		case(IRQPERFORM): {
+			this->performInterrupt = (bool)value;
+			break;
+		}
+		case(NMIREQ): {
+			this->nmiRequested = (bool)value;
+			break;
+		}
+		case(LASTNMI): {
+			this->lastNMISignal = (bool)value;
+			break;
+		}
+		case(CYCLETYPE): {
+			this->getOrPutCycle = (bool)value;
+			break;
+		}
+		case(TOTALCYCLES): {
+			this->totalCyclesElapsed = value;
+			break;
+		}
+		case(OPCODECYCLES): {
+			this->opcodeCyclesElapsed = (unsigned int)value;
+			break;
+		}
+		case(CURRCYCLELEN): {
+			this->currentOpcodeCycleLen = (unsigned int)value;
+			break;
+		}
+		}
+
+		++i;
+	}
+}
 
 std::string CPUInternals::getSerialFormat() const {
 
 	std::stringstream preSerializedStr;
 
-	preSerializedStr << "REGISTERS: " << (int)registers.PC;
-	preSerializedStr << ", " << (int)registers.A;
-	preSerializedStr << ", " << (int)registers.X;
-	preSerializedStr << ", " << (int)registers.Y;
-	preSerializedStr << ", " << (int)registers.SP;
-	preSerializedStr << ", " << (int)registers.S << '\n';
+	preSerializedStr << "REGISTERS: " << (unsigned long long)registers.PC;
+	preSerializedStr << " " << (unsigned long long)registers.A;
+	preSerializedStr << " " << (unsigned long long)registers.X;
+	preSerializedStr << " " << (unsigned long long)registers.Y;
+	preSerializedStr << " " << (unsigned long long)registers.SP;
+	preSerializedStr << " " << (unsigned long long)registers.S << '\n';
 
-	preSerializedStr << "IRQREQ: " << (int)interruptRequested << '\n';
-	preSerializedStr << "IRQPERFORM: " << (int)performInterrupt << '\n';
+	preSerializedStr << "IRQREQ: " << (unsigned long long)interruptRequested << '\n';
+	preSerializedStr << "IRQPERFORM: " << (unsigned long long)performInterrupt << '\n';
 
-	preSerializedStr << "NMIREQ: " << (int)nmiRequested << '\n';
-	preSerializedStr << "LASTNMI: " << (int)lastNMISignal << '\n';
+	preSerializedStr << "NMIREQ: " << (unsigned long long)nmiRequested << '\n';
+	preSerializedStr << "LASTNMI: " << (unsigned long long)lastNMISignal << '\n';
 
-	preSerializedStr << "CYCLETYPE: " << (int)getOrPutCycle << '\n';
+	preSerializedStr << "CYCLETYPE: " << (unsigned long long)getOrPutCycle << '\n';
 
-	preSerializedStr << "TOTALCYCLES: " << (int)totalCyclesElapsed << '\n';
-	preSerializedStr << "OPCODECYCLES: " << (int)opcodeCyclesElapsed << '\n';
-	preSerializedStr << "CURRCYCLELEN: " << (int)currentOpcodeCycleLen << '\n';
+	preSerializedStr << "TOTALCYCLES: " << (unsigned long long)totalCyclesElapsed << '\n';
+	preSerializedStr << "OPCODECYCLES: " << (unsigned long long)opcodeCyclesElapsed << '\n';
+	preSerializedStr << "CURRCYCLELEN: " << (unsigned long long)currentOpcodeCycleLen << '\n';
 
 	return preSerializedStr.str();
 }

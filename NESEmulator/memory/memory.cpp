@@ -45,7 +45,7 @@ std::string Memory::getDataAsStr() const {
 	// Append the first byte w/o a comma since it is the first element. 
 	serialStr << (int)this->data.at(0);
 	for (int i = 1; i < this->data.size(); ++i) {
-		serialStr << ", " << (int)this->data.at(i);
+		serialStr << " " << (int)this->data.at(i);
 	}
 
 	return serialStr.str();

@@ -59,12 +59,10 @@ OAMDMAUnit& OAMDMAUnit::operator=(const OAMDMAUnit& otherDMAUnit) {
 }
 
 OAMDMAInternals OAMDMAUnit::getInternals() const {
-	return OAMDMAInternals();
+	return OAMDMAInternals(this->readOrWrite, this->endAddress, this->address, this->OAMDataToTransfer);
 }
 
-OAMDMAInternals::OAMDMAInternals()
-{
-}
+OAMDMAInternals::OAMDMAInternals() {}
 
 OAMDMAInternals::OAMDMAInternals(DMACycles::CycleType rOrW, uint16_t endAddr, uint16_t addr, uint8_t dataToTransfer) :
 	readOrWrite(rOrW),

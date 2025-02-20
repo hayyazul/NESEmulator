@@ -25,13 +25,16 @@ inline uint32_t memAddrToiNESAddr(uint16_t memAddr) {
 
 // Contains all updateable internals of the NES.
 struct NESInternals {
+	std::string name;  // Name of the internals instance.
 	PPUInternals ppuInternals;
 	CPUInternals cpuInternals;
 	OAMDMAUnit oamDMAUnit;
 	RAM ram;
 
-	NESInternals();
-	~NESInternals();
+	NESInternals() {};
+	NESInternals(std::string name) : name(name) {};
+	NESInternals(std::filesystem::path filepath);  // Deserializes the given filepath (assuming it is a .nesstate file).
+	~NESInternals() {};
 
 	int getMachineCycles() const;
 

@@ -292,7 +292,10 @@ struct CPUInternals {
 	CPUInternals();
 	~CPUInternals();
 
+	// Gets the serialized format of the above data (as a string).
 	std::string getSerialFormat() const;
+	// Taking in a string (which usually has just been deserialized), it sets its member values to the corresponding values in the string.
+	void deserializeData(std::stringstream& data);
 };
 
 class CPUDebugger : public _6502_CPU {

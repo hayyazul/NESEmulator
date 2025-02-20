@@ -3,6 +3,7 @@
 #include "CPUAnalyzer.h"
 #include <minmax.h>
 #include <sstream>
+#include <filesystem>
 
 NESDebug::NESDebug() : NES() {
 	NES::attachCartridgeMemory(&this->debugMemory);
@@ -62,10 +63,84 @@ void NESDebug::getVRAM(Memory& vram) {
 	vram = this->debugVRAM;
 }
 
-NESInternals::NESInternals() {
-}
+NESInternals::NESInternals(std::filesystem::path filepath) {
+	// First check if it is a valid file.
+	std::string filename = filepath.filename().string();
+	if (filename.find(".nesstate") == std::string::npos) {
+		std::cout << "Invalid filepath; can not deserialize " << filename << std::endl;
+		return;
+	}
 
-NESInternals::~NESInternals() {}
+	// If it is, we begin deserializing. First we open the file.
+	std::ifstream file{ filepath };
+	if (!file.is_open()) {
+		std::cout << "Unable to open file " << filename << "(Error: " << file.rdstate() << ")" << std::endl;
+		return;
+	}
+	
+	// The components in order of the file. Each component is seperated by an extra newline.
+	enum ComponentOn {
+		VERSION,
+		NAME,
+		CPU,
+		PPU,
+		DMA,
+		RAM
+	};
+
+	// We begin with skipping the first line (the version id) and getting the name from the second, then chunking the various parts of the now deserialized data.
+	std::stringstream cpuData;
+	std::stringstream ppuData;
+	std::stringstream DMAData;
+	std::stringstream RAMData;
+	ComponentOn component = VERSION;
+	for (std::string line; std::getline(file, line);) {
+		std::cout << line << '\n';
+		// Different lines represent different parts of the file.
+		switch (component) {
+		case(VERSION): {
+			component = NAME;
+			break;
+		}
+		case(NAME): {
+			this->name = line;
+			component = CPU;
+			break;
+		}
+		case(CPU): {
+			if (line == "") {
+				component = PPU;
+				break;
+			}
+			cpuData << line << ' ';
+			break;
+		}
+		case(PPU): {
+			if (line == "") {
+				component = DMA;
+				break;
+			}
+			ppuData << line << ' ';
+			break;
+		}
+		case(DMA): {
+			if (line == "") {
+				component = RAM;
+				break;
+			}
+			DMAData << line << ' ';
+			break;
+		}
+		case(RAM): {
+			RAMData << line << ' ';
+			break;
+		}
+		}
+	}
+
+	// From then on, each component handles its own deserialization.
+	this->cpuInternals.deserializeData(cpuData);
+}
 
 int NESInternals::getMachineCycles() const {
 	return this->ppuInternals.cycleCount;
@@ -100,6 +175,7 @@ std::string NESInternals::getSerialFormat() const {
 	std::stringstream dataToSerialize;
 
 	// Gets the strings of the various internal structures and variables.
+	dataToSerialize << this->name << '\n';
 	dataToSerialize << this->cpuInternals.getSerialFormat() << '\n';
 	dataToSerialize << this->ppuInternals.getSerialFormat() << '\n';
 	dataToSerialize << this->oamDMAUnit.getInternals().getSerialFormat() << '\n';

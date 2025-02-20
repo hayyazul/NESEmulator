@@ -12,6 +12,7 @@
 #include <minmax.h>
 #include <set>
 #include <fstream>
+#include <filesystem>
 
 /*
 Debugging toolset reqs:
@@ -65,7 +66,9 @@ GeneralDebugSuite::GeneralDebugSuite() :
 		{'t', {'t', "Print available save states (prints the machine cycle associated w/ it)"}},
 		{'u', {'u', "Delete a given save state"}},
 		{'v', {'v', "Loads a given save state"}},
-		{'x', {'x', "Serializes a given save state"}}
+		{'x', {'x', "Serializes a given save state"}},
+		{'X', {'X', "Set save state directory."}},
+		{'z', {'z', "Loads serialized states."}}
 		})
 {}
 GeneralDebugSuite::~GeneralDebugSuite() {}
@@ -168,7 +171,16 @@ void GeneralDebugSuite::run() {
 			break;
 		}
 		case('x'): {
-			this->serializeState(0);
+			int idxToSerialize = this->CLIInputHandler.getUserInt("What index to serialize?\n");
+			this->serializeState(idxToSerialize);
+			break;
+		}
+		case('X'): {
+			this->setSaveStateDir();
+			break;
+		}
+		case('z'): {
+			this->loadSerializedStates();
 			break;
 		}
 		default:
@@ -315,7 +327,7 @@ void GeneralDebugSuite::printCPUInternals(CPUInternals cpuInternals) {
 void GeneralDebugSuite::printSavedStates() const {
 	for (int i = 0; i < this->saveStates.size(); ++i) {
 		NESInternals internals = this->saveStates.at(i);
-		std::cout << "    * Save " << std::dec << i + 1 << " Cycles: " << internals.getMachineCycles() << std::endl;
+		std::cout << "    * Save " << std::dec << i + 1 << " Cycles: " << internals.getMachineCycles() << " | " << internals.name << std::endl;
 	}
 }
 
@@ -331,7 +343,8 @@ void GeneralDebugSuite::deleteSavedState(int idx) {
 }
 
 void GeneralDebugSuite::saveState() {
-	NESInternals internals;
+	std::string name = this->CLIInputHandler.getUserLine(" * Name of save state: ");
+	NESInternals internals{ name };
 	// We save the internals of the CPU, PPU, RAM, and VRAM.
 	internals.cpuInternals = this->nes.getCPUInternals();
 	internals.ppuInternals = this->nes.getPPUInternals();
@@ -354,23 +367,68 @@ void GeneralDebugSuite::loadState(int idx) {
 }
 
 void GeneralDebugSuite::serializeState(int idx) {
-	std::string path = this->CLIInputHandler.getUserLine("Directory path (full path): ");
-	// Checking if there is a dot in the path, suggesting the user accidentally input a file.
-	if (strchr(path.c_str(), '.') != nullptr) {
-		std::cout << " * Invalid path; leads to a file not a directory.\n";
+	if (idx > this->saveStates.size() || idx < 1) {
+		std::cout << "    * Invalid index " << std::dec << idx << " for save state vector of size " << this->saveStates.size() << std::endl;
 		return;
 	}
-	// Checking if the last character isn't a slash, fixing the path if it isn't present.
-	if (path.back() != '/') {
-		path += '/';
+	if (!std::filesystem::is_directory(this->saveStateDir)) {
+		std::cout << " * Please input a valid save state directory first.\n";
+		return;
 	}
-	std::string filename = "testFile.nesstate";
-	filename = path + filename;
+
+	NESInternals internals = this->saveStates.at(idx - 1);
+
+	// Checking if there is a dot in the path, suggesting the user accidentally input a file.
+	std::string filename = internals.name + ".nesstate";
+	filename = this->saveStateDir + filename;
 	std::ofstream file{ filename };
 	
 	file << this->CURRENT_VERSION << '\n';
-	if (this->saveStates.size() == 0) return;
-	file << this->saveStates.at(0).getSerialFormat();
+	file << internals.getSerialFormat();
+}
+
+void GeneralDebugSuite::loadSerializedStates() {
+	// First we ask the user if they want to continue after showing them the states in the directory.
+	if (!std::filesystem::is_directory(this->saveStateDir)) {
+		std::cout << " * Please input a valid save state directory first.\n";
+		return;
+	}
+	
+	// First we list all the .nesstate files.
+	for (const auto& file : std::filesystem::directory_iterator(this->saveStateDir)) {
+		// Check if we are dealing w/ a .nesstate file. If not, skip it.
+		std::filesystem::path filepath = file.path().filename();
+		std::string filename = filepath.string();
+		if (filename.find(".nesstate") == std::string::npos) {
+			continue;
+		}
+		std::cout << filename << std::endl;
+	}
+
+	char continueLoading = this->CLIInputHandler.getUserChar(" * Load files (y/n)? (They will be appended to the current vector of save states): ");
+	if (continueLoading == 'y') {
+		for (const auto& file : std::filesystem::directory_iterator(this->saveStateDir)) {
+			// Check if we are dealing w/ a .nesstate file. If not, skip it.
+			std::filesystem::path filepath = file.path();
+			std::string filename = filepath.filename().string();
+			if (filename.find(".nesstate") == std::string::npos) {
+				continue;
+			}
+
+			NESInternals internals{ filepath };
+		}
+	}
+}
+
+void GeneralDebugSuite::setSaveStateDir() {
+	std::string dir = this->CLIInputHandler.getUserLine(" * Input dir (preferrably an absolute path seperated by '/'): ");
+	if (std::filesystem::is_directory(dir)) {
+		if (dir.back() != '\\') dir += "\\";
+		this->saveStateDir = dir;
+	}
+	else {
+		std::cout << " * Invalid path (" << dir << "); not a directory(working dir : " << std::filesystem::current_path() << ")\n";
+	}
 }
 
 std::string InputOptions::format() const {

@@ -49,13 +49,18 @@ private:
 	void loadState(int idx);
 	// Serializes a save state. See implementation for more details
 	void serializeState(int idx);
-
-	const std::string CURRENT_VERSION = "e7cbf894";
+	// Loads in save states into the saveStates vector.
+	void loadSerializedStates();
+	// Sets the directory of the save states.
+	void setSaveStateDir();
+		
+	const std::string CURRENT_VERSION = "42dd3423";
 
 	// Extra debug variables ("globals")
 	const std::map<char, InputOptions> INPUT_OPTIONS;  // Set of inputs and their descriptions.
 	PPUPosition lastPos;
 	std::vector<NESInternals> saveStates;
+	std::string saveStateDir;
 
 	// Necessary variables 
 	NESDebug nes;
