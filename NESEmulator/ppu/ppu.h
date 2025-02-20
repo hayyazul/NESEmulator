@@ -9,6 +9,7 @@
 //			- Make sure NMI behavior is correct (it likely isn't at the moment).
 //			- Last column of sprites have wrong palette (only when emulated).
 //          - Sprites are a bit too much to the left (by ~1 tile).
+//             - After some investigating, it seems that the background is actually 1 tile to the right (there is an extra tile of space between the "D" in the title screen and the left side).
 
 #include <map>
 #include <array>

@@ -56,14 +56,20 @@ int CommandlineInput::getUserInt(std::string msg) {
 int CommandlineInput::getUserHex() {
 	std::string userInput = this->getUserLine();  // Get the input.
 	std::string hexStr = "";
+	bool negative = false;
+	// Check if we have a negative input.
+	if (userInput.at(0) == '-') {
+		negative = true;
+	}
+
 	// Basic error checking.
-	if (userInput.size() < 3 || userInput.at(1) != 'x') {
+	if (userInput.size() < (3 + negative) || userInput.at(1 + negative) != 'x') {
 		return 0;
 	}
 
 	int i = 0;
 	for (const char& c : userInput) {  
-		if (i < 2) {  // Skip over the "0x" prefix. 
+		if (i < (2 + negative)) {  // Skip over the "0x" prefix. 
 			++i;
 			continue;
 		}
@@ -74,7 +80,7 @@ int CommandlineInput::getUserHex() {
 		hexStr += c;
 	}
 
-	return stoi(hexStr, 0, 16);
+	return (1 - (negative * 2)) * stoi(hexStr, 0, 16);
 }
 
 int CommandlineInput::getUserHex(std::string msg) {

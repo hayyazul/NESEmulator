@@ -59,8 +59,3 @@ private:
 	// Performs a given DatabusAction. This function may act as both a read or a write. Does not affect the stack of operations.
 	uint8_t performMemAction(DatabusAction action);
 };
-
-// Displays a dump of memory
-void displayMemDump(std::vector<uint8_t>& dump, uint16_t startAddr, uint16_t endAddr, unsigned int bytesPerRow=16);
-
-void displayMemDumpLine(std::vector<uint8_t>& dump, uint16_t startAddr, uint16_t endAddr, unsigned int row, unsigned int bytesPerRow);

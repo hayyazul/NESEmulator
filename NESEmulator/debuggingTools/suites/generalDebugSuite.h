@@ -36,6 +36,9 @@ private:
 	// Clears the display by setting all pixels to black..
 	void clearDisplay();
 
+	// Queries the user for how they want to modify RAM.
+	void pokeRAM();
+
 	// Prints all the internals of the associated component in a formatted way.
 	void printPPUInternals(PPUInternals ppuInternals) const;
 	void printCPUInternals(CPUInternals cpuInternals);
@@ -73,5 +76,5 @@ private:
 	SDL_Renderer* renderer;
 	SDL_Surface* windowSurface;
 
-	const uint32_t BLACK, YELLOW;
+	const uint32_t BLACK, YELLOW, WHITE;
 };

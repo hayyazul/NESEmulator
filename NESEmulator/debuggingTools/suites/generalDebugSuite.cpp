@@ -54,6 +54,7 @@ GeneralDebugSuite::GeneralDebugSuite() :
 	windowSurface(SDL_GetWindowSurface(window)),
 	BLACK(graphics.getRGB(0x00, 0x00, 0x00)), 
 	YELLOW(graphics.getRGB(0xff, 0xff, 0x00)),
+	WHITE(graphics.getRGB(0xff, 0xff, 0xff)),
 	INPUT_OPTIONS({
 		{'q', {'q', "Quit"}},
 		{'e', {'e', "Execute cycle"} },
@@ -66,7 +67,8 @@ GeneralDebugSuite::GeneralDebugSuite() :
 		{'t', {'t', "Print available save states (prints the machine cycle associated w/ it)"}},
 		{'u', {'u', "Delete a given save state"}},
 		{'v', {'v', "Loads a given save state"}},
-		{'x', {'x', "Clears the screen"}}
+		{'x', {'x', "Clears the screen"}},
+		{'r', {'r', "Poke; change a value in RAM."}},
 		})
 {}
 GeneralDebugSuite::~GeneralDebugSuite() {}
@@ -186,6 +188,10 @@ void GeneralDebugSuite::run() {
 			this->loadSerializedStates();
 			break;
 		}
+		case('r'): {
+			this->pokeRAM();
+			break;
+		}
 		default:
 			break;
 		}
@@ -225,10 +231,21 @@ void GeneralDebugSuite::updateDisplay() {
 	if (this->lastPos.dotInRange(256, 340) || this->lastPos.lineInRange(240, 261)) {
 		this->graphics.drawPixel(BLACK, this->lastPos.dot, this->lastPos.scanline);
 	}
+
+	// Draw a 2 lines, one to cap off the horizontal drawing space, the other the PPU space.
+	for (int i = 0; i < 261; ++i) {
+		this->graphics.drawPixel(WHITE, 0x100, i);
+	}
+	for (int i = 0; i < 261; ++i) {
+		this->graphics.drawPixel(WHITE, 341, i);
+	}
+
 	PPUPosition pos = this->nes.debugPPU.getPosition();
 	this->lastPos = pos;
 	this->graphics.drawPixel(YELLOW, pos.dot, pos.scanline);
 	displayPalette(this->graphics, this->nes.debugPPU, 341, 0, 3);
+
+
 	this->graphics.blitDisplay(this->windowSurface);
 	SDL_UpdateWindowSurface(this->window);
 }
@@ -238,6 +255,56 @@ void GeneralDebugSuite::clearDisplay() {
 		for (int j = 0; j < this->graphics.h; ++j) {
 			this->graphics.drawPixel(0x000000ff, i, j);
 		}
+	}
+}
+
+void GeneralDebugSuite::pokeRAM() {
+	// Query the user for the start and end address (and make sure they are valid).
+	int startAddr = this->CLIInputHandler.getUserHex(" * Input a start address (0x000 to 0x7ff): ");
+	if (startAddr < 0) {
+		std::cout << " * Can not have an address less than 0.\n";
+		return;
+	} else if (startAddr > 0x7ff) {
+		std::cout << " * Can not have an address greater than 0x7ff.\n";
+		return;
+	}
+	// Then a valid end address.
+	std::cout << " * Input an end address (" << displayHex(startAddr, 3) << " to 0x7ff): ";
+	int endAddr = this->CLIInputHandler.getUserHex();
+	if (endAddr < 0) {
+		std::cout << " * Can not have an address less than 0.\n";
+		return;
+	} else if (endAddr > 0x7ff) {
+		std::cout << " * Can not have an address greater than 0x7ff.\n";
+		return;
+	}
+	else if (endAddr < startAddr) {
+		std::cout << " * Can not have an end address lower than the start address (" << displayHex(startAddr, 3) << ").\n";
+		return;
+	}
+
+	// Now we get the data to display it to the user.
+	std::vector<uint8_t> bytes;
+	for (int i = startAddr; i <= endAddr; ++i) {
+		bytes.push_back(this->nes.debugRAM.getByte(i));
+	}
+
+	// Then we display it.
+	std::cout << std::endl;
+	displayMemDump(bytes, startAddr, endAddr);
+	std::cout << std::endl;
+
+	// Now we ask the user to write in the bytes to rewrite, starting from startAddr.
+
+	for (int i = startAddr; i <= endAddr; ++i) {
+		std::cout << " * Insert value (negative to abort further pokes) for address " << displayHex(i, 3) << ": ";
+		int byteToWrite = this->CLIInputHandler.getUserHex();
+		if (byteToWrite < 0) {
+			std::cout << " * Aborting further writes.\n";
+			return;
+		}
+
+		this->nes.debugRAM.setByte(i, byteToWrite);
 	}
 }
 

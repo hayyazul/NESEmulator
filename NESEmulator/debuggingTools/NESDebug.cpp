@@ -184,3 +184,22 @@ std::string NESInternals::getSerialFormat() const {
 
 	return dataToSerialize.str();
 }
+
+void displayMemDump(std::vector<uint8_t>& dump, uint16_t startAddr, uint16_t endAddr, unsigned int bytesPerRow) {
+	unsigned int rowCount = ceil(static_cast<double>(endAddr - startAddr) / bytesPerRow);
+	if (endAddr > startAddr) {
+		for (unsigned int i = 0; i < rowCount; ++i) {
+			displayMemDumpLine(dump, startAddr, endAddr, i, bytesPerRow);
+		}
+	}
+}
+
+void displayMemDumpLine(std::vector<uint8_t>& dump, uint16_t startAddr, uint16_t endAddr, unsigned int row, unsigned int bytesPerRow) {
+	std::cout << displayHex(startAddr + row * bytesPerRow, 4) << " | ";
+	unsigned int rowSize = min((endAddr - startAddr) - row * bytesPerRow, bytesPerRow);  // This gives you how many bytes are left to display in total (not just for this row).
+
+	for (unsigned int i = 0; i <= rowSize; ++i) {
+		std::cout << displayHex(dump.at(i + row * bytesPerRow), 2) << ' ';
+	}
+	std::cout << std::endl;
+}

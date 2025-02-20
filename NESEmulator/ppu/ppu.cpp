@@ -673,6 +673,7 @@ void PPU::updateSpriteShiftRegisters() {
 	// So if we are on pixel 0 (cycle 1) and a sprite unit has x = 5, we will decrement it and get x = 4.
 	// This continues until x = 0, or when pixel = 4. Then on pixel = 5, the shift register itself is shifted 
 	// down into a position which allows its first pixel to be rendered.
+	
 	this->spriteShiftRegisters >>= 1;
 }
 void PPU::updateBeamLocation() { 

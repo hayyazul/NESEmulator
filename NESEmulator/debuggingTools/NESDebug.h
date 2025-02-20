@@ -23,6 +23,12 @@ inline uint32_t memAddrToiNESAddr(uint16_t memAddr) {
 	return (memAddr - 0x8000 + 0x10) % 0x4000;
 };
 
+
+// Displays a dump of memory
+void displayMemDump(std::vector<uint8_t>& dump, uint16_t startAddr, uint16_t endAddr, unsigned int bytesPerRow = 16);
+
+void displayMemDumpLine(std::vector<uint8_t>& dump, uint16_t startAddr, uint16_t endAddr, unsigned int row, unsigned int bytesPerRow);
+
 // Contains all updateable internals of the NES.
 struct NESInternals {
 	std::string name;  // Name of the internals instance.
