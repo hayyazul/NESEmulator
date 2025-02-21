@@ -68,7 +68,7 @@ GeneralDebugSuite::GeneralDebugSuite() :
 		{'u', {'u', "Delete a given save state"}},
 		{'v', {'v', "Loads a given save state"}},
 		{'x', {'x', "Clears the screen"}},
-		{'r', {'r', "Poke; change a value in RAM."}},
+		{'r', {'r', "Peek and or poke RAM"}},
 		})
 {}
 GeneralDebugSuite::~GeneralDebugSuite() {}

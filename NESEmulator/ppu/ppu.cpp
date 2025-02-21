@@ -300,13 +300,17 @@ void PPU::updatePPUSTATUS() {  // TODO: Implement sprite overflow and sprite 0 h
 void PPU::updateRenderingRegisters() {
 	// The PPU will update differently based on the current cycle.
 	// See frame timing diagram for more info.
+	
+	// NOTE: I am unsure about this->beamPos.dotInRange(328, 335); 
+	// in line with what the wiki says, which says that it should increment coarse x again at 336.
+	if (this->beamPos.dotInRange(1, 256) || this->beamPos.dotInRange(328, 341)) {
 
-	if (this->beamPos.inRender()) {
 		if (this->beamPos.dot == 0x100) {
 			this->incrementScrolling(true);  // At the end of a render line, increment fine y (coarse y if fine y overflows).
 		}
 		if (this->beamPos.dot % 8 == 0) {  // At the end of a tile, increment coarse x.
 			this->incrementScrolling();
+
 		}
 	}
 	
@@ -424,7 +428,15 @@ void PPU::performBackgroundFetches() {
 		uint16_t coarseY = getBits(this->v, 5, 9);
 		//c = b << 1;  // When we get the coarse y and store it in b, they are offset by 5, so 0bYYYYY00000. First, we shift it right by 5 to account for this, then multiply by 32
 		// To account for the length (in tiles) of the x-axis. Simplified, this is the same as not shifting at all.
+		
 		uint16_t addr = NAMETABLE_ADDR + coarseX + coarseY;
+		if (addr == 0x23bf) {
+			int _ = 0;
+		}
+		if (addr == 0x2000) {  // NOTE: This fetch should ONLY happen before rendering starts; that is not what is happening here. These are being fetched at the start of render after the first (correctly timed) fetches.
+			int _ = 0;
+		}
+
 		this->latches.nametableByteLatch = this->databus.read(addr);
 		break;
 	}
@@ -766,6 +778,16 @@ void PPU::drawPixel() {
 
 	uint8_t spriteColorIdx = this->getSpriteColor();
 	uint8_t bgColorIdx = this->getBGColor();  // Note: bg stands for background.
+
+	// PROBLEM: The background tiles are being fetched 8 cycles too late.
+
+	if (bgColorIdx != 0x0f) {
+		int _ = 0;
+	}
+
+	if (this->beamPos.inRange(0x20, 0x20, 0x017, 0x21)) {
+		int _ = 0;
+	}
 	
 	// TODO: Take into account sprite vs bg priority; for now, sprites are always given priority.
 	if (spriteColorIdx) {
@@ -775,7 +797,6 @@ void PPU::drawPixel() {
 	}
 
 	if (this->beamPos.dot < 0x100 && this->beamPos.scanline < 0xf0) {  // Do not draw past dot 255 or scanline 240
-		// NOTE: Temporary solution; I am not sure why but using Graphics::drawPixel results in a slight barber pole effect instead of a stable picture.
 		this->graphics->drawSquare(this->paletteMap.at(colorKey), this->beamPos.dot, this->beamPos.scanline, 1);
 	}
 }
@@ -793,6 +814,9 @@ uint8_t BackgroundShiftRegisters::getPattern(int x) const {
 	x = 7 - x;  // Keep in mind that the index starts from left to right.
 	uint8_t pattern = getBit(this->patternShiftRegisterHigh >> 1, x) << 1;  // Fetching the high bit.
 	pattern += getBit(this->patternShiftRegisterLow >> 1, x);  // Then the low bit.
+	if (this->patternShiftRegisterLow | this->patternShiftRegisterHigh) {
+		int _ = 0;
+	}
 	return pattern;
 }
 uint8_t BackgroundShiftRegisters::getAttribute(int x) const {
