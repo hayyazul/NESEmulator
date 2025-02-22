@@ -63,15 +63,7 @@ CPUCycleOutcomes _6502_CPU::executeCycle(bool DMACycle) {
 			this->performInterrupt = true;
 		}
 		
-		if (this->registers.PC == 0xfcb7) {
-			int _ = 0;
-		}
-
 		this->registers.PC += instruction.numBytes * !instruction.modifiesPC;  // Only move the program counter forward if the instruction does not modify the PC.
-
-		if (this->registers.PC == 0xfcb7) {
-			int _ = 0;
-		}
 
 	} else if (this->opcodeCyclesElapsed > this->currentOpcodeCycleLen) {
 		std::cout << "Warning: opcode cycles elapsed has exceeded the current length of the opcode (in cycles): elapsed = " << this->opcodeCyclesElapsed << ", length = " << this->currentOpcodeCycleLen << std::endl;

@@ -88,16 +88,14 @@ void PPU::executePPUCycle() {
 	//this->VRAM->setByte(0x2000, 0x40);
 	//this->VRAM->setByte(0x2001, 0x40);
 
+
+	//if (this->beamPos.lineInRange(240, 240)) {
+		//return;
+	//}
+
 	this->updatePPUSTATUS();
 
-	if (this->frameCount == 0x2a) {
-		int _ = 0;
-		if (this->beamPos.lineInRange(0x101, 0x101) && this->cycleCount == 0x3a9801) {
-			int __ = 0;
-		}
-	}
-
-	if (this->cycleCount == 0x3a9e56) {
+	if (this->v == 0x800) {
 		int _ = 0;
 	}
 
@@ -112,8 +110,10 @@ void PPU::executePPUCycle() {
 	}
 
 	this->updateBeamLocation();
+
 	++this->cycleCount;
 }
+
 uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 	// Deduces what register the operation should occur on, then performs the appropriate operation.
 	
@@ -300,9 +300,9 @@ void PPU::updatePPUSTATUS() {  // TODO: Implement sprite overflow and sprite 0 h
 void PPU::updateRenderingRegisters() {
 	// The PPU will update differently based on the current cycle.
 	// See frame timing diagram for more info.
-	
-	// NOTE: I am unsure about this->beamPos.dotInRange(328, 335); 
-	// in line with what the wiki says, which says that it should increment coarse x again at 336.
+
+
+
 	if (this->beamPos.dotInRange(1, 256) || this->beamPos.dotInRange(328, 341)) {
 
 		if (this->beamPos.dot == 0x100) {
@@ -313,10 +313,11 @@ void PPU::updateRenderingRegisters() {
 
 		}
 	}
-	
+	// NOTE: I am unsure about this->beamPos.dotInRange(328, 335); 
+	// in line with what the wiki says, which says that it should increment coarse x again at 336.
 	// Background fetches
 	// The condition before the || ensures to perform datafetches throughout the frame, the latter ensures data fetches for the 1st 2 tiles for the next frame.
-	if (this->beamPos.inRender() || this->beamPos.dotInRange(321, 336)) { 
+	if (this->beamPos.inRender() || this->beamPos.dotInRange(321, 337)) { 
 		this->performBackgroundFetches();
 	}
 	
@@ -351,7 +352,7 @@ void PPU::updateRenderingRegisters() {
 	}
 
 	// Perform shifts if in the given range.
-	if (this->beamPos.dotInRange(0x1, 0x100)) {
+	if (this->beamPos.dotInRange(0x0, 0x100)) {
 		this->updateSpriteShiftRegisters();
 	}
 	
@@ -376,6 +377,7 @@ void PPU::updateRenderingRegisters() {
 	if ((this->beamPos.lineInRange(0, 239) || this->beamPos.lineInRange(261, 261)) && this->beamPos.dotInRange(257, 320)) {
 		this->OAMAddr = 0;
 	}
+
 }
 void PPU::fetchPatternData(uint8_t patternID, bool table, bool high, int line, uint16_t& pattern, bool flipH, bool flipV) {
 	
@@ -407,6 +409,7 @@ void PPU::fetchPatternData(uint8_t patternID, bool table, bool high, int line, u
 void PPU::performBackgroundFetches() {
 	// TODO: Give this variable and function a better name.
 	uint8_t cycleCounter = (this->beamPos.dot - 1) % 8;  // This variable ranges from 0 to 7 and represents cycles 8, 16, 24... 256.
+	bool fetchingNextLineTiles = this->beamPos.dotInRange(0x100, 341);
 
 	// The shift registers are shifted to the right by 1 every data-fetching cycle.
 	this->backgroundShiftRegisters >>= 1;
@@ -430,14 +433,21 @@ void PPU::performBackgroundFetches() {
 		// To account for the length (in tiles) of the x-axis. Simplified, this is the same as not shifting at all.
 		
 		uint16_t addr = NAMETABLE_ADDR + coarseX + coarseY;
-		if (addr == 0x23bf) {
+		if (addr >= 0x23ba) {
 			int _ = 0;
 		}
 		if (addr == 0x2000) {  // NOTE: This fetch should ONLY happen before rendering starts; that is not what is happening here. These are being fetched at the start of render after the first (correctly timed) fetches.
 			int _ = 0;
 		}
+		if (addr == 0x2002) {
+			int _ = 0;
+		}
 
 		this->latches.nametableByteLatch = this->databus.read(addr);
+		if (this->latches.nametableByteLatch != 36) {
+			int _ = 0;
+		}
+
 		break;
 	}
 	case(3): { // Fetching attribute table byte.
@@ -503,10 +513,16 @@ void PPU::performBackgroundFetches() {
 	}
 	case(5): { // Fetching pattern table tile low.
 		// Using the nametable byte, we will grab the associated pattern.
+		/*
+		Fun fact: I found an incredibl(y frustrating)e bug here.
+		See the this->beamPos.scanline % 8? That selects the line of pixels for the pattern.
+		The problem? This fetching routine also fetches tiles on the NEXT line, so everything on the left is ruined.
+		
+		*/
 		this->fetchPatternData(this->latches.nametableByteLatch, 
 			getBit(this->control, 4), 
 			false, 
-			this->beamPos.scanline % 8, 
+			(this->beamPos.scanline + fetchingNextLineTiles) % 8,
 			this->latches.patternLatchLow);
 		break;
 	}
@@ -514,7 +530,7 @@ void PPU::performBackgroundFetches() {
 		this->fetchPatternData(this->latches.nametableByteLatch,
 			getBit(this->control, 4),
 			true,
-			this->beamPos.scanline % 8,
+			(this->beamPos.scanline + fetchingNextLineTiles) % 8,
 			this->latches.patternLatchHigh);
 		break;
 	}
@@ -631,7 +647,7 @@ void PPU::transferSpriteData() {
 			this->spriteShiftRegisters.at(sprite).patternShiftRegisterLow = 0xff00;
 			this->spriteShiftRegisters.at(sprite).patternShiftRegisterHigh = 0xff00;
 			this->spriteShiftRegisters.at(sprite).attributeBits = 0xb11;
-			this->spriteShiftRegisters.at(sprite).x = 0xff;
+			this->spriteShiftRegisters.at(sprite).x = 0x100;  // Sets the position at dot 256, which is outside the rendering range.
 			return;
 		}
 
@@ -761,8 +777,9 @@ uint8_t PPU::getSpriteColor() {
 	return color;
 }
 void PPU::drawPixel() {
+
 	if (this->graphics == nullptr) {  // If we are not given a graphics object, do not attempt to draw.
-		std::cout << "Warning: No graphics object provided for PPU; no output will be displayed." << std::endl;
+		//std::cout << "Warning: No graphics object provided for PPU; no output will be displayed." << std::endl;
 		return;
 	}
 
@@ -779,16 +796,6 @@ void PPU::drawPixel() {
 	uint8_t spriteColorIdx = this->getSpriteColor();
 	uint8_t bgColorIdx = this->getBGColor();  // Note: bg stands for background.
 
-	// PROBLEM: The background tiles are being fetched 8 cycles too late.
-
-	if (bgColorIdx != 0x0f) {
-		int _ = 0;
-	}
-
-	if (this->beamPos.inRange(0x20, 0x20, 0x017, 0x21)) {
-		int _ = 0;
-	}
-	
 	// TODO: Take into account sprite vs bg priority; for now, sprites are always given priority.
 	if (spriteColorIdx) {
 		colorKey |= spriteColorIdx;
@@ -796,7 +803,8 @@ void PPU::drawPixel() {
 		colorKey |= bgColorIdx;
 	}
 
-	if (this->beamPos.dot < 0x100 && this->beamPos.scanline < 0xf0) {  // Do not draw past dot 255 or scanline 240
+	// NOTE: The fact that drawing starts on dot 0 but the rest of the PPU is idle on that cyc;e might cause the weird left-tile visual bugs.
+	if (this->beamPos.dot < 0x100 && this->beamPos.scanline < 0xf0) {  // Do not draw past dot 256 or scanline 240
 		this->graphics->drawSquare(this->paletteMap.at(colorKey), this->beamPos.dot, this->beamPos.scanline, 1);
 	}
 }
@@ -811,12 +819,9 @@ BackgroundShiftRegisters::BackgroundShiftRegisters() :
 {}
 BackgroundShiftRegisters::~BackgroundShiftRegisters() {}
 uint8_t BackgroundShiftRegisters::getPattern(int x) const {
-	x = 7 - x;  // Keep in mind that the index starts from left to right.
 	uint8_t pattern = getBit(this->patternShiftRegisterHigh >> 1, x) << 1;  // Fetching the high bit.
 	pattern += getBit(this->patternShiftRegisterLow >> 1, x);  // Then the low bit.
-	if (this->patternShiftRegisterLow | this->patternShiftRegisterHigh) {
-		int _ = 0;
-	}
+
 	return pattern;
 }
 uint8_t BackgroundShiftRegisters::getAttribute(int x) const {
@@ -959,6 +964,9 @@ SpriteShiftUnit::SpriteShiftUnit() :
 SpriteShiftUnit::~SpriteShiftUnit() {}
 uint8_t SpriteShiftUnit::getPattern(int x) const {
 	x = 7 - x;  // Keep in mind that the index starts from left to right.
+	if (this->patternShiftRegisterLow & 0xff) {
+		int _ = 0;
+	}
 	uint8_t pattern = getBit(this->patternShiftRegisterHigh, x) << 1;  // Fetching the high bit.
 	pattern |= getBit(this->patternShiftRegisterLow, x);  // Then the low bit.
 	return pattern;
@@ -1001,10 +1009,10 @@ SpriteShiftUnit& SpriteShiftRegisters::at(int idx) {
 	return this->shiftRegisters.at(idx);
 }
 uint8_t SpriteShiftRegisters::getPattern(int x) {
-	return 0;
+	return 0;  // TODO
 }
 uint8_t SpriteShiftRegisters::getAttribute(int x) {
-	return 0;
+	return 0;  // TODO
 }
 void SpriteShiftRegisters::shiftRegister(int sprite) {
 	this->shiftRegisters.at(sprite) >>= 1;

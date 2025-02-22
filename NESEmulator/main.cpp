@@ -27,8 +27,8 @@ int main() {
 
 	GeneralDebugSuite debuggingSuite;
 	debuggingSuite.run();
-
 	/*
+	
 	Memory VRAM{ 0x800 };
 	PPUDebug ppu;
 	NESDatabus databus;
@@ -110,15 +110,15 @@ int main() {
 			}
 		}
 
+		NTDisplayer.displayNametable(graphics, ppu, 0, 0, 0, 1, true);
 		ppu.displayVisibleSprites();
-		
 		PTDisplayer.displayPatternTable(graphics, ppu, patternTable, x + 256, y, 2);
 		displayPalette(graphics, ppu, 0, 240, 8);
 		graphics.blitDisplay(windowSurface);
 		SDL_UpdateWindowSurface(window);
 
 		SDL_Delay(1.0 / 60.0);
-
+		/*
 		if (numElapsed >= numFrames) {
 			numElapsed = 0;
 			char dump = CLI.getUserChar("Dump OAM? (y/n)");
@@ -129,9 +129,10 @@ int main() {
 			numFrames = CLI.getUserInt("Elapse how many more frames? ");
 		}
 		++numElapsed;
+		
 	}
 
 	SDL_Quit();
-	//*/
+	*/
 	return 0;
 }

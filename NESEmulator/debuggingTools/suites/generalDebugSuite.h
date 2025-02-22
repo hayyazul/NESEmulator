@@ -76,5 +76,5 @@ private:
 	SDL_Renderer* renderer;
 	SDL_Surface* windowSurface;
 
-	const uint32_t BLACK, YELLOW, WHITE;
+	const uint32_t BLACK, YELLOW, WHITE, GREEN;
 };

@@ -7,9 +7,7 @@
 //  TODO: Fully implement PPUSTATUS
 //  TODO: Bugs:
 //			- Make sure NMI behavior is correct (it likely isn't at the moment).
-//			- Last column of sprites have wrong palette (only when emulated).
-//          - Sprites are a bit too much to the left (by ~1 tile).
-//             - After some investigating, it seems that the background is actually 1 tile to the right (there is an extra tile of space between the "D" in the title screen and the left side).
+//			- Some tiles have the wrong attribute (the attribute for the tile to the right).
 
 #include <map>
 #include <array>
@@ -47,7 +45,7 @@ struct BackgroundLatches {
 struct SpriteShiftUnit {
 	uint16_t patternShiftRegisterLow, patternShiftRegisterHigh;
 	int attributeBits;  // Ranges from 0-3 and indicates the palette index.
-	uint8_t x;  // The x coordinate of where the sprite is located; used to know when to start rendering this sprite.
+	int x;  // The x coordinate of where the sprite is located; used to know when to start rendering this sprite.
 
 	SpriteShiftUnit();
 	~SpriteShiftUnit();

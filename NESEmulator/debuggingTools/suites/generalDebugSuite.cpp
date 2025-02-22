@@ -55,20 +55,24 @@ GeneralDebugSuite::GeneralDebugSuite() :
 	BLACK(graphics.getRGB(0x00, 0x00, 0x00)), 
 	YELLOW(graphics.getRGB(0xff, 0xff, 0x00)),
 	WHITE(graphics.getRGB(0xff, 0xff, 0xff)),
+	GREEN(graphics.getRGB(0x00, 0xff, 0x00)),
 	INPUT_OPTIONS({
 		{'q', {'q', "Quit"}},
 		{'e', {'e', "Execute cycle"} },
+		{'l', {'l', "Execute line"} },
 		{'E', {'E', "Execute [n] cycles"}},
 		{'F', {'F', "Execute till PC is at [x], trying for [n] machine cycles"}},
 		{'f', {'f', "Execute till next instruction"}},
 		{'p', {'p', "Dump PPU internals (excludes VRAM and CHRDATA)"}},
 		{'c', {'c', "Dump CPU internals (excludes RAM and DMA data)"}},
 		{'s', {'s', "Save NES internals (includes RAM, VRAM, and DMA data)"}},
+		{'k', {'k', "Seek till given beam position"}},
 		{'t', {'t', "Print available save states (prints the machine cycle associated w/ it)"}},
 		{'u', {'u', "Delete a given save state"}},
 		{'v', {'v', "Loads a given save state"}},
 		{'x', {'x', "Clears the screen"}},
 		{'r', {'r', "Peek and or poke RAM"}},
+		{'g', {'g', "Create a marker pixel at a given position."}},
 		})
 {}
 GeneralDebugSuite::~GeneralDebugSuite() {}
@@ -98,6 +102,17 @@ void GeneralDebugSuite::run() {
 		switch (inputChar) {
 		case('E'): {
 			int cyclesToExecute = this->CLIInputHandler.getUserInt("How many cycles?\n");
+			std::cout << std::endl;
+			for (int i = 0; i < cyclesToExecute; ++i) {
+				this->nes.executeMachineCycle();
+				if (this->nes.frameFinished() || i == cyclesToExecute - 1) {
+					this->updateDisplay();
+				}
+			}
+			break;
+		}
+		case('l'): {
+			int cyclesToExecute = 341;
 			std::cout << std::endl;
 			for (int i = 0; i < cyclesToExecute; ++i) {
 				this->nes.executeMachineCycle();
@@ -180,6 +195,25 @@ void GeneralDebugSuite::run() {
 			//this->serializeState(idxToSerialize);
 			break;
 		}
+		case('g'): {
+			// Get the position of where to put the marker.
+			int x = this->CLIInputHandler.getUserInt(" * X pos of marker: ");
+			if (x < 0 || x > 341) {
+				std::cout << " * X is out of bounds\n";
+				break;
+			}
+			int y = this->CLIInputHandler.getUserInt(" * Y pos of marker: ");
+			if (6 < 0 || y > 261) {
+				std::cout << " * Y is out of bounds\n";
+				break;
+			}
+
+			// Then draw the new one.
+			this->graphics.drawPixel(GREEN, x, y);
+			this->updateDisplay();
+			break;
+		}
+		// Below are WIP
 		case('X'): {
 			this->setSaveStateDir();
 			break;
@@ -191,6 +225,33 @@ void GeneralDebugSuite::run() {
 		case('r'): {
 			this->pokeRAM();
 			break;
+		}
+		case('k'): {
+			// Get the position of where to put the marker.
+			int x = this->CLIInputHandler.getUserInt(" * dot: ");
+			if (x < 0 || x > 340) {
+				std::cout << " * dot is out of bounds\n";
+				break;
+			}
+			int y = this->CLIInputHandler.getUserInt(" * line: ");
+			if (y < 0 || y > 261) {
+				std::cout << " * line is out of bounds\n";
+				break;
+			}
+
+			std::cout << std::endl;
+			while (true) {
+				NESCycleOutcomes outcome = this->nes.executeMachineCycle();
+				// Update the display if we finish a frame or execution.
+				if (this->nes.debugPPU.getPosition().inRange(y, y, x, x) || this->nes.frameFinished()) {
+					this->updateDisplay();
+				}
+
+				// Check if we reached the ppu position; break if we did.
+				if (this->nes.debugPPU.getPosition().inRange(y, y, x, x)) break;
+			}
+			break;
+
 		}
 		default:
 			break;
@@ -243,6 +304,8 @@ void GeneralDebugSuite::updateDisplay() {
 	PPUPosition pos = this->nes.debugPPU.getPosition();
 	this->lastPos = pos;
 	this->graphics.drawPixel(YELLOW, pos.dot, pos.scanline);
+
+	this->nes.debugPPU.displayVisibleSprites();
 	displayPalette(this->graphics, this->nes.debugPPU, 341, 0, 3);
 
 
