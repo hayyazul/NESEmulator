@@ -66,9 +66,6 @@ CPUCycleOutcomes _6502_CPU::executeCycle(bool DMACycle) {
 			return FAIL;
 		};
 		Instruction& instruction = INSTRUCTION_SET[opcode];
-		if (opcode == 0x10) {
-			int a = 0;
-		}
 
 		this->executeOpcode(opcode);
 		this->currentOpcodeCycleLen = instruction.cycleCount;  // Get how many cycles this opcode will be using.
@@ -81,7 +78,6 @@ CPUCycleOutcomes _6502_CPU::executeCycle(bool DMACycle) {
 		}
 		
 		this->registers.PC += instruction.numBytes * !instruction.modifiesPC;  // Only move the program counter forward if the instruction does not modify the PC.
-
 	} else if (this->opcodeCyclesElapsed > this->currentOpcodeCycleLen) {
 		std::cout << "Warning: opcode cycles elapsed has exceeded the current length of the opcode (in cycles): elapsed = " << this->opcodeCyclesElapsed << ", length = " << this->currentOpcodeCycleLen << std::endl;
 		outcome = FAIL;
@@ -120,7 +116,6 @@ void _6502_CPU::reset() {
 	registers.SP -= 3;
 	registers.setStatus('I', true);
 	this->totalCyclesElapsed += 7;
-
 }
 
 void _6502_CPU::powerOn() {

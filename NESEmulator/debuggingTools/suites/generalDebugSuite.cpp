@@ -64,6 +64,7 @@ GeneralDebugSuite::GeneralDebugSuite() :
 		{'e', {'e', "Execute cycle"} },
 		{'l', {'l', "Execute line"} },
 		{'E', {'E', "Execute [n] cycles"}},
+		{'G', {'G', "Execute [n] CPU cycles"}},
 		{'F', {'F', "Execute till PC is at [x], trying for [n] machine cycles"}},
 		{'f', {'f', "Execute till next instruction"}},
 		{'k', {'k', "Seek till given beam position"}},
@@ -99,7 +100,9 @@ GeneralDebugSuite::GeneralDebugSuite() :
 		{'r', true},
 		{'g', true},
 		{'b', true},
-		{'B', true} })
+		{'B', true},
+		{'G', true}
+		})
 {}
 GeneralDebugSuite::~GeneralDebugSuite() {}
 
@@ -126,6 +129,19 @@ void GeneralDebugSuite::run() {
 		inputChar = this->queryForOption();
 		std::cout << std::endl;
 		switch (inputChar) {
+		case('G'): {
+			int cyclesToExecute = this->CLIInputHandler.getUserInt("How many cycles?\n");
+			const int CPUCyclcesPerFrame = 89342 / 3;  // Numerator is # of PPU cycles per frame (rounded up), 3 PPU cycles per CPU cycle.
+			std::cout << std::endl;
+			for (int i = 0; i < cyclesToExecute; ++i) {
+				this->nes.executeCPUCycle();
+				// NOTE: Very inefficient; blits to the screen every CPU cycle during Vblank (and a little before).
+				if (i % CPUCyclcesPerFrame == 0 || i == cyclesToExecute - 1) {
+					this->updateDisplay();
+				}
+			}
+			break;
+		}
 		case('E'): {
 			int cyclesToExecute = this->CLIInputHandler.getUserInt("How many cycles?\n");
 			std::cout << std::endl;
@@ -362,7 +378,7 @@ void GeneralDebugSuite::updateDisplay() {
 	this->lastPos = pos;
 	this->graphics.drawPixel(YELLOW, pos.dot, pos.scanline);
 
-	this->nes.debugPPU.displayVisibleSprites();
+	//this->nes.debugPPU.displayVisibleSprites();
 	displayPalette(this->graphics, this->nes.debugPPU, 341, 0, 3);
 
 
@@ -659,6 +675,8 @@ void GeneralDebugSuite::activateBinSearch(int upperCycleBound, bool CPUBased) {
 	this->allowedOptions.at('F') = false;
 
 	this->nes.executeTillCycle(this->searchRange.getMiddleIdx(), this->CPUCycleCountBased);
+	this->updateDisplay();
+
 }
 
 void GeneralDebugSuite::performBinarySearchActions() {
@@ -696,6 +714,7 @@ void GeneralDebugSuite::performBinarySearchActions() {
 		this->nes.getNESInternals(this->lowerCycleInternals);
 
 		this->nes.executeTillCycle(this->searchRange.getMiddleIdx(), this->CPUCycleCountBased);
+		this->updateDisplay();
 		break;
 	}
 	case('-'): {
@@ -709,6 +728,7 @@ void GeneralDebugSuite::performBinarySearchActions() {
 		this->searchRange.updateBounds(false);
 
 		this->nes.executeTillCycle(this->searchRange.getMiddleIdx(), this->CPUCycleCountBased);
+		this->updateDisplay();
 
 		this->debuggerMessages.push_back(this->searchRange.getPrintableView());
 		break;

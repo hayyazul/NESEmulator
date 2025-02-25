@@ -62,6 +62,9 @@ public:
 	// Returns whether a frame has just finished drawing (e.g. when the PPU is at line 239, dot 256).
 	NESCycleOutcomes executeMachineCycle() override;
 
+	// Executes until a CPU Cycle has been executed.
+	NESCycleOutcomes executeCPUCycle();
+
 	// Same as above, but executes the specified number of machine cycles (can make it based on CPU cycles). FAILS upon an invalid numCycle count.
 	NESCycleOutcomes executeNMachineCycles(unsigned long long numCycles, bool CPUBased);
 
@@ -69,7 +72,7 @@ public:
 	NESCycleOutcomes executeTillCycle(unsigned long long cycleCount, bool CPUBased);
 
 	// --- Debug Methods ---
-	bool frameFinished() const;  // Returns true when the frame is finished drawing.
+	bool frameFinished(bool exact=true) const;  // Returns true when the frame is finished drawing. 
 
 	// Gets total number of machine cycles this NES has iterated.
 	unsigned long long getNumCycles() const;

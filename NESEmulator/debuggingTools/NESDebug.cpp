@@ -28,6 +28,15 @@ NESCycleOutcomes NESDebug::executeMachineCycle() {
 	return result;
 }
 
+NESCycleOutcomes NESDebug::executeCPUCycle() {
+	NESCycleOutcomes result;
+	do {
+		result = this->executeMachineCycle();
+	} while (result == PPU_CYCLE);
+	
+	return result;
+}
+
 NESCycleOutcomes NESDebug::executeNMachineCycles(unsigned long long numCycles, bool CPUBased) {
 	// First, validate the numCycles.
 	NESCycleOutcomes result = PPU_CYCLE;
@@ -71,8 +80,9 @@ NESCycleOutcomes NESDebug::executeTillCycle(unsigned long long cycleCount, bool 
 	return result;
 }
 
-bool NESDebug::frameFinished() const {
-	bool atEndOfFrame = this->debugPPU.getPosition().inRange(239, 239, 256, 256);
+bool NESDebug::frameFinished(bool exact) const {
+	// Exact specifies whether to check if the frame just finished drawing or if it is in the buffer area (after the last rendering line)
+	bool atEndOfFrame = exact ? this->debugPPU.getPosition().inRange(239, 239, 256, 256) : this->debugPPU.getPosition().inRange(240, 261, 0, 340);
 	return atEndOfFrame;
 }
 
