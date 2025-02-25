@@ -35,6 +35,12 @@ struct NESInternals {
 	PPUInternals ppuInternals;
 	CPUInternals cpuInternals;
 	OAMDMAUnit oamDMAUnit;
+
+	bool scheduleHalt;  // Whether to halt the CPU next cycle.  
+	bool haltCPUOAM;  // Whether the CPU is halted for OAMDMA.
+	unsigned long long totalMachineCycles;
+	uint64_t totalCPUCycles;
+	
 	RAM ram;
 
 	NESInternals() {};
@@ -57,9 +63,20 @@ public:
 	// Returns whether a frame has just finished drawing (e.g. when the PPU is at line 239, dot 256).
 	NESCycleOutcomes executeMachineCycle() override;
 
+	// Same as above, but executes the specified number of machine cycles. FAILS upon an invalid numCycle count.
+	NESCycleOutcomes executeNMachineCycles(int numCycles);
+
+	// Same as above, but executes until the NES reaches the given cycle. FAILS if given an invalid cycle count or a cycle count which was already passed.
+	NESCycleOutcomes executeTillCycle(unsigned long long cycleCount);
+
 	// --- Debug Methods ---
 	bool frameFinished() const;  // Returns true when the frame is finished drawing.
-	
+
+	// Gets total number of machine cycles this NES has iterated.
+	unsigned long long getNumCycles() const;
+
+	void getNESInternals(NESInternals& internals);
+
 	// Loads CPU, PPU, DMA, RAM, and VRAM internals
 	void loadInternals(NESInternals internals);
 	PPUInternals getPPUInternals() const;  // Returns a struct containing the value of every internal (excludes VRAM and CHRDATA) element of the PPU.

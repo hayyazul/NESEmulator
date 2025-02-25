@@ -28,9 +28,55 @@ NESCycleOutcomes NESDebug::executeMachineCycle() {
 	return result;
 }
 
+NESCycleOutcomes NESDebug::executeNMachineCycles(int numCycles) {
+	// First, validate the numCycles.
+	NESCycleOutcomes result = PPU_CYCLE;
+	if (numCycles <= 0) {
+		result = FAIL_CYCLE;
+	}
+	else {
+		// Then execute the specified number of times or until a failure occurs.
+		for (int i = 0; i < numCycles && result != FAIL_CYCLE; ++i) {
+			result = this->executeMachineCycle();
+		}
+	}
+	return result;
+}
+
+NESCycleOutcomes NESDebug::executeTillCycle(unsigned long long cycleCount) {
+	// First, check if the cycle count was already exceeded.
+	unsigned long long cyclesElapsed = this->getNumCycles();
+	NESCycleOutcomes result;
+	if (cyclesElapsed >= cycleCount) {
+		result = FAIL_CYCLE;
+	} else {
+		// If not, execute the amount of cycles to reach the desired elapsed amount.
+		result = this->executeNMachineCycles(cycleCount - cyclesElapsed);
+	}
+
+	return result;
+}
+
 bool NESDebug::frameFinished() const {
 	bool atEndOfFrame = this->debugPPU.getPosition().inRange(239, 239, 256, 256);
 	return atEndOfFrame;
+}
+
+unsigned long long NESDebug::getNumCycles() const {
+	return this->totalMachineCycles;
+}
+
+void NESDebug::getNESInternals(NESInternals& internals) {
+	// We save the internals of the CPU, PPU, RAM, and VRAM.
+	internals.cpuInternals = this->getCPUInternals();
+	internals.ppuInternals = this->getPPUInternals();
+	this->getRAM(internals.ram);
+	internals.oamDMAUnit = this->getOAMDMAUnit();
+
+	internals.haltCPUOAM = this->haltCPUOAM;
+	internals.scheduleHalt = this->scheduleHalt;
+	internals.totalCPUCycles = this->totalCPUCycles;
+	internals.totalMachineCycles = this->totalMachineCycles;
 }
 
 
@@ -39,6 +85,11 @@ void NESDebug::loadInternals(NESInternals internals) {
 	this->debugPPU.loadInternals(internals.ppuInternals);
 	this->DMAUnit = internals.oamDMAUnit;
 	*this->ram = internals.ram;
+
+	this->haltCPUOAM = internals.haltCPUOAM;
+	this->scheduleHalt = internals.scheduleHalt;
+	this->totalCPUCycles = internals.totalCPUCycles;
+	this->totalMachineCycles = internals.totalMachineCycles;
 }
 
 PPUInternals NESDebug::getPPUInternals() const {

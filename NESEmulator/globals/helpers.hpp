@@ -145,6 +145,12 @@ inline constexpr T reverseBits(T bits) {
 	return reverseBits(bits, sizeof(T) * 8);
 }
 
+template <typename T>
+inline constexpr void removeElementFromVec(std::vector<T>& vec, T& elementVal) {
+	vec.erase(std::remove(vec.begin(),
+		vec.end(), elementVal), vec.end());
+}
+
 /* Some terminology and acronyms used in the code:
  - xBI: x-based indexing; e.g. 0BI = 0-based indexing.
 */
