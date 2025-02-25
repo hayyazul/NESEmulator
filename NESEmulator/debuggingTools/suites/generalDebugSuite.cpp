@@ -57,6 +57,7 @@ GeneralDebugSuite::GeneralDebugSuite() :
 	WHITE(graphics.getRGB(0xff, 0xff, 0xff)),
 	GREEN(graphics.getRGB(0x00, 0xff, 0x00)),
 	inBinSearchMode(false),
+	CPUCycleCountBased(false),
 	INPUT_OPTIONS({
 		{'q', {'q', "Quit"}},
 		// Modifies number of cycles elapsed.
@@ -77,7 +78,8 @@ GeneralDebugSuite::GeneralDebugSuite() :
 		{'r', {'r', "Peek and or poke RAM"}},
 		{'g', {'g', "Create a marker pixel at a given position."}},
 		// Binary search.
-		{'b', {'b', "Activates or accesses the options of binary search for a certain machine cycle."}}
+		{'b', {'b', "Activates or accesses the options of binary search for a certain machine cycle."}},
+		{'B', {'B', "Activates or accesses the options of binary search for a certain CPU cycle."}}
 		}),
 	allowedOptions({
 		{'q', true},
@@ -96,7 +98,8 @@ GeneralDebugSuite::GeneralDebugSuite() :
 		{'x', true},
 		{'r', true},
 		{'g', true},
-		{'b', true}})
+		{'b', true},
+		{'B', true} })
 {}
 GeneralDebugSuite::~GeneralDebugSuite() {}
 
@@ -236,11 +239,23 @@ void GeneralDebugSuite::run() {
 			this->updateDisplay();
 			break;
 		}
+		case('B'): {
+			if (!this->inBinSearchMode) {
+				int numCycles = this->CLIInputHandler.getUserInt(" * Up to what cycle to search (negative to cancel): ");
+				if (numCycles > 0) {
+					this->activateBinSearch(numCycles, true);
+				}
+			}
+			else {
+				this->performBinarySearchActions();
+			}
+			break;
+		}
 		case('b'): {
 			if (!this->inBinSearchMode) {
-				int numCycles = this->CLIInputHandler.getUserInt(" * How many cycles ahead to search (negative to cancel): ");
+				int numCycles = this->CLIInputHandler.getUserInt(" * Up to what cycle to search (negative to cancel): ");
 				if (numCycles > 0) {
-					this->activateBinSearch(numCycles);
+					this->activateBinSearch(numCycles, false);
 				}
 			} else {
 				this->performBinarySearchActions();
@@ -610,11 +625,20 @@ void GeneralDebugSuite::setSaveStateDir() {
 	}
 }
 
-void GeneralDebugSuite::activateBinSearch(int numCycles) {
+void GeneralDebugSuite::activateBinSearch(int upperCycleBound, bool CPUBased) {
+
+	int currentNumCycles = CPUBased ? this->nes.getNumCPUCycles() : this->nes.getNumCycles();
+	if (upperCycleBound <= this->nes.getNumCycles()) {
+		std::cout << " * Error activating binary search: upper bound given has already been surpassed (current: " 
+			<< currentNumCycles << " | requested: " << upperCycleBound << ")\n";
+		return;
+	}
+
 	// First, set the binary search parameters.
 	this->inBinSearchMode = true;
+	this->CPUCycleCountBased = CPUBased;
 	this->searchRange.setLowerIdx(this->nes.getNumCycles());
-	this->searchRange.setUpperIdx(this->nes.getNumCycles() + numCycles);
+	this->searchRange.setUpperIdx(upperCycleBound);
 
 	// Then set the message.
 	const std::string message = "Binary search is active.";
@@ -634,7 +658,7 @@ void GeneralDebugSuite::activateBinSearch(int numCycles) {
 	this->allowedOptions.at('E') = false;
 	this->allowedOptions.at('F') = false;
 
-	this->nes.executeTillCycle(this->searchRange.getMiddleIdx());
+	this->nes.executeTillCycle(this->searchRange.getMiddleIdx(), this->CPUCycleCountBased);
 }
 
 void GeneralDebugSuite::performBinarySearchActions() {
@@ -671,7 +695,7 @@ void GeneralDebugSuite::performBinarySearchActions() {
 		// If we want to move up, then we do not need to load the lower save state. We save the current one and move up.
 		this->nes.getNESInternals(this->lowerCycleInternals);
 
-		this->nes.executeTillCycle(this->searchRange.getMiddleIdx());
+		this->nes.executeTillCycle(this->searchRange.getMiddleIdx(), this->CPUCycleCountBased);
 		break;
 	}
 	case('-'): {
@@ -684,7 +708,7 @@ void GeneralDebugSuite::performBinarySearchActions() {
 		this->nes.loadInternals(this->lowerCycleInternals);
 		this->searchRange.updateBounds(false);
 
-		this->nes.executeTillCycle(this->searchRange.getMiddleIdx());
+		this->nes.executeTillCycle(this->searchRange.getMiddleIdx(), this->CPUCycleCountBased);
 
 		this->debuggerMessages.push_back(this->searchRange.getPrintableView());
 		break;
@@ -697,12 +721,14 @@ void GeneralDebugSuite::performBinarySearchActions() {
 }
 
 void GeneralDebugSuite::deactivateBinSearch(bool returnToOldState) {
+	// Remove bin-search related messages.
 	std::string message = "Binary search is active.";
 	this->inBinSearchMode = false;
 	removeElementFromVec(this->debuggerMessages, message);
 	std::string binarySearchMsg = this->searchRange.getPrintableView();
 	removeElementFromVec(this->debuggerMessages, binarySearchMsg);
 
+	// Reallow all options.
 	this->allowedOptions.at('e') = true;
 	this->allowedOptions.at('l') = true;
 	this->allowedOptions.at('f') = true;
@@ -711,6 +737,7 @@ void GeneralDebugSuite::deactivateBinSearch(bool returnToOldState) {
 	this->allowedOptions.at('E') = true;
 	this->allowedOptions.at('F') = true;
 
+	// Return to old state (if desired).
 	if (returnToOldState) this->nes.loadInternals(this->startInternals);
 }
 
@@ -752,7 +779,7 @@ std::string BinarySearchIndices<INTEGRAL_T>::getPrintableView() const {
 	int upperIdx = this->getUpperIdx();
 	int midIdx = this->getMiddleIdx();
 	std::string isFinished = btos(this->isFinishedWithSearch(), " ", " NOT ");
-	binarySearchInfo << "Is" << isFinished << "Finished | Bounds: " << lowerIdx << " --- " << midIdx << " --- " << upperIdx;
+	binarySearchInfo << "Is" << isFinished << "Finished | Bounds: " << lowerIdx << " --- " << midIdx << " (On)" << " --- " << upperIdx;
 
 	return binarySearchInfo.str();
 }

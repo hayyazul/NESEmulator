@@ -58,6 +58,7 @@ CPUInternals CPUDebugger::getInternals() const {
 	internals.totalCyclesElapsed = this->totalCyclesElapsed;
 	internals.opcodeCyclesElapsed = this->opcodeCyclesElapsed;
 	internals.currentOpcodeCycleLen = this->currentOpcodeCycleLen;
+	internals.performNMI = this->performNMI;
 
 	return internals;
 }
@@ -77,6 +78,11 @@ void CPUDebugger::loadInternals(CPUInternals cpuInternals) {
 	this->totalCyclesElapsed = cpuInternals.totalCyclesElapsed;
 	this->opcodeCyclesElapsed = cpuInternals.opcodeCyclesElapsed;
 	this->currentOpcodeCycleLen = cpuInternals.currentOpcodeCycleLen;
+	this->performNMI = cpuInternals.performNMI;
+}
+
+uint64_t CPUDebugger::getNumCycles() const {
+	return this->totalCyclesElapsed;
 }
 
 std::vector<uint8_t> CPUDebugger::memDump(uint16_t startAddr, uint16_t endAddr) {

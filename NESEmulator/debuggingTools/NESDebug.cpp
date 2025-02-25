@@ -28,7 +28,7 @@ NESCycleOutcomes NESDebug::executeMachineCycle() {
 	return result;
 }
 
-NESCycleOutcomes NESDebug::executeNMachineCycles(int numCycles) {
+NESCycleOutcomes NESDebug::executeNMachineCycles(unsigned long long numCycles, bool CPUBased) {
 	// First, validate the numCycles.
 	NESCycleOutcomes result = PPU_CYCLE;
 	if (numCycles <= 0) {
@@ -36,22 +36,36 @@ NESCycleOutcomes NESDebug::executeNMachineCycles(int numCycles) {
 	}
 	else {
 		// Then execute the specified number of times or until a failure occurs.
-		for (int i = 0; i < numCycles && result != FAIL_CYCLE; ++i) {
-			result = this->executeMachineCycle();
+			if (CPUBased) {  // If CPU based, make sure to execute machine cycles until the number of cycles equals the desired amount.
+				unsigned long long initCPUCount = this->getNumCPUCycles();
+				unsigned long long currentCPUCount;
+				do {
+					result = this->executeMachineCycle();
+					currentCPUCount = this->getNumCPUCycles();
+					if (currentCPUCount - initCPUCount > numCycles) {
+						int _ = 0;
+						// This should never happen. If it does, it means we somehow iterated the number of CPU cycles by more than 1, which is not allowed.
+					}
+				} while(result != FAIL_CYCLE && (currentCPUCount - initCPUCount) != numCycles);
+			} else {
+				for (unsigned long long i = 0; i < numCycles && result != FAIL_CYCLE; ++i) {
+					result = this->executeMachineCycle();
+				
+			}
 		}
 	}
 	return result;
 }
 
-NESCycleOutcomes NESDebug::executeTillCycle(unsigned long long cycleCount) {
+NESCycleOutcomes NESDebug::executeTillCycle(unsigned long long cycleCount, bool CPUBased) {
 	// First, check if the cycle count was already exceeded.
-	unsigned long long cyclesElapsed = this->getNumCycles();
+	unsigned long long cyclesElapsed = CPUBased ? this->getNumCPUCycles() : this->getNumCycles();
 	NESCycleOutcomes result;
 	if (cyclesElapsed >= cycleCount) {
 		result = FAIL_CYCLE;
 	} else {
 		// If not, execute the amount of cycles to reach the desired elapsed amount.
-		result = this->executeNMachineCycles(cycleCount - cyclesElapsed);
+		result = this->executeNMachineCycles(cycleCount - cyclesElapsed, CPUBased);
 	}
 
 	return result;
@@ -66,16 +80,18 @@ unsigned long long NESDebug::getNumCycles() const {
 	return this->totalMachineCycles;
 }
 
+unsigned long long NESDebug::getNumCPUCycles() const {
+	return this->debugCPU.getNumCycles();
+}
+
 void NESDebug::getNESInternals(NESInternals& internals) {
 	// We save the internals of the CPU, PPU, RAM, and VRAM.
 	internals.cpuInternals = this->getCPUInternals();
 	internals.ppuInternals = this->getPPUInternals();
 	this->getRAM(internals.ram);
 	internals.oamDMAUnit = this->getOAMDMAUnit();
-
 	internals.haltCPUOAM = this->haltCPUOAM;
 	internals.scheduleHalt = this->scheduleHalt;
-	internals.totalCPUCycles = this->totalCPUCycles;
 	internals.totalMachineCycles = this->totalMachineCycles;
 }
 
@@ -85,10 +101,8 @@ void NESDebug::loadInternals(NESInternals internals) {
 	this->debugPPU.loadInternals(internals.ppuInternals);
 	this->DMAUnit = internals.oamDMAUnit;
 	*this->ram = internals.ram;
-
 	this->haltCPUOAM = internals.haltCPUOAM;
 	this->scheduleHalt = internals.scheduleHalt;
-	this->totalCPUCycles = internals.totalCPUCycles;
 	this->totalMachineCycles = internals.totalMachineCycles;
 }
 

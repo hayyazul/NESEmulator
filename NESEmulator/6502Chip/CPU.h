@@ -19,7 +19,7 @@ const uint16_t RESET_VECTOR_ADDRESS = 0xfffc;
 enum CPUCycleOutcomes {
 	FAIL,  // Occurs when an attempt to execute an illegal opcode is made.
 	PASS,  // Occurs when we are still waiting for the opcode's cycle counter to tick down.
-	INSTRUCTION_EXECUTED  // Occurs when an instruction was executed this cycle.
+	INSTRUCTION_EXECUTED,  // Occurs when an instruction was executed this cycle.
 };
 
 // NOTE: Might replace get/set status with bool values.
@@ -169,9 +169,10 @@ protected:
 
 	bool nmiRequested;  // Whether a REQUEST for an NMI has been made.
 	bool lastNMISignal;  // The last NMI signal; so if the PPU is on Vblank, this gets set to true. This also prevents another NMI from being requested (assuming the PPU's Vblank status is still true).
+	bool performNMI;  // Whether to PERFORM an NMI in the current CPU cycle.  // NEW
 
 	bool getOrPutCycle;  // Bool indicating whether the current cycle is a get (false) or a put (true) cycle. Starts as a get cycle, alternates back and forth every cycle. 
-	long unsigned int totalCyclesElapsed = 0;  // Total CPU cycles elapsed since startup. NOTE: Buggy; when DMA is activated, this is not iterated.
+	unsigned long long totalCyclesElapsed = 0;  // Total CPU cycles elapsed since startup. 
 	unsigned int opcodeCyclesElapsed = 0;  // A cycle counter that is present since the CPU began executing a given instruction. Resets when it reaches the number of cycles for a given instruction.
 	unsigned int currentOpcodeCycleLen = 0;  // The number of cycles the current opcode uses.
 

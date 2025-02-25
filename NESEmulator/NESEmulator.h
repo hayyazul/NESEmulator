@@ -75,5 +75,5 @@ protected:
 	bool haltCPUOAM;  // Whether the CPU is halted for OAMDMA.
 
 	unsigned long long totalMachineCycles;
-	uint64_t totalCPUCycles;
+	//uint64_t totalCPUCycles;  // [DEPRECATED] NOTE: Might remove as it redundant.
 };

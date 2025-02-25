@@ -85,11 +85,11 @@ private:
 	void setSaveStateDir();
 
 	// Activates or deactivates binary search mode.
-	void activateBinSearch(int numCycles);
+	void activateBinSearch(int upperCycleBound, bool CPUBased);
 	void performBinarySearchActions();
 	void deactivateBinSearch(bool returnToOldState);
 		
-	const std::string CURRENT_VERSION = "c0fe7bcd";
+	const std::string CURRENT_VERSION = "1d1bc25c";
 
 	// Extra debug variables ("globals")
 	const std::map<char, InputOptions> INPUT_OPTIONS;  // Set of inputs and their descriptions.
@@ -102,6 +102,7 @@ private:
 
 	// Binary search debugger variables.
 	bool inBinSearchMode;
+	bool CPUCycleCountBased;
 	NESInternals startInternals;  // Save state from when binary search was called; used if the user wants to return to this save state.
 	NESInternals lowerCycleInternals;  // Save state from the earlier point (in the binary search process)
 	BinarySearchIndices<uint64_t> searchRange;  // The lower, middle, and upper cycle counts to search in.

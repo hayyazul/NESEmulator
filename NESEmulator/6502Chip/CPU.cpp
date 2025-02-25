@@ -6,15 +6,17 @@ _6502_CPU::_6502_CPU() : databus(nullptr),
 						 interruptRequested(false), 
 					 	 performInterrupt(false), 
 						 nmiRequested(false),
+						 performNMI(false),
 						 getOrPutCycle(false)  // Note: The actual starting value is random; I just set it to get (false) by default..
-{
+{			
 	this->setupInstructionSet();
 }
 
 _6502_CPU::_6502_CPU(DataBus* databus) : databus(databus), 
 									 	 interruptRequested(false), 
 									 	 performInterrupt(false), 
-										 nmiRequested(false), 
+										 nmiRequested(false),
+										 performNMI(false),
 										 getOrPutCycle(false)
 {
 	this->setupInstructionSet();
@@ -36,13 +38,25 @@ CPUCycleOutcomes _6502_CPU::executeCycle(bool DMACycle) {
 	}
 
 	if (this->opcodeCyclesElapsed == this->currentOpcodeCycleLen) {  // Performs the actions for an instruction in a CPU cycle.
-		if (this->nmiRequested) {
+		// If we want to perform any interrupts, we perform them. 
+		if (this->performNMI) {
 			this->performNMIActions();
-		} else if (this->performInterrupt) {
-			this->performInterruptActions();
+			// We also add 7 to the current opcode cycle length since we do not want to start executing code again until 
+			// 7 cycles later.
+			this->currentOpcodeCycleLen += 7;
+			return outcome;
+			//outcome = INSTRUCTION_AND_NMI;
 		}
-
+		else if (this->performInterrupt) {
+			this->performInterruptActions();
+			this->currentOpcodeCycleLen += 7;
+			return outcome;
+			//outcome = INSTRUCTION_AND_IRQ;
+		}
+		
 		outcome = INSTRUCTION_EXECUTED;
+	
+
 		this->opcodeCyclesElapsed = 0;
 
 		uint8_t opcode = this->databus->read(this->registers.PC);  // Get the next opcode.
@@ -61,6 +75,9 @@ CPUCycleOutcomes _6502_CPU::executeCycle(bool DMACycle) {
 
 		if (this->interruptRequested) {  // After a request has been made, we do not want to perform the interrupt until after the current opcode is done.
 			this->performInterrupt = true;
+		}
+		if (this->nmiRequested) {  // Like with IRQ, we do not want to perform NMI until the current instruction is done.
+			this->performNMI = true;
 		}
 		
 		this->registers.PC += instruction.numBytes * !instruction.modifiesPC;  // Only move the program counter forward if the instruction does not modify the PC.
@@ -137,7 +154,7 @@ void _6502_CPU::performInterruptActions() {
 	this->registers.setStatus('I', true);
 	this->performInterrupt = false;
 	this->interruptRequested = false;
-	this->totalCyclesElapsed += 7;
+	//this->totalCyclesElapsed += 7;
 }
 
 void _6502_CPU::performNMIActions() {
@@ -160,8 +177,9 @@ void _6502_CPU::performNMIActions() {
 	this->registers.SP -= 3;
 
 	this->registers.setStatus('I', true);
+	this->performNMI = false;
 	this->nmiRequested = false;
-	this->totalCyclesElapsed += 7;
+	//this->totalCyclesElapsed += 7;
 }
 
 void _6502_CPU::executeOpcode(uint8_t opcode) {

@@ -283,6 +283,7 @@ struct CPUInternals {
 
 	bool nmiRequested;  // Whether a REQUEST for an NMI has been made.
 	bool lastNMISignal;  // The last NMI signal; so if the PPU is on Vblank, this gets set to true. This also prevents another NMI from being requested (assuming the PPU's Vblank status is still true).
+	bool performNMI;  // Whether to PERFORM an NMI in the current CPU cycle. 
 
 	bool getOrPutCycle;  // Bool indicating whether the current cycle is a get (false) or a put (true) cycle. Starts as a get cycle, alternates back and forth every cycle. 
 	long unsigned int totalCyclesElapsed;  // Total CPU cycles elapsed since startup. NOTE: Buggy because it does not count DMA cycles.
@@ -308,6 +309,9 @@ public:
 	CPUCycleOutcomes executeCycle(bool DMACycle=false) override;
 	virtual void attach(DataBus* databus) override;
 	
+	// Gets the number of CPU cycles which has elapsed.
+	uint64_t getNumCycles() const;
+
 	// Returns the internals of the CPU (does not include things the CPU writes and reads to like RAM).
 	CPUInternals getInternals() const;
 	void loadInternals(CPUInternals cpuInternals);  // Loads in some given CPU internals.
