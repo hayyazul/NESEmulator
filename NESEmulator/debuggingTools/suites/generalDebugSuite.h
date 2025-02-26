@@ -61,8 +61,9 @@ private:
 	// Clears the display by setting all pixels to black.
 	void clearDisplay();
 
-	// Queries the user for how they want to modify RAM.
+	// Queries the user for how they want to modify RAM or VRAM.
 	void pokeRAM();
+	void modifyTileMap();
 
 	// Prints all the internals of the associated component in a formatted way.
 	void printPPUInternals(PPUInternals ppuInternals) const;

@@ -77,6 +77,7 @@ GeneralDebugSuite::GeneralDebugSuite() :
 		{'u', {'u', "Delete a given save state"}},
 		{'x', {'x', "Clears the screen"}},
 		{'r', {'r', "Peek and or poke RAM"}},
+		{'R', {'R', "Peek and or poke the Tilemap."}},
 		{'g', {'g', "Create a marker pixel at a given position."}},
 		// Binary search.
 		{'b', {'b', "Activates or accesses the options of binary search for a certain machine cycle."}},
@@ -101,7 +102,8 @@ GeneralDebugSuite::GeneralDebugSuite() :
 		{'g', true},
 		{'b', true},
 		{'B', true},
-		{'G', true}
+		{'G', true},
+		{'R', true}
 		})
 {}
 GeneralDebugSuite::~GeneralDebugSuite() {}
@@ -239,9 +241,18 @@ void GeneralDebugSuite::run() {
 		}
 		case('g'): {
 			// Get the position of where to put the marker.
-			int x = this->CLIInputHandler.getUserInt(" * X pos of marker: ");
-			if (x < 0 || x > 341) {
+			int x = this->CLIInputHandler.getUserInt(" * X pos of marker (negative for grid): ");
+			if (x > 341) {
 				std::cout << " * X is out of bounds\n";
+				break;
+			}
+			else if (x < 0) {
+				for (int i = 0; i < 340; i += 8) {
+					for (int j = 0; j < 261; j += 8) {
+						this->graphics.drawPixel(GREEN, i, j);
+					}
+				}
+				this->updateDisplay();
 				break;
 			}
 			int y = this->CLIInputHandler.getUserInt(" * Y pos of marker: ");
@@ -280,6 +291,10 @@ void GeneralDebugSuite::run() {
 		}
 		case('r'): {
 			this->pokeRAM();
+			break;
+		}
+		case('R'): {
+			this->modifyTileMap();
 			break;
 		}
 		case('k'): {
@@ -366,13 +381,17 @@ void GeneralDebugSuite::updateDisplay() {
 		this->graphics.drawPixel(BLACK, this->lastPos.dot, this->lastPos.scanline);
 	}
 
-	// Draw a 2 lines, one to cap off the horizontal drawing space, the other the PPU space.
+	// Draw 3 lines, one to cap off the horizontal drawing space, the other the PPU space, and another to cap off the last rendering line (line 240)
 	for (int i = 0; i < 261; ++i) {
 		this->graphics.drawPixel(WHITE, 0x100, i);
 	}
 	for (int i = 0; i < 261; ++i) {
 		this->graphics.drawPixel(WHITE, 341, i);
 	}
+	for (int i = 0; i < 341; ++i) {
+		this->graphics.drawPixel(WHITE, i, 240);
+	}
+
 
 	PPUPosition pos = this->nes.debugPPU.getPosition();
 	this->lastPos = pos;
@@ -441,6 +460,60 @@ void GeneralDebugSuite::pokeRAM() {
 		}
 
 		this->nes.debugRAM.setByte(i, byteToWrite);
+	}
+}
+
+void GeneralDebugSuite::modifyTileMap() {
+	// Query the user for the start and end address (and make sure they are valid).
+	int startIdx = this->CLIInputHandler.getUserHex(" * Input a start index (0x000 to 0x7ff): ");
+	if (startIdx < 0) {
+		std::cout << " * Can not have an index less than 0x0.\n";
+		return;
+	}
+	else if (startIdx > 0x7ff) {
+		std::cout << " * Can not have an index greater than 0x7ff.\n";
+		return;
+	}
+	// Then a valid end address.
+	std::cout << " * Input an end index (" << displayHex(startIdx, 3) << " to 0x7ff): ";
+	int endIdx = this->CLIInputHandler.getUserHex();
+	if (endIdx < 0) {
+		std::cout << " * Can not have an index less than 0x0.\n";
+		return;
+	}
+	else if (endIdx > 0x7ff) {
+		std::cout << " * Can not have an index greater than 0x7ff.\n";
+		return;
+	}
+	else if (endIdx < startIdx) {
+		std::cout << " * Can not have an end index lower than the start index (" << displayHex(startIdx, 3) << ").\n";
+		return;
+	}
+
+	// Now we get the data to display it to the user.
+	std::vector<uint8_t> bytes;
+	uint16_t startAddr = startIdx;
+	uint16_t endAddr = endIdx;
+	for (int i = startAddr; i <= endAddr; ++i) {
+		bytes.push_back(this->nes.debugVRAM.getByte(i));
+	}
+
+	// Then we display it.
+	std::cout << std::endl;
+	displayMemDump(bytes, startAddr, endAddr);
+	std::cout << std::endl;
+
+	// Now we ask the user to write in the bytes to rewrite, starting from startAddr.
+
+	for (int i = startAddr, j = startIdx; i <= endAddr; ++i, ++j) {
+		std::cout << " * Insert hex value (negative to abort further pokes) for index " << displayHex(j, 3) << ": ";
+		int byteToWrite = this->CLIInputHandler.getUserHex();
+		if (byteToWrite < 0) {
+			std::cout << " * Aborting further writes.\n";
+			return;
+		}
+
+		this->nes.debugVRAM.setByte(i, byteToWrite);
 	}
 }
 

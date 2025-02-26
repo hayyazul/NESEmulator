@@ -134,7 +134,7 @@ struct PPUPosition {
 	// Returns whether the position is in prerender, pass true to check if it has only reached it (on the first dot of prerender).
 	bool inPrerender(bool reached = false) const;
 	// Returns whether the position is in render, pass true to check if it has only reached it (on the first dot of render).
-	// Differs from onRenderLines by excluding dots in Hblank and dot 0.
+	// Differs from onRenderLines by excluding dots in Hblank (except dot 257) and dot 0.
 	bool inRender(bool reached = false) const;
 	// Returns whether the position is on the render lines, pass true to check if it has only reached it (on the first dot of the render lines).
 	bool onRenderLines(bool reached = false) const;  	// Whether the PPU is in the rendering region (does not mean the PPU is rendering, that also depends on whether rendering is enabled).

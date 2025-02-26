@@ -301,9 +301,7 @@ void PPU::updateRenderingRegisters() {
 	// The PPU will update differently based on the current cycle.
 	// See frame timing diagram for more info.
 
-
-
-	if (this->beamPos.dotInRange(1, 256) || this->beamPos.dotInRange(328, 341)) {
+	if (this->beamPos.dotInRange(1, 256) || this->beamPos.dotInRange(328, 340)) {
 
 		if (this->beamPos.dot == 0x100) {
 			this->incrementScrolling(true);  // At the end of a render line, increment fine y (coarse y if fine y overflows).
@@ -313,14 +311,16 @@ void PPU::updateRenderingRegisters() {
 
 		}
 	}
+
 	// NOTE: I am unsure about this->beamPos.dotInRange(328, 335); 
 	// in line with what the wiki says, which says that it should increment coarse x again at 336.
 	// Background fetches
 	// The condition before the || ensures to perform datafetches throughout the frame, the latter ensures data fetches for the 1st 2 tiles for the next frame.
-	if (this->beamPos.inRender() || this->beamPos.dotInRange(321, 337)) { 
+	if (this->beamPos.inRender() || this->beamPos.dotInRange(321, 336)) { 
 		this->performBackgroundFetches();
 	}
-	
+	// FIXME: inRender fails to transfer tile data on cycle 257
+
 	if (this->beamPos.inHblank(true)) {  // Upon reaching Hblank, transfer bits in t to v.
 		copyBits(this->v, this->t, 0, 4);
 		copyBits(this->v, this->t, 10, 10);
@@ -378,6 +378,7 @@ void PPU::updateRenderingRegisters() {
 		this->OAMAddr = 0;
 	}
 
+
 }
 void PPU::fetchPatternData(uint8_t patternID, bool table, bool high, int line, uint16_t& pattern, bool flipH, bool flipV) {
 	
@@ -408,14 +409,14 @@ void PPU::fetchPatternData(uint8_t patternID, bool table, bool high, int line, u
 // TODO: Refactor
 void PPU::performBackgroundFetches() {
 	// TODO: Give this variable and function a better name.
-	uint8_t cycleCounter = (this->beamPos.dot - 1) % 8;  // This variable ranges from 0 to 7 and represents cycles 8, 16, 24... 256.
+	uint8_t cycleCounter = (this->beamPos.dot) % 8;  // This variable ranges from 0 to 7 and represents cycles 8, 16, 24... 256.
 	bool fetchingNextLineTiles = this->beamPos.dotInRange(0x100, 341);
 
 	// The shift registers are shifted to the right by 1 every data-fetching cycle.
 	this->backgroundShiftRegisters >>= 1;
 
 	// The pattern and attribute shifters are reloaded on cycle counter 0. (NOTE: It might transfer on cycleCounter 7, judging from frame timing diagram.)
-	if (cycleCounter == 0) {
+	if (cycleCounter == 0) {  // NOTE: Maybe the last tile fetched (the 2nd of the next line) is not being transferred? 
 		this->backgroundShiftRegisters.transferLatches(this->latches);
 	}
 
@@ -498,10 +499,6 @@ void PPU::performBackgroundFetches() {
 		 lower bit = 2 * a
 
 		*/
-
-		if (this->latches.nametableByteLatch == 0x19 && this->beamPos.scanline == 0x90) {  // TODO: Fix weird bug where VRAM has some erroneous values (such as 0x3f at 0x2a).
-			int a = 0;  // NOTE: Above TODO is probably fixed, but make sure first.
-		}
 		uint8_t upperBit = getBit(this->v, 6) << 1;  // This selects which part of the byte given the quadrant this tile is in.
 		uint8_t lowerBit = getBit(this->v, 1);
 		uint8_t corner = lowerBit + upperBit;
@@ -519,7 +516,7 @@ void PPU::performBackgroundFetches() {
 		The problem? This fetching routine also fetches tiles on the NEXT line, so everything on the left is ruined.
 		
 		*/
-		this->fetchPatternData(this->latches.nametableByteLatch, 
+	this->fetchPatternData(this->latches.nametableByteLatch, 
 			getBit(this->control, 4), 
 			false, 
 			(this->beamPos.scanline + fetchingNextLineTiles) % 8,
@@ -746,6 +743,7 @@ uint8_t PPU::getBGColor() {  // TODO
 	// Indexing the palette.
 	uint8_t bgPaletteIdx = this->backgroundShiftRegisters.getPattern(this->x);
 	// Indexing which palette we want.
+	auto a = this->backgroundShiftRegisters.getPattern(this->x);
 	uint8_t bgPalette = this->backgroundShiftRegisters.getAttribute(this->x);
 
 	// Creating the address to take the color index from.
@@ -819,8 +817,8 @@ BackgroundShiftRegisters::BackgroundShiftRegisters() :
 {}
 BackgroundShiftRegisters::~BackgroundShiftRegisters() {}
 uint8_t BackgroundShiftRegisters::getPattern(int x) const {
-	uint8_t pattern = getBit(this->patternShiftRegisterHigh >> 1, x) << 1;  // Fetching the high bit.
-	pattern += getBit(this->patternShiftRegisterLow >> 1, x);  // Then the low bit.
+	uint8_t pattern = getBit(this->patternShiftRegisterHigh, x) << 1;  // Fetching the high bit.
+	pattern += getBit(this->patternShiftRegisterLow, x);  // Then the low bit.
 
 	return pattern;
 }
@@ -924,7 +922,7 @@ bool PPUPosition::inRender(bool reached) const {
 		if (reached) {  // Check if we are exactly on the first dot for reached, if we are within the range for not reached.
 			return this->dot == 0x1;
 		}
-		return this->dot >= 0x1 && this->dot <= 0x100;
+		return this->dot >= 0x1 && this->dot <= 0x101;
 	}
 
 	return false;
