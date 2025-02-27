@@ -62,7 +62,7 @@ struct SpriteShiftUnit {
 // Collection of shift registers involved in rendering the background..
 struct BackgroundShiftRegisters {
 	uint16_t patternShiftRegisterLow, patternShiftRegisterHigh;  // Contains appropriate pattern bits.
-	uint8_t attributeShiftRegisterLow, attributeShiftRegisterHigh;  // Contains the attribute data for the given tile.
+	uint16_t attributeShiftRegisterLow, attributeShiftRegisterHigh;  // Contains the attribute data for the given tile.
 
 	BackgroundShiftRegisters();
 	~BackgroundShiftRegisters();

@@ -24,6 +24,12 @@ std::string CommandlineInput::getUserLine() {
 	std::string str, dummyStr;
 	std::getline(std::cin, str);
 	this->clearExtraneousInput(false);
+
+	// Check if a string has been read properly. If not, return 0 by default.
+	if (str.size() < 1) {
+		return "0";
+	}
+
 	return str;
 }
 

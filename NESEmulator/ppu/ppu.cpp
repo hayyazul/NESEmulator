@@ -838,8 +838,8 @@ BackgroundShiftRegisters& BackgroundShiftRegisters::operator>>=(const int& n) {
 void BackgroundShiftRegisters::transferLatches(BackgroundLatches latches) {
 	this->patternShiftRegisterLow |= reverseBits(latches.patternLatchLow, 8) << 8;  // The pattern will be fed right-to-left, so mirror the pattern to ensure proper feeding.
 	this->patternShiftRegisterHigh |= reverseBits(latches.patternLatchHigh, 8) << 8;
-	this->attributeShiftRegisterLow |= latches.attributeLatchLow * 0xff;
-	this->attributeShiftRegisterHigh |= latches.attributeLatchHigh * 0xff;
+	this->attributeShiftRegisterLow |= latches.attributeLatchLow * 0xff << 8;
+	this->attributeShiftRegisterHigh |= latches.attributeLatchHigh * 0xff << 8;
 }
 
 BackgroundLatches::BackgroundLatches() :
