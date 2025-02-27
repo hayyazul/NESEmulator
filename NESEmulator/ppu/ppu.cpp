@@ -563,12 +563,15 @@ void PPU::performSpriteEvaluation() {
 
 		if (this->spriteEvalCycle.onByte(Y_COORD)) {
 			uint8_t yCoord = this->OAM.getByte(this->OAMAddr);  // Stores y-coordinate of the sprite
+			// Do not render sprites on line 0; set it to 0xff to mark it as not to be rendered.
+			yCoord = yCoord == 0 || yCoord == 0xff ? 0xff : yCoord + 1;  // TODO: Implement properly.
+
 			uint8_t nextLine = (this->beamPos.scanline + 1) % 262;  // Allows for line 261 to line 0 wrapping.
 
 			// Checks if the next line is within the range for the sprite.
 			// TODO: Implement checking for 8x16 sprites.
 			if (yCoord <= nextLine && nextLine <= yCoord + 7) {  // If it is, copy over the next few bytes.
-				this->secondaryOAM.setFreeByte(this->OAM.getByte(this->OAMAddr));
+				this->secondaryOAM.setFreeByte(yCoord);
 				this->spriteEvalCycle.setState(COPY_SPRITE_DATA);
 				break;
 			}
