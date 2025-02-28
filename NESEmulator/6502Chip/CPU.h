@@ -98,9 +98,9 @@ private:
 			statusMask = 0b00001000;
 		} else if (status == 'B') {  // B flag (see NESdev for more info)
 			statusMask = 0b00010000;
-		// There is a bit between the B and V bits which is always 1; make sure to set it to 1 in 
+		// TODO: here is a bit between the B and V bits which is always 1; make sure to set it to 1 in 
 		// instructions which affect the status flags.
-		} else if (status == 'V') {  // Carry flag  // IMPORTANT TODO: Why is the carry flag here and up there at the same time?
+		} else if (status == 'V') {  // Overflow flag
 			statusMask = 0b01000000;
 		} else if (status == 'N') {  // Decimal flag (present but disabled)
 			statusMask = 0b10000000;

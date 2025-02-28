@@ -13,16 +13,6 @@ constexpr SDL_Rect DISPLAY_BOUNDS{16, 0, 256, 240};
 
 */
 
-/* A copy of the values of the pixels and the size of the display. TODO
-template<int SIZE_OF_ARR>
-struct ScreenState {
-	uint32_t screenBytesArr[SIZE_OF_ARR];
-	const int w, h, totalPx;
-
-	ScreenState(const int w, const int h) : w(w), h(h), totalPx(w * h);
-	~ScreenState();
-};
-*/
 class Graphics {
 public:
 	Graphics();
@@ -41,10 +31,6 @@ public:
 
 	// Returns the display format of the display surface.
 	const SDL_PixelFormat* getDisplayFormat() const;
-
-	// Copies the values of the pixels and returns the screen state TODO.
-	//template<int SIZE_OF_ARR>
-	//const ScreenState<SIZE_OF_ARR> getScreenState() const;
 
 	uint32_t getRGB(uint8_t r, uint8_t g, uint8_t b) const;
 

@@ -203,7 +203,6 @@ void GeneralDebugSuite::run() {
 			break;
 		}
 		case('p'): {
-			// TODO: Fully implement; currently only outputs control.
 			this->printPPUInternals(this->nes.getPPUInternals());
 			break;
 		}
@@ -670,8 +669,8 @@ void GeneralDebugSuite::serializeState(int idx) {
 	file << internals.getSerialFormat();
 }
 
-void GeneralDebugSuite::loadSerializedStates() {  // TODO: COMPLETE
-	// First we ask the user if they want to continue after showing them the states in the directory.
+void GeneralDebugSuite::loadSerializedStates() {   
+		// First we ask the user if they want to continue after showing them the states in the directory.
 	if (!std::filesystem::is_directory(this->saveStateDir)) {
 		std::cout << " * Please input a valid save state directory first.\n";
 		return;

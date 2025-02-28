@@ -177,9 +177,7 @@ namespace addrModes {
     }
 }
 
-// TODO: move comments to header file.
-// TODO: Use the new functions in databus to more easily communicate w/ the stack.
-namespace ops {  // TODO: Fix operations which relied on the old system of fetching data directly.
+namespace ops {  
     /* void ADC
     Adds the given data and the carry to the accumulator.
 
@@ -271,7 +269,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     }
     /* void BEQ
     Performs a branch if the zero flag is 1.
-    The zero flag should have been set by another opcode [TODO: name it] before.
+    The zero flag should have been set by another opcode like CMP before.
 
     Flags Affected:
         None
@@ -391,7 +389,6 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
         dataBus.write(STACK_END_ADDR + registers.SP - 2, registers.S);
 
         // Then, get the IRQ Interrupt Vector
-        // TODO: Get rid of magic numbers.
         // Magic numbers: 0xfffe and 0xffff are the addresses where the IRQ vector is located.
         // lb = lower byte; ub = upper byte.
         uint8_t lb = dataBus.read(0xfffe);
@@ -479,7 +476,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     which is to be used later in the branch instructions.
 
     Flags Affected:
-        - C: set to 1 if A >= M  // TODO: Find if it gets cleared if otherwise.
+        - C: set to 1 if A >= M  
         - Z: set to 1 if A = M
         - N: set if A < M; This is checked by subtracting A by M, then seeing if the 7th bit is set.
     */
@@ -494,7 +491,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     which is to be used later in the branch instructions.
 
     Flags Affected:
-        - C: set to 1 if X >= M  // TODO: Find if it gets cleared if otherwise.
+        - C: set to 1 if X >= M  
         - Z: set to 1 if X = M
         - N: set if X < M
     */
@@ -509,7 +506,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     which is to be used later in the branch instructions.
 
     Flags Affected:
-        - C: set to 1 if Y >= M  // TODO: Find if it gets cleared if otherwise.
+        - C: set to 1 if Y >= M 
         - Z: set to 1 if Y = M
         - N: set if Y < M
     */

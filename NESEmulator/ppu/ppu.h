@@ -5,9 +5,6 @@
 
 //  TODO: Make the nametables memory mappings.
 //  TODO: Fully implement PPUSTATUS
-//  TODO: Bugs:
-//			- Make sure NMI behavior is correct (it likely isn't at the moment).
-//			- Some tiles have the wrong attribute (the attribute for the tile to the right).
 
 #include <map>
 #include <array>
@@ -53,6 +50,7 @@ struct SpriteShiftUnit {
 	// Fetches the 2 bits in the low and high shift registers w/ an offset indicating which of the lower 8 bits to get.
 	uint8_t getPattern(int x) const;
 	uint8_t getAttribute() const;
+	bool getPriority() const;  // Returns the value of the priority bit (which refers to its priority w/ the background, not w/ other sprites).
 
 	// Important Note: These shift operators do not work in the traditional sense. See methods for more details.
 	SpriteShiftUnit& operator>>=(int n);
@@ -70,7 +68,7 @@ struct BackgroundShiftRegisters {
 	// Fetches the 2 bits in the low and high shift registers w/ an offset indicating which of the lower 8 bits to get.
 	uint8_t getPattern(int x) const;
 	uint8_t getAttribute(int x) const;
-
+	
 	BackgroundShiftRegisters& operator>>=(const int& n);
 
 	void transferLatches(BackgroundLatches latches);
@@ -99,10 +97,6 @@ struct SpriteShiftRegisters {
 
 	// Returns a reference to a shift unit at the given index.
 	SpriteShiftUnit& at(int idx);
-	
-	// Gets the 2 pattern and attribute bits associated w/ a single sprite. This sprite is determined based on the priority, location, and transparency of other sprites and their pixels.
-	uint8_t getPattern(int x);
-	uint8_t getAttribute(int x);
 
 	// Performs a shift operation for all shift units/sprites.
 	void operator>>=(const int& n);
@@ -173,7 +167,10 @@ enum SpriteEvaluationState {
 	SPRITE_OVERFLOW,  // 2.3 on NESDev, the period when evaluating sprite overflow.
 	POINTLESS_COPYING  // 2.4 on NESDev, the period when the PPU tries and purposely fails to copy OAM sprite n and byte 0 into the next free slot in secondary OAM.
 	// The next 2 are between cycles 257 and 340+0
-	// TODO
+	// 
+
+
+
 };
 
 enum SpriteByteOn {
@@ -253,9 +250,9 @@ protected:
 	void incrementScrolling(bool axis = false);  // Increments the x and v registers, handling overflow for both appropriately. false - x axis, true - y axis.
 
 	// Gets the color index associated w/ the background given the values in the current shift and internal registers.
-	uint8_t getBGColor();
-	// Gets the color index associated w/ the sprite given the values in the current shift and internal registers.
-	uint8_t getSpriteColor();
+	uint8_t getBGColor(uint8_t pattern);
+	// Gets the color index associated w/ the sprite given the values in the current shift and internal registers (returns whether the sprite or the background has priority).
+	bool getSpritePatternAndColor(uint8_t& pattern, uint8_t& color);
 
 	void drawPixel();  // Draws a pixel to graphics depending on the internal register values. (see the NESdev's page on PPU Rendering for details).
 	

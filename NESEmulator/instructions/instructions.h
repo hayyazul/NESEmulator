@@ -3,8 +3,6 @@
 
 // NOTE: I mixed up instructions and opcodes; opcode refers to the specific byte in machine code which in turn corresponds to something like STA w/ zero page addressing. 
 // An instruction on the other hand focuses only on the thing being done, which in the above case would just be STA.
-// TODO: Fix terminology. 
-
 #pragma once
 #include <cstdint>
 #include "../databus/databus.h"

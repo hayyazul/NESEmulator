@@ -136,7 +136,8 @@ void _6502_CPU::performInterruptActions() {
 	this->databus->write(STACK_END_ADDR + this->registers.SP - 2, this->registers.S);
 
 	// Then, get the IRQ Interrupt Vector
-	// TODO: Get rid of magic numbers.
+	// 
+	// : Get rid of magic numbers.
 	// Magic numbers: 0xfffe and 0xffff are the addresses where the IRQ vector is located.
 	// lb = lower byte; ub = upper byte.
 	uint8_t lb = this->databus->read(0xfffe);

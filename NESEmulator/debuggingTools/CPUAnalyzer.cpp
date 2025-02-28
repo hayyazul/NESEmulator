@@ -20,26 +20,13 @@ CPUCycleOutcomes CPUDebugger::executeCycle(bool DMACycle) {
 	// Data that needs to be recorded before execution.
 	uint8_t opcode = this->databus->read(this->registers.PC);
 	if (!INSTRUCTION_SET.count(opcode)) {
-		int _ = 0;
 		return FAIL;
-	}
-
-	Instruction* instruction = &INSTRUCTION_SET.at(opcode);
-	Registers oldRegisters = this->registers;
-
-	// If there are any operands, get those operands.
-	uint8_t operands[2] = { 0, 0 };
-	for (int i = 1; i < instruction->numBytes; ++i) {
-		operands[i - 1] = this->databus->read(this->registers.PC + i);
 	}
 	CPUCycleOutcomes outcome = _6502_CPU::executeCycle(DMACycle);
 
 	// TODO: Fix the bug where the constant 1 is allowed to be unset; it should not, the CPU should check if it is unset and re-set it to 1.
-	// DEBUG:
-	// Validating the constant 1 in the 5th bit:
-	if (!(0b00100000 & this->registers.S)) {
-		this->registers.S |= 0b00100000;
-	}
+	this->registers.S |= 0b00100000;
+	
 	return outcome;
 }
 
@@ -96,7 +83,6 @@ std::vector<uint8_t> CPUDebugger::memDump(uint16_t startAddr, uint16_t endAddr) 
 	return values;
 }
 
-// TODO: Disable the databus debugging capabilities before executing any of these.
 uint8_t CPUDebugger::memPeek(uint16_t memoryAddress) {
 	uint8_t val = this->databus->read(memoryAddress);
 	return val;

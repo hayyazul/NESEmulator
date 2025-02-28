@@ -14,7 +14,6 @@
 #include "DMA/directMemoryAccess.h"
 
 
-// TODO: update the outcomes.
 enum NESCycleOutcomes {
 	FAIL_CYCLE,  // Usually caused by an illegal instruction.
 	PPU_CYCLE,  // Only the PPU's cycle was executed.
@@ -67,7 +66,7 @@ protected:
 	RAM* ram;  // Initialized by NES; can not be remapped.
 	NESDatabus* databus;
 
-	Memory* VRAM;  // Initialized to size 0x800 by NES; TODO: make it attach/deattachable (to support mappers)
+	Memory* VRAM;  // Initialized to size 0x800 by NES; TODO: make it attach/deattachable (to support mappers).
 	PPU* ppu;
 
 	OAMDMAUnit DMAUnit;  // NOTE: Might replace w/ a pointer. 

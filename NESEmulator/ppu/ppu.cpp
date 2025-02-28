@@ -406,9 +406,7 @@ void PPU::fetchPatternData(uint8_t patternID, bool table, bool high, int line, u
 
 	pattern = patternLatch;
 }
-// TODO: Refactor
 void PPU::performBackgroundFetches() {
-	// TODO: Give this variable and function a better name.
 	uint8_t cycleCounter = (this->beamPos.dot) % 8;  // This variable ranges from 0 to 7 and represents cycles 8, 16, 24... 256.
 	bool fetchingNextLineTiles = this->beamPos.dotInRange(0x100, 341);
 
@@ -607,8 +605,9 @@ void PPU::performSpriteEvaluation() {
 	case(SPRITE_OVERFLOW): {
 		uint8_t yCoord = this->OAM.getByte(this->OAMAddr);  // Stores y-coordinate of the sprite
 		uint8_t nextLine = (this->beamPos.scanline + 1) % 262;  // Allows for line 261 to line 0 wrapping.
-		if (yCoord <= nextLine && nextLine <= yCoord + 7) {  // If another sprite is detected in this area, 
-			// TODO: set sprite overflow flag.
+		if (yCoord <= nextLine && nextLine <= yCoord + 7) {  // If another sprite is detected in this area, we set the sprite overflow flag.
+			this->status |= 0b00100000;
+			// TODO: clear the sprite overflow flag when necessary.
 		}
 		this->OAMAddr += 5;  // Should be 4, but there is a bug in the PPU which also increments the byte being evaluated, so increment by 5 to account for this (4 + 1, sprite index increment + byte index increment).
 		this->spriteEvalCycle.setState(INCREMENT_CHECK);
@@ -686,7 +685,7 @@ void PPU::transferSpriteData() {
 		this->spriteShiftRegisters.at(sprite).x = spriteX;
 
 		// And lastly, the attribute data.
-		this->spriteShiftRegisters.at(sprite).attributeBits = getBits(attributes, 0, 1);		
+		this->spriteShiftRegisters.at(sprite).attributeBits = attributes;		
 	}
 }
 void PPU::updateSpriteShiftRegisters() {
@@ -710,7 +709,6 @@ void PPU::updateBeamLocation() {
 	}
 }
 void PPU::incrementScrolling(bool axis) {  // Increments scrolling
-	// TODO: Clean up code.
 
 	// Format of the v internal register: yyyNNYYYYYXXXXX
 	// y = fine Y scroll; N = nametable; Y = coarse Y scroll; X = coarse X scroll. Fine X scroll is located in the x internal register.
@@ -740,30 +738,26 @@ void PPU::incrementScrolling(bool axis) {  // Increments scrolling
 		}
 	}
 }
-uint8_t PPU::getBGColor() {  // TODO
+uint8_t PPU::getBGColor(uint8_t pattern) {
 	const uint16_t backgroundPaletteAddress = 0x3f00;  // The starting address for the background palette.
 
-	// Indexing the palette.
-	uint8_t bgPaletteIdx = this->backgroundShiftRegisters.getPattern(this->x);
 	// Indexing which palette we want.
-	auto a = this->backgroundShiftRegisters.getPattern(this->x);
 	uint8_t bgPalette = this->backgroundShiftRegisters.getAttribute(this->x);
 
 	// Creating the address to take the color index from.
 	uint16_t addr = backgroundPaletteAddress;
-	addr += 4 * bgPalette + bgPaletteIdx;
+	addr += 4 * bgPalette + pattern;
 
 	// Reading and returning the color index.
 	uint8_t colorIdx = this->databus.read(addr);
 	return colorIdx;
 }
-uint8_t PPU::getSpriteColor() {
+bool PPU::getSpritePatternAndColor(uint8_t& pattern, uint8_t& color) {
 	// Search for a non-transparent (if it exists) pixel w/ the lowest sprite index possible at the current location.
 	const uint16_t spritePaletteAddress = 0x3f10;
-	uint16_t color = 0;
 	// Find the first non-transparent pixel.
 	for (int i = 0; i < 8; ++i) {
-		uint8_t pattern = this->spriteShiftRegisters.at(i).getPattern(x);
+		pattern = this->spriteShiftRegisters.at(i).getPattern(x);
 		// If the pattern is 0b00, then it is considered transparent. If the resulting color is 0b00, it is also transparent.
 		if (!pattern) continue;
 		// Now get the color.
@@ -772,41 +766,79 @@ uint8_t PPU::getSpriteColor() {
 		color = this->databus.read(colorAddr);
 		// Now we check the color
 		if (!color) continue;
-		break;  // If both cases are passed, then we will return this color.
+		return this->spriteShiftRegisters.at(i).getPriority();  // If both cases are passed, then we will return the priority bit..
 	}
 
-	return color;
+	// If no cases pass, we return 0 by default.
+	return 0;
 }
 void PPU::drawPixel() {
+	// Note: "BG" or "bg" stands for background.
 
 	if (this->graphics == nullptr) {  // If we are not given a graphics object, do not attempt to draw.
 		//std::cout << "Warning: No graphics object provided for PPU; no output will be displayed." << std::endl;
 		return;
 	}
 
-	// We will figure out what color we need to draw.
-	uint16_t colorKey = 0;
-	// First, copy the emphasis values from PPUMASK to the color key.
-	copyBits(colorKey, 6, 8, (uint16_t)this->mask, 5, 7);
-
-	// Now we have to find the color index for this pixel.
-	// Getting the high and low bits of the pattern at the appropriate point.
-	const uint16_t spritePaletteAddress = 0x3f10;
-
-
-	uint8_t spriteColorIdx = this->getSpriteColor();
-	uint8_t bgColorIdx = this->getBGColor();  // Note: bg stands for background.
-
-	// TODO: Take into account sprite vs bg priority; for now, sprites are always given priority.
-	if (spriteColorIdx) {
-		colorKey |= spriteColorIdx;
-	} else {
-		colorKey |= bgColorIdx;
-	}
-
-	// NOTE: The fact that drawing starts on dot 0 but the rest of the PPU is idle on that cyc;e might cause the weird left-tile visual bugs.
 	if (this->beamPos.dot < 0x100 && this->beamPos.scanline < 0xf0) {  // Do not draw past dot 256 or scanline 240
-		this->graphics->drawSquare(this->paletteMap.at(colorKey), this->beamPos.dot, this->beamPos.scanline, 1);
+		// Get values of the mask bits.
+		bool isGrayscale = getBit(this->mask, 0);
+		bool bgRenderingEnabled = getBit(this->mask, 4);
+		bool spriteRenderingEnabled = getBit(this->mask, 1);
+
+		bool showBGInLeft8Pixels = getBit(this->mask, 1);
+		bool showSpritesInLeft8Pixels = getBit(this->mask, 2);
+		bool inLeft8Pixels = this->beamPos.dot < 8;
+
+		bool showBG = bgRenderingEnabled && (!inLeft8Pixels || showBGInLeft8Pixels);
+		bool showSprites = spriteRenderingEnabled && (!inLeft8Pixels || showSpritesInLeft8Pixels);
+
+		// We will figure out what color we need to draw.
+		uint16_t colorKey = 0;//this->databus.read(0x3f00);  // Transparent pixels use the color at 0x3f00 by default.
+
+		// First, copy the emphasis values from PPUMASK to the color key.
+		copyBits(colorKey, 6, 8, (uint16_t)this->mask, 5, 7);
+
+		// Now we have to find the color index for this pixel.
+		// Getting the high and low bits of the pattern at the appropriate point.
+
+		// Now we figure out the color index to use; this is based on multiple factors
+	
+		// If a component's rendering is disabled OR it is in the left 8 pixels when , then treat it as transparent.
+		uint8_t bgColorIdx = 0;  // Note: bg stands for background.
+		uint8_t bgPaletteIdx = 0;
+
+		uint8_t spritePaletteIdx = 0;
+		uint8_t spriteColorIdx = 0;
+		bool isSpritePrioritized = false;
+		if (showBG) {
+			bgPaletteIdx = this->backgroundShiftRegisters.getPattern(this->x);
+			bgColorIdx = this->getBGColor(bgPaletteIdx);
+		} 
+		if (showSprites) {
+			isSpritePrioritized = this->getSpritePatternAndColor(spritePaletteIdx, spriteColorIdx);
+		}
+
+		// Check for transparency (the pattern is 0 OR the color index is 0)
+		bool bgTransparent = bgPaletteIdx == 0 || bgColorIdx == 0;
+		bool spriteTransparent = spritePaletteIdx == 0 || spriteColorIdx == 0;
+
+
+		// Now, if the sprite is prioritized AND it is not transparent OR the background is transparent, we show the sprite color. Otherwise we show the background color.
+		if (bgTransparent && spriteTransparent) {
+			// If both are transparent, default to the first color in the palette at adress 0x3f00.
+			colorKey |= this->databus.read(0x3f00);
+		} else if ((isSpritePrioritized && !spriteTransparent) || bgTransparent) {
+			colorKey |= spriteColorIdx;
+		} else {
+			colorKey |= bgColorIdx;
+		}
+
+		// One last check; if we are in grayscale mode, AND the byte w/ 0x30
+		if (isGrayscale) colorKey &= 0x30;
+
+		// Finally, we draw the pixel.
+		this->graphics->drawPixel(this->paletteMap.at(colorKey), this->beamPos.dot, this->beamPos.scanline);
 	}
 }
 
@@ -975,6 +1007,10 @@ uint8_t SpriteShiftUnit::getPattern(int x) const {
 uint8_t SpriteShiftUnit::getAttribute() const {
 	return this->attributeBits;
 }
+bool SpriteShiftUnit::getPriority() const {
+	// The priority bit is stored in bit 5. 0 means to prioritize the sprite, 1 means the background.
+	return !getBit(this->attributeBits, 5);
+}
 SpriteShiftUnit& SpriteShiftUnit::operator>>=(int n) {
 	 
 	// Make sure x is fully decremented before shifting any of the registers.
@@ -1008,12 +1044,6 @@ SpriteShiftUnit& SpriteShiftRegisters::at(int idx) {
 		idx = 0;
 	}
 	return this->shiftRegisters.at(idx);
-}
-uint8_t SpriteShiftRegisters::getPattern(int x) {
-	return 0;  // TODO
-}
-uint8_t SpriteShiftRegisters::getAttribute(int x) {
-	return 0;  // TODO
 }
 void SpriteShiftRegisters::shiftRegister(int sprite) {
 	this->shiftRegisters.at(sprite) >>= 1;

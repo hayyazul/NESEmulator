@@ -5,7 +5,6 @@
 
 constexpr int SIZE_OF_CARTRIDGE = 0xBFE0;
 
-// TODO: Implement full mapper 0.
 class Mapper_0 : public Memory {
 public:
 	Mapper_0();

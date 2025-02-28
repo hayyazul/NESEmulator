@@ -18,7 +18,11 @@ struct InputOptions {
 	std::string format() const;
 };
 
-// TODO: abstract away the option and input mechanisms from the debugger singleton.
+// 
+// 
+// 
+// 
+// : abstract away the option and input mechanisms from the debugger singleton.
 template <typename INTEGRAL_T>
 struct BinarySearchIndices {
 public:

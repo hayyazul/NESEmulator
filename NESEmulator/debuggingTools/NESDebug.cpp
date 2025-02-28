@@ -117,7 +117,6 @@ void NESDebug::loadInternals(NESInternals internals) {
 }
 
 PPUInternals NESDebug::getPPUInternals() const {
-	// TODO: Complete implementation;
 	PPUInternals ppuInternals = debugPPU.getInternals();
 	return ppuInternals;
 }
@@ -213,7 +212,7 @@ NESInternals::NESInternals(std::filesystem::path filepath) {
 		}
 	}
 
-	// TODO: COMPLETE
+	// TOD/O: COMPLETE
 	// From then on, each component handles its own deserialization.
 	this->cpuInternals.deserializeData(cpuData);
 }

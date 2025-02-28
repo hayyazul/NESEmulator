@@ -1,8 +1,6 @@
 #include "NESEmulator.h"
 
 // MAIN TODO: 
-// - Work on the PPU's pixel-by-pixel display.
-//    - Get sprite rendering to work.
 // - Fix issues w/ PPU Registers.
 
 

@@ -1,5 +1,4 @@
-// Container for the data the NES will access. TODO: Rename because this name
-// conflicts with the std memory library.
+// Container for the data the NES will access. 
 #pragma once
 
 #include <cstdint>

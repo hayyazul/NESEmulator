@@ -16,7 +16,6 @@ PPUDebug::~PPUDebug()
 }
 
 PPUInternals PPUDebug::getInternals() const {
-	// TODO: Complete implementation.
 	PPUInternals ppuInternals;
 	ppuInternals.backgroundShiftRegisters = this->backgroundShiftRegisters;
 	ppuInternals.latches = this->latches;
@@ -46,7 +45,6 @@ PPUInternals PPUDebug::getInternals() const {
 }
 
 bool PPUDebug::loadInternals(PPUInternals ppuInternals) {
-	// TODO: Complete implementation.
 	this->backgroundShiftRegisters = ppuInternals.backgroundShiftRegisters;
 	this->latches = ppuInternals.latches;
 	this->spriteShiftRegisters = ppuInternals.spriteShiftRegisters;
