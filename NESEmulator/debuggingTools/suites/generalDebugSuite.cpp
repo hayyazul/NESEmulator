@@ -121,8 +121,6 @@ void GeneralDebugSuite::run() {
 
 	std::cout << "Entering Debugging mode..." << std::endl;
 	
-	CPUCycleOutcomes cpuCycleOutcome;
-
 	std::string msg;
 	bool outputResults = true;
 	char inputChar = '0';
@@ -601,7 +599,9 @@ void GeneralDebugSuite::printCPUInternals(CPUInternals cpuInternals) {
 	// We will also print the PC vectors. NOTE: These reads are potentially dangerous because read does not guarantee non-modification of any internal values.
 	// However, the locations being read SHOULD not affect anything internally.
 	std::array<uint16_t, 3> PC_VECTORS;
-	PC_VECTORS.at(0) = this->nes.debugDatabus.read(0xfffa) | (this->nes.debugDatabus.read(0xfffb) << 8);
+	PC_VECTORS.at(0) = this->nes.
+	
+	tabus.read(0xfffa) | (this->nes.debugDatabus.read(0xfffb) << 8);
 	PC_VECTORS.at(1) = this->nes.debugDatabus.read(0xfffc) | (this->nes.debugDatabus.read(0xfffd) << 8);
 	PC_VECTORS.at(2) = this->nes.debugDatabus.read(0xfffe) | (this->nes.debugDatabus.read(0xffff) << 8);
 	std::cout << "NMI Vector:   " << displayHex(PC_VECTORS.at(0), 4) << std::endl;
@@ -715,7 +715,7 @@ void GeneralDebugSuite::setSaveStateDir() {
 
 void GeneralDebugSuite::activateBinSearch(int upperCycleBound, bool CPUBased) {
 
-	int currentNumCycles = CPUBased ? this->nes.getNumCPUCycles() : this->nes.getNumCycles();
+	unsigned long long currentNumCycles = CPUBased ? this->nes.getNumCPUCycles() : this->nes.getNumCycles();
 	if (upperCycleBound <= this->nes.getNumCycles()) {
 		std::cout << " * Error activating binary search: upper bound given has already been surpassed (current: " 
 			<< currentNumCycles << " | requested: " << upperCycleBound << ")\n";
@@ -867,9 +867,9 @@ bool BinarySearchIndices<INTEGRAL_T>::isFinishedWithSearch() const {
 template<typename INTEGRAL_T>
 std::string BinarySearchIndices<INTEGRAL_T>::getPrintableView() const {
 	std::stringstream binarySearchInfo;
-	int lowerIdx = this->getLowerIdx();
-	int upperIdx = this->getUpperIdx();
-	int midIdx = this->getMiddleIdx();
+	INTEGRAL_T lowerIdx = this->getLowerIdx();
+	INTEGRAL_T upperIdx = this->getUpperIdx();
+	INTEGRAL_T midIdx = this->getMiddleIdx();
 	std::string isFinished = btos(this->isFinishedWithSearch(), " ", " NOT ");
 	binarySearchInfo << "Is" << isFinished << "Finished | Bounds: " << lowerIdx << " --- " << midIdx << " (On)" << " --- " << upperIdx;
 

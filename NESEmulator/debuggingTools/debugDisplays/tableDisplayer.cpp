@@ -68,7 +68,7 @@ void PatternTableDisplayer::displayPattern(Graphics& graphics, std::array<uint8_
         lowerBitField = pattern.at(i);
         upperBitField = pattern.at(i + numRows);
         for (unsigned int j = 0; j < numBits; ++j) {
-            pxId = (getBit(upperBitField, j) << 1) + getBit(lowerBitField, j);
+            pxId = (getBitVal(upperBitField, j) << 1) + getBitVal(lowerBitField, j);
             
             // Note: when j is 0, it is indexing bit 0 of the bitfield's row, which is located on the RIGHT.
             // So, we want to display that pixel on the right, so we invert the range when adding it to x,

@@ -5,7 +5,7 @@
 #include <algorithm>
 
 std::map<uint16_t, uint32_t> loadPalette(std::string filename) {
-	const int FILENAME_SIZE = filename.size();
+	const size_t FILENAME_SIZE = filename.size();
 	const bool FILENAME_TOO_SMALL = filename.size() < 5;  // If there are 4 characters or less in the filename, it can not have a .pal extension.
 
 	std::string lastChars = filename.substr(FILENAME_SIZE - 4, 4);

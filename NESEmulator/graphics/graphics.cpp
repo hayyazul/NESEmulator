@@ -44,7 +44,7 @@ void Graphics::blitDisplay(SDL_Surface* windowSurface) {
 
 void Graphics::clear(uint32_t rgb) {
 	this->setPxIdx(0);
-	for (unsigned int i = 0; i < this->w * this->h; ++i) {
+	for (int i = 0; i < this->w * this->h; ++i) {
 		this->drawPixel(rgb);
 	}
 }

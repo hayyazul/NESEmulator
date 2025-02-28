@@ -25,9 +25,9 @@ const unsigned int HEADER_SIZE = 0x10;  // The header is 16 bytes long.
 
 const std::set<uint8_t> IMPLEMENTED_MAPPERS = { 0 };
 
-// This struct contains the file's mapperID and program and character data.
+// This struct contains the file's mapperID and program and character data. Supports only iNES 1.0 type files.
 struct NESFileData {
-	uint16_t mapperID;
+	uint8_t mapperID;
 	unsigned int programDataSize = -1;
 	unsigned int characterDataSize = -1;
 

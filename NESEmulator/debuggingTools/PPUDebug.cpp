@@ -121,7 +121,7 @@ void PPUDebug::displayPattern(uint8_t patternId, bool patternTable) const {
 		upperBitPlane = pattern.at(i + 0x8);
 		// Then, iterate through the 8 bit-pairs in these.
 		for (int j = 7; j >= 0; --j) {
-			pixel = getBit(lowerBitPlane, j) + (getBit(upperBitPlane, j) << 1);
+			pixel = getBitVal(lowerBitPlane, j) + (getBitVal(upperBitPlane, j) << 1);
 
 			// Lastly, display the pixel.
 			std::cout << std::dec << pixel << ' ';
@@ -139,7 +139,6 @@ std::array<uint8_t, PATTERN_TABLE_SIZE_IN_BYTES> PPUDebug::getPatternTable(bool 
 	
 	std::array<uint8_t, PATTERN_TABLE_SIZE_IN_BYTES> patternTableData{};
 
-	unsigned int pixel;  // Can be 0, 1, 2, or 3.
 	uint8_t bitPlane;  // A row of 8 bits indicating the color of a pixel (can either be a low or high bit; two bit planes decide the color).
 	// Iterate through the 256 patterns.
 	for (unsigned int i = 0; i < 256; ++i) {
@@ -227,13 +226,13 @@ void PPUDebug::displaySprite(SpriteData spriteData, int x, int y) {
 	}
 
 	// Now to display. Before we can, we must extract the pattern data.
-	uint16_t patternAddr = (0x1000 * getBit(this->control, 3));
+	uint16_t patternAddr = (0x1000 * getBitVal(this->control, 3));
 	patternAddr += 16 * spriteData.pattern;
 	std::array<uint8_t, PATTERN_SIZE_IN_BYTES / 2> patternLow;
 	std::array<uint8_t, PATTERN_SIZE_IN_BYTES / 2> patternHigh;
 	uint8_t attribute = getBits(spriteData.attribute, 0, 1);
-	bool flipHoriz = getBit(spriteData.attribute, 6);
-	bool flipVert = getBit(spriteData.attribute, 7);
+	bool flipHoriz = getBitVal(spriteData.attribute, 6);
+	bool flipVert = getBitVal(spriteData.attribute, 7);
 
 	for (int i = 0, j = 8; i < 8; ++i, ++j) {
 		patternLow.at(i) = this->databus.read(patternAddr + i);
@@ -254,9 +253,9 @@ void PPUDebug::displaySprite(SpriteData spriteData, int x, int y) {
 			int rowIdx = flipVert ? 7 - i : i;
 			int colIdx = flipHoriz ? j : 7 - j;
 
-			uint8_t highBit = getBit(patternHigh.at(rowIdx), colIdx);
+			uint8_t highBit = getBitVal(patternHigh.at(rowIdx), colIdx);
 			highBit <<= 1;
-			uint8_t lowBit = getBit(patternLow.at(rowIdx), colIdx);
+			uint8_t lowBit = getBitVal(patternLow.at(rowIdx), colIdx);
 
 			addr += highBit + lowBit;
 			// Indexing which palette we want.
@@ -409,7 +408,7 @@ FRAME: 5
 			continue;
 		}
 
-		unsigned long value = std::stoll(datapoint);
+		unsigned long long value = std::stoll(datapoint);
 		// Insert the data differently given the component.
 		switch (componentOn) {
 		case BGLATCHES: {

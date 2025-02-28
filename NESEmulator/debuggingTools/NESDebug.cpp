@@ -1,5 +1,4 @@
 #include "NESDebug.h"
-#include "debugDatabus.h"
 #include "CPUAnalyzer.h"
 #include <minmax.h>
 #include <sstream>
@@ -260,7 +259,8 @@ std::string NESInternals::getSerialFormat() const {
 }
 
 void displayMemDump(std::vector<uint8_t>& dump, uint16_t startAddr, uint16_t endAddr, unsigned int bytesPerRow) {
-	unsigned int rowCount = ceil(static_cast<double>(endAddr - startAddr) / bytesPerRow);
+	// NOTE: Probably a less janky way to do this w/o double conversions.
+	unsigned int rowCount = static_cast<unsigned int>(ceil(static_cast<double>(endAddr - startAddr) / bytesPerRow));
 	if (endAddr > startAddr) {
 		for (unsigned int i = 0; i < rowCount; ++i) {
 			displayMemDumpLine(dump, startAddr, endAddr, i, bytesPerRow);

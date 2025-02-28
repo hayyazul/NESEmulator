@@ -19,7 +19,7 @@ uint8_t Memory::getByte(uint16_t address) const {
 Memory& Memory::operator=(const Memory& memory) {
 	// Copy only as many bytes as we can store UNLESS our size is 0; in which case, increase the size of this
 	// module to account for that.
-	int bytesToCopy;
+	size_t bytesToCopy;
 	if (this->data.size()) {
 		bytesToCopy = this->data.size() > memory.data.size() ? memory.data.size() : this->data.size();
 	} else {

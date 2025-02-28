@@ -22,8 +22,8 @@ enum CPUCycleOutcomes {
 	INSTRUCTION_EXECUTED,  // Occurs when an instruction was executed this cycle.
 };
 
-// NOTE: Might replace get/set status with bool values.
-struct Registers {
+class Registers {
+public:
 	uint8_t A;  // Accumulator
 	uint8_t S;  // Status (NV1BDIZC; see getStatusMask for what these letters mean)
 	uint16_t PC;  // Program Counter
@@ -107,7 +107,6 @@ private:
 		}
 		return statusMask;
 	}
-	
 };
 
 class _6502_CPU {

@@ -13,7 +13,7 @@ using LetterData = std::array<bool, 64>;
 using FontSet = std::map<char, const LetterData>;
 
 namespace LetterRendering {
-    constexpr unsigned int letterW = 8, letterH = 8;
+    constexpr int letterW = 8, letterH = 8;
 
     using LetterData = std::array<bool, 64>;
 
@@ -401,7 +401,7 @@ namespace LetterRendering {
         {'-', DASH}
     };
 
-    void renderLetter(Graphics& graphics, char c, unsigned int x, unsigned int y, unsigned int scale = 1, uint32_t rgb = 0xffffffff) {
+    void renderLetter(Graphics& graphics, char c, int x, int y, int scale = 1, uint32_t rgb = 0xffffffff) {
         // First get the letter data.
         c = isalpha(c) ? toupper(c) : c;
         
@@ -413,13 +413,13 @@ namespace LetterRendering {
         int xPx, yPx;  // Coordinates of where to draw a pixel of a given letter.
 
         // Before rendering, check if we will stay within bounds.
-        bool withinBounds = (x + letterW * scale < graphics.w) && (y + letterH * scale < graphics.h);
+        bool withinBounds = ((x + letterW * scale) < graphics.w) && ((y + letterH * scale) < graphics.h);
         if (!withinBounds) {  // If we aren't, don't render the letter.
             return;
         }
 
-        for (unsigned int i = 0; i < letterH; ++i) {
-            for (unsigned int j = 0; j < letterW; ++j) {
+        for (int i = 0; i < letterH; ++i) {
+            for (int j = 0; j < letterW; ++j) {
                 pxIdx = j * letterW + i;  // This translates the xy coordinates (i, j) into an index into the LetterData.
                 xPx = x + i * scale;
                 yPx = y + j * scale;
@@ -436,7 +436,7 @@ namespace LetterRendering {
 /* Renders a line of text in a simple small font at the specified scale.Emphasis on line; this function does not go onto new lines.
 Supported characters: ABCDEFGHIJKLMNOPQRSTUVWXYZ!, .-
 */
-void renderText(Graphics& graphics, std::string txt, unsigned int x, unsigned int y, unsigned int scale = 1, uint32_t rgb = 0xfffffffff) {
+void renderText(Graphics& graphics, std::string txt, unsigned int x, unsigned int y, unsigned int scale = 1, uint32_t rgb = 0xffffffff) {
     char c;
     for (unsigned int i = 0; i < txt.size(); ++i) {
         c = txt.at(i);

@@ -21,9 +21,18 @@ inline const std::string btos(bool b, std::string trueOption, std::string falseO
 	return b ? trueOption : falseOption;
 }
 
-// 0-indexed.
+// 0-indexed; gets the value of a bit at the given location.
 template <typename T>
-inline constexpr bool getBit(T i, int bitIdx) {
+inline constexpr bool getBitVal(T i, int bitIdx) {
+	T indexer = 1;
+	indexer <<= bitIdx;
+
+	return i & indexer;
+}
+
+// 0-indexed; returns an integral type of the same type w/ the bit at the given index set if it is set in the input value too, or cleared if it is cleared in the input value too. All other bits are 0.
+template <typename T>
+inline constexpr T getBit(T i, int bitIdx) {
 	T indexer = 1;
 	indexer <<= bitIdx;
 

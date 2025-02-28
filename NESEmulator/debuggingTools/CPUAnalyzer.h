@@ -4,7 +4,6 @@
 
 #include "../6502Chip/CPU.h"
 #include "../globals/helpers.hpp"
-#include "debugDatabus.h"
 
 #include <string>
 #include <map>
@@ -286,7 +285,7 @@ struct CPUInternals {
 	bool performNMI;  // Whether to PERFORM an NMI in the current CPU cycle. 
 
 	bool getOrPutCycle;  // Bool indicating whether the current cycle is a get (false) or a put (true) cycle. Starts as a get cycle, alternates back and forth every cycle. 
-	long unsigned int totalCyclesElapsed;  // Total CPU cycles elapsed since startup. NOTE: Buggy because it does not count DMA cycles.
+	unsigned long long totalCyclesElapsed;  // Total CPU cycles elapsed since startup. NOTE: Buggy because it does not count DMA cycles.
 	unsigned int opcodeCyclesElapsed;  // A cycle counter that is present since the CPU began executing a given instruction. Resets when it reaches the number of cycles for a given instruction.
 	unsigned int currentOpcodeCycleLen;  // The number of cycles the current opcode uses.
 
@@ -302,7 +301,6 @@ struct CPUInternals {
 class CPUDebugger : public _6502_CPU {
 public:
 	CPUDebugger();
-	CPUDebugger(DebugDatabus* databus);
 	~CPUDebugger();
 
 	// Note: Currently one cycle = one instruction, but in reality it is different and depends on the specific instruction.

@@ -10,8 +10,6 @@
 CPUDebugger::CPUDebugger() : _6502_CPU(this->databus) {
 }
 
-CPUDebugger::CPUDebugger(DebugDatabus* databus) : databus(databus), _6502_CPU(databus) {}
-
 CPUDebugger::~CPUDebugger() {}
 
 // Make it return an error code instead of a bool.
@@ -178,7 +176,7 @@ void CPUInternals::deserializeData(std::stringstream& data) {
 			continue;
 		}
 
-		unsigned long value = std::stoll(datapoint);
+		unsigned long long value = std::stoll(datapoint);
 		// Insert the data differently given the component.
 		switch (componentOn) {
 		case(REGISTERS): {

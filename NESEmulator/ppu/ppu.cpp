@@ -105,7 +105,7 @@ void PPU::executePPUCycle() {
 		this->updateRenderingRegisters();
 	}
 	
-	if (this->beamPos.onRenderLines() && getBit(this->mask, 3)) {
+	if (this->beamPos.onRenderLines() && getBitVal(this->mask, 3)) {
 		this->drawPixel();
 	}
 
@@ -203,7 +203,7 @@ uint8_t PPU::writeToRegister(uint16_t address, uint8_t data) {
 		oldValue = this->databus.write(this->v, data);
 		// Now we increment PPUADDR by 32 if bit 2 of PPUCTRL is set (the nametable is 32 bytes long, so this essentially goes down).
 		// Otherwise, we increment PPUADDR by 1 (going right).
-		this->v += 1 << (5 * getBit(this->control, 2));
+		this->v += 1 << (5 * getBitVal(this->control, 2));
 		break;
 	case(0x4014):  // OAMDMA  // TODO: Very important TODO; a write to this address makes the CPU do a lot of stuff.
 		// It essentially copies over a page of memory from the CPU into OAM. This process:
@@ -255,7 +255,7 @@ uint8_t PPU::readRegister(uint16_t address) {
 		this->PPUDATABuffer = this->databus.read(this->v);
 		// Now we increment PPUADDR by 32 if bit 2 of PPUCTRL is set (the nametable is 32 bytes long, so this essentially goes down).
 		// Otherwise, we increment PPUADDR by 1 (going right).
-		this->v += 1 << (5 * getBit(this->control, 2));
+		this->v += 1 << (5 * getBitVal(this->control, 2));
 		break;
 	default:  // This catches the reads to write-only registers.
 		break;
@@ -265,7 +265,7 @@ uint8_t PPU::readRegister(uint16_t address) {
 }
 bool PPU::requestingNMI() const {
 	// We request an NMI when we are in Vblank AND the 7th bit in PPUCTRL is set.
-	bool requestNMI = (getBit(this->control, 7)) && this->beamPos.inVblank(true);
+	bool requestNMI = (getBitVal(this->control, 7)) && this->beamPos.inVblank(true);
 	if (requestNMI) {
 		int a = 0;
 	}
@@ -283,8 +283,8 @@ uint8_t PPU::getDMAPage() const {
 }
 bool PPU::isRendering(bool includePrerender) const {
 	// The PPU is rendering if 1. either background OR sprite rendering is on, 2. it is inbetween scanlines 0 and 239 inclusive.
-	bool backgroundRendering = getBit(this->mask, 3);
-	bool spriteRendering = getBit(this->mask, 4);
+	bool backgroundRendering = getBitVal(this->mask, 3);
+	bool spriteRendering = getBitVal(this->mask, 4);
 
 	bool onRenderLines = this->beamPos.onRenderLines() || (this->beamPos.inPrerender() && includePrerender);
 
@@ -419,7 +419,7 @@ void PPU::performBackgroundFetches() {
 	}
 
 	const uint16_t FIRST_NAMETABLE_ADDR = 0x2000, NAMETABLE_SIZE = 0x400;
-	const uint16_t NAMETABLE_ADDR = FIRST_NAMETABLE_ADDR + NAMETABLE_SIZE * getBits(this->control, 0, 1), BACKGROUND_PATTERN_TABLE_ADDR = getBit(this->control, 4) << 12;
+	const uint16_t NAMETABLE_ADDR = FIRST_NAMETABLE_ADDR + NAMETABLE_SIZE * getBits(this->control, 0, 1), BACKGROUND_PATTERN_TABLE_ADDR = getBitVal(this->control, 4) << 12;
 	// Now, we will load the latches every other cycle.
 	switch (cycleCounter) {
 	case(1): { // Fetching nametable byte.
@@ -497,13 +497,13 @@ void PPU::performBackgroundFetches() {
 		 lower bit = 2 * a
 
 		*/
-		uint8_t upperBit = getBit(this->v, 6) << 1;  // This selects which part of the byte given the quadrant this tile is in.
-		uint8_t lowerBit = getBit(this->v, 1);
+		uint8_t upperBit = getBitVal(this->v, 6) << 1;  // This selects which part of the byte given the quadrant this tile is in.
+		uint8_t lowerBit = getBitVal(this->v, 1);
 		uint8_t corner = lowerBit + upperBit;
 
 		// Finally we move the bits into the appropriate latches.
-		this->latches.attributeLatchLow = getBit(attrByte, 2 * corner);
-		this->latches.attributeLatchHigh = getBit(attrByte, 2 * corner + 1);
+		this->latches.attributeLatchLow = getBitVal(attrByte, 2 * corner);
+		this->latches.attributeLatchHigh = getBitVal(attrByte, 2 * corner + 1);
 		break;
 	}
 	case(5): { // Fetching pattern table tile low.
@@ -515,7 +515,7 @@ void PPU::performBackgroundFetches() {
 		
 		*/
 	this->fetchPatternData(this->latches.nametableByteLatch, 
-			getBit(this->control, 4), 
+			getBitVal(this->control, 4), 
 			false, 
 			(this->beamPos.scanline + fetchingNextLineTiles) % 8,
 			this->latches.patternLatchLow);
@@ -523,7 +523,7 @@ void PPU::performBackgroundFetches() {
 	}
 	case(7): { // Fetching pattern table tile high.
 		this->fetchPatternData(this->latches.nametableByteLatch,
-			getBit(this->control, 4),
+			getBitVal(this->control, 4),
 			true,
 			(this->beamPos.scanline + fetchingNextLineTiles) % 8,
 			this->latches.patternLatchHigh);
@@ -650,7 +650,7 @@ void PPU::transferSpriteData() {
 			return;
 		}
 
-		bool patternTable = getBit(this->control, 3);
+		bool patternTable = getBitVal(this->control, 3);
 
 		// Then get the line the sprite will need to display the next line.
 		int spriteLine = nextLine - spriteY;
@@ -659,8 +659,8 @@ void PPU::transferSpriteData() {
 			return;
 		}
 
-		bool flipH = !getBit(attributes, 6);  // Due to the way the shift register works, sprites are flipped when they enter. NOTE: I think this behavior applies to backgrounds too; I might include it in the fetchPatternData function.
-		bool flipV = getBit(attributes, 7);
+		bool flipH = !getBitVal(attributes, 6);  // Due to the way the shift register works, sprites are flipped when they enter. NOTE: I think this behavior applies to backgrounds too; I might include it in the fetchPatternData function.
+		bool flipV = getBitVal(attributes, 7);
 
 		// Now we fetch the patterns. 
 		this->fetchPatternData(patternID,
@@ -748,7 +748,7 @@ bool PPU::currentSprite0Opacity() {
 	xCoord = this->OAM.getByte(3);
 
 	// Now we check the following:
-	bool patternTable = getBit(this->control, 3);
+	bool patternTable = getBitVal(this->control, 3);
 
 	// Is the beam on the same lines as the sprite?
 	if (!this->beamPos.lineInRange(yCoord, yCoord + 7)) {
@@ -759,8 +759,8 @@ bool PPU::currentSprite0Opacity() {
 		return false;
 	}
 	// If both of these pass, then we check the pattern and attribute itself.
-	bool flipH = !getBit(attributes, 6);  // Due to the way the shift register works, sprites are flipped when they enter. NOTE: I think this behavior applies to backgrounds too; I might include it in the fetchPatternData function.
-	bool flipV = getBit(attributes, 7);
+	bool flipH = !getBitVal(attributes, 6);  // Due to the way the shift register works, sprites are flipped when they enter. NOTE: I think this behavior applies to backgrounds too; I might include it in the fetchPatternData function.
+	bool flipV = getBitVal(attributes, 7);
 
 	int spriteLine = this->beamPos.scanline - yCoord;
 
@@ -785,8 +785,8 @@ bool PPU::currentSprite0Opacity() {
 	lowPatternBits >>= this->beamPos.dot - xCoord;
 	highPatternBits >>= this->beamPos.dot - xCoord;
 
-	uint8_t pattern = getBit(highPatternBits, this->x);
-	pattern <<= 1;	pattern |= getBit(lowPatternBits, this->x);
+	uint8_t pattern = static_cast<uint8_t>(getBit(highPatternBits, this->x)) << 1;
+	pattern |= static_cast<uint8_t>(getBit(lowPatternBits, this->x));
 
 	// If the pattern is 0, then it is transparent; return 0.
 	if (pattern == 0) return false;
@@ -844,12 +844,12 @@ void PPU::drawPixel() {
 
 	if (this->beamPos.dot < 0x100 && this->beamPos.scanline < 0xf0) {  // Do not draw past dot 256 or scanline 240
 		// Get values of the mask bits.
-		bool isGrayscale = getBit(this->mask, 0);
-		bool bgRenderingEnabled = getBit(this->mask, 4);
-		bool spriteRenderingEnabled = getBit(this->mask, 1);
+		bool isGrayscale = getBitVal(this->mask, 0);
+		bool bgRenderingEnabled = getBitVal(this->mask, 4);
+		bool spriteRenderingEnabled = getBitVal(this->mask, 1);
 
-		bool showBGInLeft8Pixels = getBit(this->mask, 1);
-		bool showSpritesInLeft8Pixels = getBit(this->mask, 2);
+		bool showBGInLeft8Pixels = getBitVal(this->mask, 1);
+		bool showSpritesInLeft8Pixels = getBitVal(this->mask, 2);
 		bool inLeft8Pixels = this->beamPos.dot < 8;
 
 		bool showBG = bgRenderingEnabled && (!inLeft8Pixels || showBGInLeft8Pixels);
@@ -920,14 +920,14 @@ BackgroundShiftRegisters::BackgroundShiftRegisters() :
 {}
 BackgroundShiftRegisters::~BackgroundShiftRegisters() {}
 uint8_t BackgroundShiftRegisters::getPattern(int x) const {
-	uint8_t pattern = getBit(this->patternShiftRegisterHigh, x) << 1;  // Fetching the high bit.
-	pattern += getBit(this->patternShiftRegisterLow, x);  // Then the low bit.
+	uint8_t pattern = getBitVal(this->patternShiftRegisterHigh, x) << 1;  // Fetching the high bit.
+	pattern += getBitVal(this->patternShiftRegisterLow, x);  // Then the low bit.
 
 	return pattern;
 }
 uint8_t BackgroundShiftRegisters::getAttribute(int x) const {
-	uint8_t pattern = getBit(this->attributeShiftRegisterHigh, x) << 1;  // Fetching the high bit.
-	pattern += getBit(this->attributeShiftRegisterLow, x);  // Then the low bit.
+	uint8_t pattern = getBitVal(this->attributeShiftRegisterHigh, x) << 1;  // Fetching the high bit.
+	pattern += getBitVal(this->attributeShiftRegisterLow, x);  // Then the low bit.
 	return pattern;
 }
 BackgroundShiftRegisters& BackgroundShiftRegisters::operator>>=(const int& n) {
@@ -1068,8 +1068,8 @@ uint8_t SpriteShiftUnit::getPattern(int x) const {
 	if (this->patternShiftRegisterLow & 0xff) {
 		int _ = 0;
 	}
-	uint8_t pattern = getBit(this->patternShiftRegisterHigh, x) << 1;  // Fetching the high bit.
-	pattern |= getBit(this->patternShiftRegisterLow, x);  // Then the low bit.
+	uint8_t pattern = static_cast<uint8_t>(getBit(this->patternShiftRegisterHigh, x)) << 1;  // Fetching the high bit.
+	pattern |= static_cast<uint8_t>(getBit(this->patternShiftRegisterLow, x));  // Then the low bit.
 	return pattern;
 }
 uint8_t SpriteShiftUnit::getAttribute() const {
@@ -1077,7 +1077,7 @@ uint8_t SpriteShiftUnit::getAttribute() const {
 }
 bool SpriteShiftUnit::getPriority() const {
 	// The priority bit is stored in bit 5. 0 means to prioritize the sprite, 1 means the background.
-	return !getBit(this->attributeBits, 5);
+	return !getBitVal(this->attributeBits, 5);
 }
 SpriteShiftUnit& SpriteShiftUnit::operator>>=(int n) {
 	 

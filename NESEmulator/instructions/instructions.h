@@ -8,7 +8,7 @@
 #include "../databus/databus.h"
 
 enum AddressingModes;
-struct Registers;
+class Registers;
 
 typedef void(*RegOp)(Registers& registers, uint8_t data);  // Operations which work with data and the registers.
 typedef void(*MemOp)(Registers& registers, DataBus& databus, uint16_t address);  // Operations which work with addresses (thus, it also needs the databus) and registers.
