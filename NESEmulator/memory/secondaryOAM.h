@@ -28,5 +28,4 @@ public:
 private:
 	bool writeEnabled;
 	uint8_t freeByteIdx;  // An index pointing to the current free byte.
-
 };

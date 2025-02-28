@@ -294,7 +294,7 @@ void PPU::updatePPUSTATUS() {  // TODO: Implement sprite overflow and sprite 0 h
 	if (this->beamPos.inVblank(true)) {
 		setBit(this->status, 7);
 	} else if (this->beamPos.inPrerender(true)) {
-		clrBit(this->status, 7);
+		this->status = 0;  // All 3 flags are cleared on reaching prerender.
 	}
 }
 void PPU::updateRenderingRegisters() {
@@ -738,6 +738,67 @@ void PPU::incrementScrolling(bool axis) {  // Increments scrolling
 		}
 	}
 }
+// NOTE: Not efficient.
+bool PPU::currentSprite0Opacity() {
+	// First, we will fetch the data from OAM.
+	uint8_t yCoord, tile, attributes, xCoord;
+	yCoord = this->OAM.getByte(0) + 1;  // Sprites are displayed 1 line below what they are stored in OAM.
+	tile = this->OAM.getByte(1);
+	attributes = this->OAM.getByte(2);
+	xCoord = this->OAM.getByte(3);
+
+	// Now we check the following:
+	bool patternTable = getBit(this->control, 3);
+
+	// Is the beam on the same lines as the sprite?
+	if (!this->beamPos.lineInRange(yCoord, yCoord + 7)) {
+		return false;
+	}
+	// Is the beam in the same horizontal region (i.e. the same dots or columns) as the sprite? 
+	if (!this->beamPos.dotInRange(xCoord, xCoord + 7)) {
+		return false;
+	}
+	// If both of these pass, then we check the pattern and attribute itself.
+	bool flipH = !getBit(attributes, 6);  // Due to the way the shift register works, sprites are flipped when they enter. NOTE: I think this behavior applies to backgrounds too; I might include it in the fetchPatternData function.
+	bool flipV = getBit(attributes, 7);
+
+	int spriteLine = this->beamPos.scanline - yCoord;
+
+	// Now we fetch the patterns.
+	uint16_t lowPatternBits, highPatternBits;
+	this->fetchPatternData(tile,
+		patternTable,
+		false,
+		spriteLine,
+		lowPatternBits,
+		flipH,
+		flipV);
+	this->fetchPatternData(tile,
+		patternTable,
+		true,
+		spriteLine,
+		highPatternBits,
+		flipH,
+		flipV);
+
+	// We get the pattern.
+	lowPatternBits >>= this->beamPos.dot - xCoord;
+	highPatternBits >>= this->beamPos.dot - xCoord;
+
+	uint8_t pattern = getBit(highPatternBits, this->x);
+	pattern <<= 1;	pattern |= getBit(lowPatternBits, this->x);
+
+	// If the pattern is 0, then it is transparent; return 0.
+	if (pattern == 0) return false;
+
+	// Alternatively, if the resulting color index is 0, return 0 too.
+	// Getting the palette address to use.
+	uint16_t paletteAddr = 0x3f10 + (4 * getBits(attributes, 0, 1)) + pattern;
+	uint8_t color = this->databus.read(paletteAddr);
+
+	// If the color is 0, we return 0; otherwise we return true (the pixel is opaque).
+	return color != 0;
+}
 uint8_t PPU::getBGColor(uint8_t pattern) {
 	const uint16_t backgroundPaletteAddress = 0x3f00;  // The starting address for the background palette.
 
@@ -752,6 +813,7 @@ uint8_t PPU::getBGColor(uint8_t pattern) {
 	uint8_t colorIdx = this->databus.read(addr);
 	return colorIdx;
 }
+// NOTE: I might want to make this interface cleaner, split it up, or change how it works entirely
 bool PPU::getSpritePatternAndColor(uint8_t& pattern, uint8_t& color) {
 	// Search for a non-transparent (if it exists) pixel w/ the lowest sprite index possible at the current location.
 	const uint16_t spritePaletteAddress = 0x3f10;
@@ -793,6 +855,8 @@ void PPU::drawPixel() {
 		bool showBG = bgRenderingEnabled && (!inLeft8Pixels || showBGInLeft8Pixels);
 		bool showSprites = spriteRenderingEnabled && (!inLeft8Pixels || showSpritesInLeft8Pixels);
 
+		bool isSprite0Opaque = this->currentSprite0Opacity();
+
 		// We will figure out what color we need to draw.
 		uint16_t colorKey = 0;//this->databus.read(0x3f00);  // Transparent pixels use the color at 0x3f00 by default.
 
@@ -823,6 +887,10 @@ void PPU::drawPixel() {
 		bool bgTransparent = bgPaletteIdx == 0 || bgColorIdx == 0;
 		bool spriteTransparent = spritePaletteIdx == 0 || spriteColorIdx == 0;
 
+		// If the BG is not transparent and neither is sprite 0 at this point, we set the sprite 0 flag.
+		if (isSprite0Opaque && !bgTransparent) {
+			setBit(this->status, 6);
+		}
 
 		// Now, if the sprite is prioritized AND it is not transparent OR the background is transparent, we show the sprite color. Otherwise we show the background color.
 		if (bgTransparent && spriteTransparent) {

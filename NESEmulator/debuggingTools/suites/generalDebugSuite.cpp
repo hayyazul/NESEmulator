@@ -110,7 +110,7 @@ GeneralDebugSuite::~GeneralDebugSuite() {}
 
 void GeneralDebugSuite::run() {
 	
-	this->nes.loadROM("testROMS/donkey kong.nes");
+	this->nes.loadROM("testROMS/smb.nes");
 	this->nes.powerOn();
 
 	SDL_Init(SDL_INIT_EVERYTHING);

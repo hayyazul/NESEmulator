@@ -246,12 +246,14 @@ protected:
 	void performSpriteEvaluation();
 	void transferSpriteData();  // Transfers the sprite data from 2ndOAM to their respective shift registers.
 	void updateSpriteShiftRegisters();  // Updates the sprite shift registers. NOTE: Might remove.
-
 	void incrementScrolling(bool axis = false);  // Increments the x and v registers, handling overflow for both appropriately. false - x axis, true - y axis.
+
+	// Checks if at the current beam and line position sprite 0 has an opaque pixel.
+	bool currentSprite0Opacity();
 
 	// Gets the color index associated w/ the background given the values in the current shift and internal registers.
 	uint8_t getBGColor(uint8_t pattern);
-	// Gets the color index associated w/ the sprite given the values in the current shift and internal registers (returns whether the sprite or the background has priority).
+	// Gets the color index associated w/ the sprite given the values in the current shift and internal registers (returns the sprite priority to the background).
 	bool getSpritePatternAndColor(uint8_t& pattern, uint8_t& color);
 
 	void drawPixel();  // Draws a pixel to graphics depending on the internal register values. (see the NESdev's page on PPU Rendering for details).

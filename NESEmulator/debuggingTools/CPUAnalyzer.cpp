@@ -18,7 +18,7 @@ CPUDebugger::~CPUDebugger() {}
 CPUCycleOutcomes CPUDebugger::executeCycle(bool DMACycle) {
 	
 	// Data that needs to be recorded before execution.
-	uint8_t opcode = this->databus->read(this->registers.PC);
+ 	uint8_t opcode = this->databus->read(this->registers.PC);
 	if (!INSTRUCTION_SET.count(opcode)) {
 		return FAIL;
 	}

@@ -22,10 +22,10 @@ uint8_t SecondaryOAM::setFreeByte(uint8_t value) {
 
 	return oldVal;
 }
-
 void SecondaryOAM::freeAllBytes() {
 	this->freeByteIdx = 0;
 	this->writeEnabled = true;
+	// We also reset whether this object has sprite 0.
 }
 
 bool SecondaryOAM::setWriteState(bool writeState) {
