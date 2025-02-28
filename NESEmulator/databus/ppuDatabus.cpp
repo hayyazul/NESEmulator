@@ -37,6 +37,9 @@ void PPUDatabus::adjustAddress(uint16_t& address) {
 
 	if (address >= PALETTE_RAM_ADDR) {
 		address %= PALETTE_SIZE;
+		// Note that the first index of each palette is shared between sprites and the background.
+		// Checks if were looking at the first index.
+		if ((address & 0b11) == 0) address |= 0b1'0000;
 	} else if (address >= NAMETABLES_ADDR) {
 		address %= NAMETABLES_SIZE;
 	} else {

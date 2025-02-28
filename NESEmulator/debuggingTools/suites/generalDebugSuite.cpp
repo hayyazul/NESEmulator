@@ -133,7 +133,7 @@ void GeneralDebugSuite::run() {
 		switch (inputChar) {
 		case('G'): {
 			int cyclesToExecute = this->CLIInputHandler.getUserInt("How many cycles?\n");
-			const int CPUCyclcesPerFrame = 89342 / 3;  // Numerator is # of PPU cycles per frame (rounded up), 3 PPU cycles per CPU cycle.
+			const int CPUCyclcesPerFrame = 89344 / 3;  // Numerator is # of PPU cycles per frame (rounded up), 3 PPU cycles per CPU cycle.
 			std::cout << std::endl;
 			for (int i = 0; i < cyclesToExecute; ++i) {
 				this->nes.executeCPUCycle();
