@@ -1,6 +1,7 @@
 // helpers.hpp - A list of helper functions and definitions for use throughout this project.
 #pragma once
 #include <string>
+#include <vector>
 #define ASSERT_PARAMETERS
 #ifdef ASSERT_PARAMETERS
 #include <iostream>
@@ -143,13 +144,12 @@ inline constexpr T reverseBits(T bits, int numOfBits) {
 template <typename T>
 inline constexpr T reverseBits(T bits) {
 	return reverseBits(bits, sizeof(T) * 8);
-}
+};
 
 template <typename T>
 inline constexpr void removeElementFromVec(std::vector<T>& vec, T& elementVal) {
-	vec.erase(std::remove(vec.begin(),
-		vec.end(), elementVal), vec.end());
-}
+	vec.erase(std::remove(vec.begin(), vec.end(), elementVal), vec.end());
+};
 
 /* Some terminology and acronyms used in the code:
  - xBI: x-based indexing; e.g. 0BI = 0-based indexing.

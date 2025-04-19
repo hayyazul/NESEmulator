@@ -2,6 +2,7 @@
 #include <iostream>
 #include <iomanip>
 #include <string>
+#include <vector>
 
 Input::Input(): quit(false) {
 }
@@ -10,7 +11,10 @@ Input::~Input() {
 }
 
 bool Input::updateInput() {
-	this->staticKeyUpdate();  // First, do the update which will always happen.
+    // BUG NOTE: For some reason, SDL_PollEvent seems incapable of recording more than 2 simulatenous key presses. This is annoying, but can be worked with for the time being. 
+    // Some fault may lie in the laptop, as show by testing w/ an online keyboard rollover test, but that same test also reveals this function is still flawed somehow.
+    
+    this->staticKeyUpdate();  // First, do the update which will always happen.
 	// Then see what the user has input.
     bool inputRecieved = false;
 	SDL_Event event;
@@ -19,6 +23,7 @@ bool Input::updateInput() {
         switch (event.type) {
         case(SDL_KEYDOWN):
             this->updateKeyState(event.key.keysym.scancode, true);
+
             break;
         case(SDL_KEYUP):
             this->updateKeyState(event.key.keysym.scancode, false);
@@ -34,6 +39,11 @@ bool Input::updateInput() {
     };
 
     return inputRecieved;
+}
+
+KeyState Input::getKeyState(SDL_Scancode key) const {
+    if (!this->keyStates.contains(key)) return NA;  // If the keystate has not been recorded yet at all, return NA.
+    return this->keyStates.at(key);
 }
 
 void Input::printKeyStates(KeyState excludedState) {
