@@ -9,16 +9,6 @@ file(COPY "testROMS" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 file(REMOVE REMOVE_RECURSE "${CMAKE_CURRENT_BINARY_DIR}/resourceFiles" )
 file(COPY "resourceFiles" DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
-
-if (MSVC)
-	# target_compile_options(${TARGET_NAME} PUBLIC /W4 /WX)
-else()
-	# target_compile_options(${TARGET_NAME} PUBLIC -Wall -Wextra -Wpedantic -Werror)
-endif()
-
-message(STATUS "Target name is: " ${TARGET_NAME})
-
-
 set(SDL2_DIR "C:/vclib/SDL2-2.30.1/cmake")
 set(SDL2_IMAGE_DIR "C:/vclib/SDL2_image-devel-2.8.2-VC/SDL2_image-2.8.2/cmake")  
 
