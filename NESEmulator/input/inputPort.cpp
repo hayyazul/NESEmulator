@@ -21,7 +21,8 @@ void InputPort::setLatch(bool val) {
 
 uint8_t InputPort::readAndClock() {
 	if (this->controller == nullptr) return 0;  // Don't attempt to access a non-existent controller.
-	uint8_t val = this->controller->getData();
+	uint8_t a = this->controller->getData();
+	uint8_t val = 1 ^ a;
 	this->controller->clock();
 	return val;
 }

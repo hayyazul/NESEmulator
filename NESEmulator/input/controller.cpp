@@ -57,7 +57,9 @@ void StandardController::readInput(Input& input) {
 	// For every key being checked, if it is down or held, OR it with the byte indicating which keys are held.
 	for (auto const& [key, val] : KEY_BUTTON_MAP) {
 		KeyState key_state = input.getKeyState(key);
-		if (key_state == PRESSED || key_state == HELD) this->input_values |= val;
+		if (key_state == PRESSED || key_state == HELD) {
+			this->input_values |= val;
+		}
 	}
 }
 

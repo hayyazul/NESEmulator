@@ -3,7 +3,7 @@
 // MAIN TODO: 
 // - Fix issues w/ PPU Registers.
 
-
+#include "debuggingTools/frameCounter.h"
 #include "debuggingTools/NESDebug.h"
 #include "debuggingTools/PPUDebug.h"
 #include "debuggingTools/debugDisplays/tableDisplayer.h"
@@ -128,29 +128,37 @@ int main() {
 	unsigned int nameTable = 0;
 	unsigned int x = 0, y = 0;
 
-
 	//graphics.unlockDisplay();
 
 	bool quit = false;
 
 	int numFrames = 1;
 	int numElapsed = 0;
+	unsigned long long total_frames = 0;
+	FrameCounter frame_counter;
 	while (!quit) {
+		++total_frames;
 		for (int i = 0; i < 357954; ++++i) {
 			controller.update4021();  // Transfers inputs to 4021 every clock cycle.
 			nes.executeMachineCycle();
 		}
 
+		input.updateInput();
+		/*
+		if (total_frames < 1000000) {
+			if (numElapsed % 13 == 0) {
+				KeyState next_state = input.getKeyState(SDL_SCANCODE_Q) == HELD ? NEUTRAL : HELD;
+				input.setKeyState(SDL_SCANCODE_Q, next_state);
+			}
+		}
+		else {
+			input.setKeyState(SDL_SCANCODE_RIGHT, HELD);
+		}
+		*/
+
 		quit = input.getQuit();
 		controller.readInput(input);  // Reads an input every frame
 		
-		if (numElapsed % 10 == 0) {
-			KeyState next_state = input.getKeyState(SDL_SCANCODE_Q) == HELD ? NEUTRAL : HELD;
-			input.setKeyState(SDL_SCANCODE_Q, next_state);
-			input.setKeyState(SDL_SCANCODE_RIGHT, HELD);
-
-		}
-
 		graphics.blitDisplay(windowSurface);
 		SDL_UpdateWindowSurface(window);
 		
@@ -158,11 +166,13 @@ int main() {
 			numFrames = CLI.getUserInt("Elapse how many more frames? ");
 		}
 		if (numElapsed % 60 == 0) {
+			std::cout << "\n --- Frame Rate: " << frame_counter.getFrameRate() << " --- \n";
 			std::cout << "Frame " << numElapsed << " after pause,\n";
 			input.printKeyStates();
 		}
 		++numElapsed;	
 		SDL_Delay(1000.0 / 60.0);
+		frame_counter.countFrame();
 	}
 
 	SDL_Quit();
