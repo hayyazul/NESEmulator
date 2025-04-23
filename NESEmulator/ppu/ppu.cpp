@@ -954,10 +954,8 @@ BackgroundLatches::BackgroundLatches() :
 {}
 BackgroundLatches::~BackgroundLatches() {}
 
-PPUPosition::PPUPosition() :
-	scanline(0),
-	dot(0)
-{}
+PPUPosition::PPUPosition() : scanline(0), dot(0) {}
+PPUPosition::PPUPosition(int scanline, int dot) : scanline(scanline), dot(dot) {}
 PPUPosition::~PPUPosition() {}
 bool PPUPosition::updatePosition(bool oddFrame) {
 	// First, check if we need to skip dot 340, line 261 (only do this on odd frames).
@@ -1055,6 +1053,9 @@ bool PPUPosition::inTrueVblank(bool reached) const {
 	onVblank = this->scanline == TRUE_VBLANK_START_LINE && this->dot >= 0;
 	return onVblank;
 }
+bool operator==(const PPUPosition& p1, const PPUPosition& p2) {
+	return p1.dot == p2.dot && p1.scanline == p2.scanline;
+};
 
 SpriteShiftUnit::SpriteShiftUnit() : 
 	patternShiftRegisterLow(0), 

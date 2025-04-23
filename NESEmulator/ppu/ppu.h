@@ -109,6 +109,8 @@ struct SpriteShiftRegisters {
 // Position of the PPU's "beam", i.e. what dot and cycle it is on.
 struct PPUPosition {
 	PPUPosition();
+	PPUPosition(int scanline, int dot);
+	//explicit PPUPosition(const PPUPosition& other);
 	~PPUPosition();
 
 	int scanline, dot;
@@ -135,9 +137,11 @@ struct PPUPosition {
 	// Returns whether the position is in the true VBlanking period (which starts 1 line and 1 dot before the PPU performs actions relating to the start of Vblank).
 	// This is used to determine whether to continue datafetching the various bytes or not.
 	bool inTrueVblank(bool reached = false) const;
-
 	// NOTE: I might make the scanline and dot private, add getters, and make an inflexible interface to modify their value.
 };
+bool operator==(const PPUPosition& p1, const PPUPosition& p2);/* {
+	return p1.dot == p2.dot && p1.scanline == p2.scanline;
+};*/
 
 /* NOTE: Potential implementation; still judging whether this is a good idea.
 struct PPUInternalRegisters {

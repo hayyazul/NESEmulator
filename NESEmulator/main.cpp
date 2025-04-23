@@ -25,6 +25,9 @@
 
 #undef main  // Deals w/ the definition of main in SDL.
 int main() { 	
+	GeneralDebugSuite g;
+	g.run();
+
 	/*
 	SDL_Init(SDL_INIT_EVERYTHING);
 
@@ -88,7 +91,7 @@ int main() {
 	
 	GeneralDebugSuite debuggingSuite;
 	debuggingSuite.run();
-	*/
+	
 	
 	Memory VRAM{ 0x800 };
 	PPUDebug ppu;
@@ -154,7 +157,7 @@ int main() {
 		else {
 			input.setKeyState(SDL_SCANCODE_RIGHT, HELD);
 		}
-		*/
+		
 
 		quit = input.getQuit();
 		controller.readInput(input);  // Reads an input every frame
@@ -176,6 +179,7 @@ int main() {
 	}
 
 	SDL_Quit();
+	*/
 	
 	return 0;
 }

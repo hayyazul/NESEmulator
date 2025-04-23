@@ -81,7 +81,8 @@ GeneralDebugSuite::GeneralDebugSuite() :
 		{'g', {'g', "Create a marker pixel at a given position."}},
 		// Binary search.
 		{'b', {'b', "Activates or accesses the options of binary search for a certain machine cycle."}},
-		{'B', {'B', "Activates or accesses the options of binary search for a certain CPU cycle."}}
+		{'B', {'B', "Activates or accesses the options of binary search for a certain CPU cycle."}},
+		{'a', {'a', "Measures average framerate over [n] frames (this will return the NES state back to when this command was run)."}},
 		}),
 	allowedOptions({
 		{'q', true},
@@ -103,7 +104,8 @@ GeneralDebugSuite::GeneralDebugSuite() :
 		{'b', true},
 		{'B', true},
 		{'G', true},
-		{'R', true}
+		{'R', true},
+		{'a', true}
 		})
 {}
 GeneralDebugSuite::~GeneralDebugSuite() {}
@@ -131,12 +133,12 @@ void GeneralDebugSuite::run() {
 		switch (inputChar) {
 		case('G'): {
 			int cyclesToExecute = this->CLIInputHandler.getUserInt("How many cycles?\n");
-			const int CPUCyclcesPerFrame = 89344 / 3;  // Numerator is # of PPU cycles per frame (rounded up), 3 PPU cycles per CPU cycle.
+			const int CPUCyclesPerFrame = 89344 / 3;  // Numerator is # of PPU cycles per frame (rounded up), 3 PPU cycles per CPU cycle.
 			std::cout << std::endl;
 			for (int i = 0; i < cyclesToExecute; ++i) {
 				this->nes.executeCPUCycle();
 				// NOTE: Very inefficient; blits to the screen every CPU cycle during Vblank (and a little before).
-				if (i % CPUCyclcesPerFrame == 0 || i == cyclesToExecute - 1) {
+				if (i % CPUCyclesPerFrame == 0 || i == cyclesToExecute - 1) {
 					this->updateDisplay();
 				}
 			}
@@ -217,12 +219,12 @@ void GeneralDebugSuite::run() {
 			break;
 		}
 		case('u'): {
-			int idxToDel = this->CLIInputHandler.getUserInt("What index to delete?\n");
+			int idxToDel = this->CLIInputHandler.getUserInt("What index to delete (-1 for the last one)?\n");
 			this->deleteSavedState(idxToDel);
 			break;
 		}
 		case('v'): {
-			int idxToLoad = this->CLIInputHandler.getUserInt("What index to load?\n");
+			int idxToLoad = this->CLIInputHandler.getUserInt("What index to load (-1 for the last one)?\n");
 			this->loadState(idxToLoad);
 			break;
 		}
@@ -320,6 +322,11 @@ void GeneralDebugSuite::run() {
 			}
 			break;
 
+		}
+		case('a'): {
+			int num_frames = this->CLIInputHandler.getUserInt(" * Number of frames to measure over (60 recommended): ");
+			this->measureFPS(num_frames);
+			break;
 		}
 		default:
 			break;
@@ -514,6 +521,33 @@ void GeneralDebugSuite::modifyTileMap() {
 	}
 }
 
+void GeneralDebugSuite::executeFrame() {
+	bool reached_frame_start = false;
+	// Execute until the scanning beam reaches 0,0
+	while (!reached_frame_start) {
+		this->nes.executeMachineCycle();
+		reached_frame_start = this->nes.getPPUInternals().beamPos == PPUPosition(0, 0);
+	}
+	this->updateDisplay();		
+}
+
+double GeneralDebugSuite::measureFPS(const int num_frames) {
+	// TODO: Modify saveState to prevent this hacky, duplicative solution.
+	std::string name = "__internal save state ::measureFPS__";
+	NESInternals internals{ name };
+	// We save the internals of the CPU, PPU, RAM, and VRAM.
+	this->nes.getNESInternals(internals);
+	this->saveStates.push_back(internals);
+	int actual_num_frames = min(num_frames, MAX_FRAME_LOOKBACK_ALLOWED);  // Cap the number of frames to measure by MAX_...
+	FrameCounter frame_counter(actual_num_frames);
+	for (int i = 0; i < actual_num_frames; ++i) {
+		frame_counter.countFrame();
+		this->executeFrame();
+	}
+	this->deleteSavedState(-1);
+	return frame_counter.getFrameRate();
+}
+
 void GeneralDebugSuite::printPPUInternals(PPUInternals ppuInternals) const {
 	const std::array<std::string, 3> PPU_REGISTER_ANNOTATIONS = {
 		"         -------- \n\
@@ -618,6 +652,9 @@ void GeneralDebugSuite::printSavedStates() const {
 }
 
 void GeneralDebugSuite::deleteSavedState(int idx) {
+	if (idx == -1) {
+		idx = this->saveStates.size();
+	}
 	// First check if the given index is within bounds.
 	if (idx > this->saveStates.size() || idx < 1) {
 		std::cout << "    * Invalid index " << std::dec << idx << " for save state vector of size " << this->saveStates.size() << std::endl;
@@ -637,6 +674,10 @@ void GeneralDebugSuite::saveState() {
 }
 
 void GeneralDebugSuite::loadState(int idx) {
+	// First check if idx is -1; in this case, load the last save state.
+	if (idx == -1) {
+		idx = this->saveStates.size();
+	}
 	// First check if the given index is within bounds.
 	if (idx > this->saveStates.size() || idx < 1) {
 		std::cout << "    * Invalid index " << std::dec << idx << " for save state vector of size " << this->saveStates.size() << std::endl;

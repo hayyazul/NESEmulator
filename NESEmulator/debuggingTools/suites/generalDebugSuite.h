@@ -4,6 +4,7 @@
 #include "../../graphics/graphics.h"
 #include "../../input/cmdInput.h"
 #include "../../ppu/ppu.h"
+#include "../frameCounter.h"
 
 struct InputOptions {
 	char input;
@@ -68,6 +69,11 @@ private:
 	// Queries the user for how they want to modify RAM or VRAM.
 	void pokeRAM();
 	void modifyTileMap();
+	
+	// Executes 1 frame (All cycles between 0,0 and the last cycle of the PPU).
+	void executeFrame();
+	// Measures the average frames per second over num_frames frames by creating a savestate, running . Capped at MAX_FRAME_LOOKBACK_ALLOWED
+	double measureFPS(const int num_frames);
 
 	// Prints all the internals of the associated component in a formatted way.
 	void printPPUInternals(PPUInternals ppuInternals) const;
@@ -75,12 +81,12 @@ private:
 
 	// Saves the internal state at the given cycle.
 	void printSavedStates() const;
-	// Deletes a given save state (if the index exists).
+	// Deletes a given save state (if the index exists). If -1 is given, the last saved saveState is deleted.
 	void deleteSavedState(int idx);
 
 	// Creates a savestate of the NES at the current cycle.
 	void saveState();
-	// Loads a saveState.
+	// Loads a saveState with the given index. If -1 is input, it loads the last saved saveState.
 	void loadState(int idx);
 	// Serializes a save state. See implementation for more details
 	void serializeState(int idx);
