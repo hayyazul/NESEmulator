@@ -23,6 +23,11 @@ public:
 	*/
 	bool updateInput();
 
+	/* void getKeyState
+	Gets the key state of a given key, as indicated by its SDL_Scancode.
+	*/
+	KeyState getKeyState(SDL_Scancode key) const;
+
 	/* void printKeyStates
 	A debugger function; outputs all the key states except for the one
 	specified in excludedState.
@@ -34,7 +39,7 @@ public:
 	*/
 	bool getQuit();
 
-private:
+protected:
 	std::map<SDL_Scancode, KeyState> keyStates;
 	bool quit;
 

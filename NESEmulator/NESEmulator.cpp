@@ -36,6 +36,8 @@ NES::NES(NESDatabus* databus, _6502_CPU* CPU, RAM* ram, Memory* vram, PPU* ppu) 
 	this->databus->attach(this->ppu);
 	this->CPU = CPU;
 	this->CPU->attach(this->databus);
+
+	this->databus->attach(&this->input_port);
 }
 
 NES::~NES() {}
@@ -68,6 +70,7 @@ void NES::attachDataBus(NESDatabus* databus) {
 	}
 	this->databus->attach(this->ram);
 	this->DMAUnit.attachDatabus(this->databus);
+	this->databus->attach(&this->input_port);
 }
 
 void NES::attachPPU(PPU* ppu) {
@@ -83,6 +86,10 @@ void NES::attachVRAM(Memory* vram) {
 	if (this->ppu != nullptr) {
 		this->ppu->attachVRAM(vram);
 	}
+}
+
+void NES::attachController(StandardController* controller) {
+	this->input_port.attachController(controller);
 }
 
 void NES::powerOn() {

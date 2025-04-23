@@ -12,7 +12,8 @@
 #include "memory/ram.h"
 #include "databus/nesDatabus.h"
 #include "DMA/directMemoryAccess.h"
-
+#include "input/inputPort.h"
+#include "input/controller.h"
 
 enum NESCycleOutcomes {
 	FAIL_CYCLE,  // Usually caused by an illegal instruction.
@@ -40,6 +41,7 @@ public:
 	virtual void attachDataBus(NESDatabus* databus);
 	virtual void attachPPU(PPU* ppu);
 	virtual void attachVRAM(Memory* vram);
+	virtual void attachController(StandardController* controller);
 	
 	void loadROM(const char* fileName);
 
@@ -72,6 +74,8 @@ protected:
 	OAMDMAUnit DMAUnit;  // NOTE: Might replace w/ a pointer. 
 	bool scheduleHalt;  // Whether to halt the CPU next cycle.  
 	bool haltCPUOAM;  // Whether the CPU is halted for OAMDMA.
+
+	InputPort input_port;  // The port which controllers attach to.
 
 	unsigned long long totalMachineCycles;
 	//uint64_t totalCPUCycles;  // [DEPRECATED] NOTE: Might remove as it redundant.

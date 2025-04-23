@@ -3,7 +3,7 @@
 // MAIN TODO: 
 // - Fix issues w/ PPU Registers.
 
-
+#include "debuggingTools/frameCounter.h"
 #include "debuggingTools/NESDebug.h"
 #include "debuggingTools/PPUDebug.h"
 #include "debuggingTools/debugDisplays/tableDisplayer.h"
@@ -15,18 +15,28 @@
 #include "graphics/textRenderer.hpp"
 
 
-//#include <SDL.h>
+#include <SDL.h>
 #include <bitset>
 
 #include "debuggingTools/suites/generalDebugSuite.h"
+#include "debuggingTools/debugInput.h"
+
+#include "input/controller.h"
 
 #undef main  // Deals w/ the definition of main in SDL.
-int main() { 
-
-	GeneralDebugSuite debuggingSuite;
-	debuggingSuite.run();
+int main() { 	
 	/*
-	
+	SDL_Init(SDL_INIT_EVERYTHING);
+
+	SDL_Window* window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1024, 480, SDL_WINDOW_RESIZABLE);
+	SDL_Renderer* renderer = SDL_CreateRenderer(window, 0, 0);
+	SDL_Surface* windowSurface = SDL_GetWindowSurface(window);
+
+	Input input;
+	StandardController controller{};
+	bool quit = false;
+	unsigned long long frameCounter = 0;
+
 	Memory VRAM{ 0x800 };
 	PPUDebug ppu;
 	NESDatabus databus;
@@ -41,6 +51,63 @@ int main() {
 	nes.attachRAM(&ram);
 	nes.attachCartridgeMemory(&cartridgeMemory);
 	nes.attachDataBus(&databus);
+	nes.attachController(&controller);
+	nes.loadROM("testROMS/donkey kong.nes");
+	nes.powerOn();
+
+
+	while (!quit) {
+		for (int i = 0; i < 357954; ++++i) {
+			nes.executeMachineCycle();
+		}
+
+		input.updateInput();
+		controller.readInput(input);  // Update the controller every frame.
+		quit = input.getQuit();
+
+		controller.setLatch(true);
+		controller.readInput(input);
+		controller.setLatch(false);
+
+		if (frameCounter % 60 == 0) {
+			std::cout << "Button states on frame " << frameCounter << ": \n";
+			for (int i = 0; i < 8; ++i) {
+				std::cout << controller.getData();
+				controller.clock();
+			}
+			std::cout << std::endl;
+		}
+
+		++frameCounter;
+		SDL_Delay(1000.0 / 60.0);
+	};
+
+	SDL_Quit();
+	
+
+	
+	GeneralDebugSuite debuggingSuite;
+	debuggingSuite.run();
+	*/
+	
+	Memory VRAM{ 0x800 };
+	PPUDebug ppu;
+	NESDatabus databus;
+	RAM ram;
+	Memory cartridgeMemory{ 0x10000 };
+	_6502_CPU CPU;
+
+	DebugInput input;
+	StandardController controller{};
+
+	NES nes;
+	nes.attachCPU(&CPU);
+	nes.attachPPU(&ppu);
+	nes.attachVRAM(&VRAM);
+	nes.attachRAM(&ram);
+	nes.attachCartridgeMemory(&cartridgeMemory);
+	nes.attachDataBus(&databus);
+	nes.attachController(&controller);
 	nes.loadROM("testROMS/donkey kong.nes");
 	nes.powerOn();
 	
@@ -56,23 +123,10 @@ int main() {
 	SDL_Renderer* renderer = SDL_CreateRenderer(window, 0, 0);
 	SDL_Surface* windowSurface = SDL_GetWindowSurface(window);
 
-	//for (int i = 0; i < 3570954; ++++i) {
-		//nes.executeMachineCycle();
-	//}
-
 	//graphics.lockDisplay();
-	// Width in px 
-	// (which is equal to the height in px due to this being a square)
-	// = width (in patterns) * width (of a pattern) * scale
-	// = 16 * 8 * scale = 128 * scale
 	bool patternTable = false;
 	unsigned int nameTable = 0;
 	unsigned int x = 0, y = 0;
-
-	PTDisplayer.displayPatternTable(graphics, ppu, patternTable, x + 256, y, 2);
-	//NTDisplayer.displayNametable(graphics, ppu, nameTable, x + 256, y, 1, patternTable);
-	displayPalette(graphics, ppu, 256, 240, 8);
-	//graphics.drawSquare(0xffffffff, (x + 288) + 0x38, (y) + 0x7f, 8);
 
 	//graphics.unlockDisplay();
 
@@ -80,57 +134,48 @@ int main() {
 
 	int numFrames = 1;
 	int numElapsed = 0;
-
-	uint8_t a = 0, oldA = 0;
-	SDL_Event event;
+	unsigned long long total_frames = 0;
+	FrameCounter frame_counter;
 	while (!quit) {
+		++total_frames;
 		for (int i = 0; i < 357954; ++++i) {
-			quit = !nes.executeMachineCycle();
+			controller.update4021();  // Transfers inputs to 4021 every clock cycle.
+			nes.executeMachineCycle();
 		}
 
-		if (quit) {
-			int _ = 0;
-		}
-
-		while (SDL_PollEvent(&event)) {
-			switch(event.type) { 
-			case(SDL_QUIT):
-				quit = true;
-				break;
-			case(SDL_WINDOWEVENT):
-				if (event.window.event == SDL_WINDOWEVENT_RESIZED) {  // Resizing a window invalidates its surface, so we get the surface again.
-					SDL_DestroyWindowSurface(window);
-					windowSurface = SDL_GetWindowSurface(window);
-				}
-				break;
-			default:
-				break;
+		input.updateInput();
+		/*
+		if (total_frames < 1000000) {
+			if (numElapsed % 13 == 0) {
+				KeyState next_state = input.getKeyState(SDL_SCANCODE_Q) == HELD ? NEUTRAL : HELD;
+				input.setKeyState(SDL_SCANCODE_Q, next_state);
 			}
 		}
+		else {
+			input.setKeyState(SDL_SCANCODE_RIGHT, HELD);
+		}
+		*/
 
-		NTDisplayer.displayNametable(graphics, ppu, 0, 0, 0, 1, true);
-		ppu.displayVisibleSprites();
-		PTDisplayer.displayPatternTable(graphics, ppu, patternTable, x + 256, y, 2);
-		displayPalette(graphics, ppu, 0, 240, 8);
+		quit = input.getQuit();
+		controller.readInput(input);  // Reads an input every frame
+		
 		graphics.blitDisplay(windowSurface);
 		SDL_UpdateWindowSurface(window);
-
-		SDL_Delay(1.0 / 60.0);
-		/*
+		
 		if (numElapsed >= numFrames) {
-			numElapsed = 0;
-			char dump = CLI.getUserChar("Dump OAM? (y/n)");
-			if (dump == 'y') {
-				ppu.dumpOAMData(16);
-				std::cout << std::endl;
-			}
 			numFrames = CLI.getUserInt("Elapse how many more frames? ");
 		}
-		++numElapsed;
-		
+		if (numElapsed % 60 == 0) {
+			std::cout << "\n --- Frame Rate: " << frame_counter.getFrameRate() << " --- \n";
+			std::cout << "Frame " << numElapsed << " after pause,\n";
+			input.printKeyStates();
+		}
+		++numElapsed;	
+		SDL_Delay(1000.0 / 60.0);
+		frame_counter.countFrame();
 	}
 
 	SDL_Quit();
-	*/
+	
 	return 0;
 }
