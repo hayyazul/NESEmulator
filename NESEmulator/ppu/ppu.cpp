@@ -1069,8 +1069,8 @@ uint8_t SpriteShiftUnit::getPattern(int x) const {
 	if (this->patternShiftRegisterLow & 0xff) {
 		int _ = 0;
 	}
-	uint8_t pattern = static_cast<uint8_t>(getBit(this->patternShiftRegisterHigh, x)) << 1;  // Fetching the high bit.
-	pattern |= static_cast<uint8_t>(getBit(this->patternShiftRegisterLow, x));  // Then the low bit.
+	uint8_t pattern = static_cast<uint8_t>(getBitVal(this->patternShiftRegisterHigh, x)) << 1;  // Fetching the high bit.
+	pattern |= static_cast<uint8_t>(getBitVal(this->patternShiftRegisterLow, x));  // Then the low bit.
 	return pattern;
 }
 uint8_t SpriteShiftUnit::getAttribute() const {
