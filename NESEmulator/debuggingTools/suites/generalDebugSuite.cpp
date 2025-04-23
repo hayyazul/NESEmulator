@@ -325,7 +325,7 @@ void GeneralDebugSuite::run() {
 		}
 		case('a'): {
 			int num_frames = this->CLIInputHandler.getUserInt(" * Number of frames to measure over (60 recommended): ");
-			this->measureFPS(num_frames);
+			std::cout << " * Frame rate: " << this->measureFPS(num_frames) << " FPS" << std::endl;
 			break;
 		}
 		default:
@@ -524,9 +524,8 @@ void GeneralDebugSuite::modifyTileMap() {
 void GeneralDebugSuite::executeFrame() {
 	bool reached_frame_start = false;
 	// Execute until the scanning beam reaches 0,0
-	while (!reached_frame_start) {
+	while (this->nes.frameFinished(true)) {
 		this->nes.executeMachineCycle();
-		reached_frame_start = this->nes.getPPUInternals().beamPos == PPUPosition(0, 0);
 	}
 	this->updateDisplay();		
 }
