@@ -24,11 +24,12 @@
 #include "input/controller.h"
 
 #undef main  // Deals w/ the definition of main in SDL.
-int main() { 	
+int main() { 
+	/*
 	GeneralDebugSuite g;
 	g.run();
 
-	/*
+	
 	SDL_Init(SDL_INIT_EVERYTHING);
 
 	SDL_Window* window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1024, 480, SDL_WINDOW_RESIZABLE);
@@ -87,11 +88,7 @@ int main() {
 
 	SDL_Quit();
 	
-
-	
-	GeneralDebugSuite debuggingSuite;
-	debuggingSuite.run();
-	
+	*/
 	
 	Memory VRAM{ 0x800 };
 	PPUDebug ppu;
@@ -111,7 +108,7 @@ int main() {
 	nes.attachCartridgeMemory(&cartridgeMemory);
 	nes.attachDataBus(&databus);
 	nes.attachController(&controller);
-	nes.loadROM("testROMS/donkey kong.nes");
+	nes.loadROM("testROMS/smb.nes");
 	nes.powerOn();
 	
 	PatternTableDisplayer PTDisplayer;
@@ -157,7 +154,7 @@ int main() {
 		else {
 			input.setKeyState(SDL_SCANCODE_RIGHT, HELD);
 		}
-		
+		*/
 
 		quit = input.getQuit();
 		controller.readInput(input);  // Reads an input every frame
@@ -179,7 +176,7 @@ int main() {
 	}
 
 	SDL_Quit();
-	*/
+	
 	
 	return 0;
 }

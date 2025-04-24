@@ -82,25 +82,8 @@ void PPU::attachCHRDATA(Memory* chrdata) {
 }
 
 void PPU::executePPUCycle() {
-	
-	// NOTE: When dealing w/ the weird bugs relating to donkey kong's erroneous display, start your investigation here.
-	// Setting the address to 0x2001 seems to place the latter (pattern 0x40) in the first tile but does weird stuff w/ 0x2000.
-	//this->VRAM->setByte(0x2000, 0x40);
-	//this->VRAM->setByte(0x2001, 0x40);
-
-
-	//if (this->beamPos.lineInRange(240, 240)) {
-		//return;
-	//}
-
 	this->updatePPUSTATUS();
 
-	if (this->v == 0x800) {
-		int _ = 0;
-	}
-
-	//if (this->OAMAddr != 0)
-	
 	if (this->isRendering(true)) {
 		this->updateRenderingRegisters();
 	}
@@ -302,7 +285,6 @@ void PPU::updateRenderingRegisters() {
 	// See frame timing diagram for more info.
 
 	if (this->beamPos.dotInRange(1, 256) || this->beamPos.dotInRange(328, 340)) {
-
 		if (this->beamPos.dot == 0x100) {
 			this->incrementScrolling(true);  // At the end of a render line, increment fine y (coarse y if fine y overflows).
 		}
@@ -319,7 +301,7 @@ void PPU::updateRenderingRegisters() {
 	if (this->beamPos.inRender() || this->beamPos.dotInRange(321, 336)) { 
 		this->performBackgroundFetches();
 	}
-	// FIXME: inRender fails to transfer tile data on cycle 257
+	// Check if this FIXME is still valid: FIXME: inRender fails to transfer tile data on cycle 257
 
 	if (this->beamPos.inHblank(true)) {  // Upon reaching Hblank, transfer bits in t to v.
 		copyBits(this->v, this->t, 0, 4);
@@ -343,10 +325,6 @@ void PPU::updateRenderingRegisters() {
 	*/
 	if (this->beamPos.dot == 0x0) {
 		// NOTE: I don't know if the PPU actually enables writing for the secondary OAM on cycle 0; this is just a guess.
-		// IGNORE COMMENT // I also do not know, and in fact doubt, whether it sets OAMAddr to 0.
-		if (this->beamPos.inRange(0x7f, 0x7f, 0x0, 0x0)) {
-			int _ = 0;
-		}
 		this->secondaryOAM.freeAllBytes();
 		this->spriteEvalCycle.reset();
 	}
@@ -362,7 +340,7 @@ void PPU::updateRenderingRegisters() {
 		if (this->beamPos.dot == 0x40) {
 			this->spriteEvalCycle.setState(FINDING_SPRITES);
 		}
-	} else if (this->beamPos.dotInRange(0x41, 0x100)) {  // Sprite evaluation period.
+	} else if (this->beamPos.dotInRange(0x41, 0x100)) {  // Sprite evaluation period aka OAM-to-2ndOAM transfer period.
 		this->performSpriteEvaluation();
 	} else if (this->beamPos.dotInRange(0x101, 0x140)) {  // 2ndOAM-to-shiftRegister transfer period.
 		this->transferSpriteData();
@@ -370,10 +348,6 @@ void PPU::updateRenderingRegisters() {
 
 	// Misc
 	// "OAMADDR is set to 0 during each of ticks 257–320 (the sprite tile loading interval) of the pre-render and visible scanlines" -- NESDev, OAMADDR
-	bool a, b, c;
-	a = this->beamPos.lineInRange(0, 239);
-	b = this->beamPos.lineInRange(261, 261);
-	c = this->beamPos.dotInRange(257, 320);
 	if ((this->beamPos.lineInRange(0, 239) || this->beamPos.lineInRange(261, 261)) && this->beamPos.dotInRange(257, 320)) {
 		this->OAMAddr = 0;
 	}
@@ -381,11 +355,6 @@ void PPU::updateRenderingRegisters() {
 
 }
 void PPU::fetchPatternData(uint8_t patternID, bool table, bool high, int line, uint16_t& pattern, bool flipH, bool flipV) {
-	
-	if (line > 7 || line < 0) {
-		int _ = 0;  // This should never happen.
-	}
-
 	if (flipV) {  // Access the bottom of the pattern if flipping vertically.
 		line = 7 - line;
 	}
@@ -417,21 +386,23 @@ void PPU::performBackgroundFetches() {
 	if (cycleCounter == 0) {  // NOTE: Maybe the last tile fetched (the 2nd of the next line) is not being transferred? 
 		this->backgroundShiftRegisters.transferLatches(this->latches);
 	}
-
-	const uint16_t FIRST_NAMETABLE_ADDR = 0x2000, NAMETABLE_SIZE = 0x400;
-	const uint16_t NAMETABLE_ADDR = FIRST_NAMETABLE_ADDR + NAMETABLE_SIZE * getBits(this->control, 0, 1), BACKGROUND_PATTERN_TABLE_ADDR = getBitVal(this->control, 4) << 12;
+	
+	// NOTE: This implementation is faulty; the address offset from 0x2000 of the name table is determined by the bits in v.
+	const uint16_t FIRST_NAMETABLE_ADDR = 0x2000;  //, NAMETABLE_SIZE = 0x400;
+	// uint16_t NAMETABLE_ADDR = FIRST_NAMETABLE_ADDR + NAMETABLE_SIZE * getBits(this->control, 0, 1), BACKGROUND_PATTERN_TABLE_ADDR = getBitVal(this->control, 4) << 12;
+	//if (NAMETABLE_ADDR != 0x2000) {
+		//int _ = 0;
+	//}
+	// NAMETABLE_ADDR = FIRST_NAMETABLE_ADDR + NAMETABLE_SIZE * 1;
 	// Now, we will load the latches every other cycle.
 	switch (cycleCounter) {
 	case(1): { // Fetching nametable byte.
 		// Using the internal v register to define the scroll.
-		// NOTE: For now, we are only rendering the first nametable w/o proper mirroring or any scrolling.
-		//addr = FIRST_NAMETABLE_ADDR + getBits(this->v, 0, 4) + getBits(this->v, 5, 9) * 32;
 		uint16_t coarseX = getBits(this->v, 0, 4);
 		uint16_t coarseY = getBits(this->v, 5, 9);
-		//c = b << 1;  // When we get the coarse y and store it in b, they are offset by 5, so 0bYYYYY00000. First, we shift it right by 5 to account for this, then multiply by 32
-		// To account for the length (in tiles) of the x-axis. Simplified, this is the same as not shifting at all.
+		uint16_t nametable = getBits(this->v, 10, 11);  // OPTIMIZEABLE
 		
-		uint16_t addr = NAMETABLE_ADDR + coarseX + coarseY;
+		uint16_t addr = FIRST_NAMETABLE_ADDR | nametable | coarseX | coarseY;
 		if (addr >= 0x23ba) {
 			int _ = 0;
 		}
@@ -450,7 +421,7 @@ void PPU::performBackgroundFetches() {
 		break;
 	}
 	case(3): { // Fetching attribute table byte.
-		uint16_t addr = NAMETABLE_ADDR + 0x3c0; // 0x3c0 = Size of nametable; after this is the attribute table.
+		uint16_t addr = FIRST_NAMETABLE_ADDR + getBits(this->v, 10, 11) + 0x3c0; // 0x3c0 = Size of nametable; after this is the attribute table.
 
 		// We can form the attribute address via the following format:
 		// NN1111YYYXXX; where NN is the nametable select, 1111 a constant offset, YYY and XXX the high bits of their coarse offsets.
@@ -722,6 +693,8 @@ void PPU::incrementScrolling(bool axis) {  // Increments scrolling
 
 			if ((this->v & 0b1110100000) == 0b1110100000) {  // Check for overflow in coarse y. Note overflow occurs after coarse row 29.
 				this->v ^= 0b1110100000;
+				//           yyy NNYY YYYX XXXX
+				this->v ^= 0b000'1000'0000'0000; // Switching vertical nametables.
 				
 			} else {
 				this->v += 0b100000;
@@ -733,6 +706,8 @@ void PPU::incrementScrolling(bool axis) {  // Increments scrolling
 	} else {  // Increment coarse x; fine x is not incremented during rendering.
 		if ((this->v & 0b11111) == 0b11111) {  // Check for overflow in coarse x.
 			this->v ^= 0b11111;
+			//           yyy NNYY YYYX XXXX
+			this->v ^= 0b000'0100'0000'0000; // Switching horizontal nametables.
 		} else {
 			++this->v;
 		}
@@ -888,8 +863,9 @@ void PPU::drawPixel() {
 		bool spriteTransparent = spritePaletteIdx == 0 || spriteColorIdx == 0;
 
 		// If the BG is not transparent and neither is sprite 0 at this point, we set the sprite 0 flag.
-		if (isSprite0Opaque && !bgTransparent) {
+		if (!isSprite0Opaque && !bgTransparent && this->beamPos.dot != 255) {
 			setBit(this->status, 6);
+			
 		}
 
 		// Now, if the sprite is prioritized AND it is not transparent OR the background is transparent, we show the sprite color. Otherwise we show the background color.
