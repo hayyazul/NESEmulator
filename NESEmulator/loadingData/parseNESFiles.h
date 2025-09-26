@@ -1,5 +1,7 @@
 // parseNESFiles.h - A set of functions to decode iNES files and put them in a formatted struct.
 #pragma once
+
+#include "../memory/memory.h"
 #include <stdint.h>
 #include <vector>
 #include <fstream>
@@ -9,11 +11,12 @@
 #include <set> 
 
 enum Result {
-	FAILURE,  // When in the process of reading the file, some catastrophic failure prevents a full read. Used in general cases when the cause can't be figured out.
-	SUCCESS,  // When everything has been successfully been read.
-	SIZE_MISTMATCH,  // When the program or character data does not match up w/ the data size indicated in the header.
-	BAD_HEADER,  // When the header fails to match up with "NES(0x1a)"
-	UNRECOGNIZED_MAPPER  // When the mapper fails to match up with a known or implemented one.
+	FAILURE,  // 0: When in the process of reading the file, some catastrophic failure prevents a full read. Used in general cases when the cause can't be figured out.
+	SUCCESS,  // 1: When everything has been successfully been read.
+	SIZE_MISTMATCH,  // 2: When the program or character data does not match up w/ the data size indicated in the header.
+	BAD_HEADER,  // 3: When the header fails to match up with "NES(0x1a)"
+	UNRECOGNIZED_MAPPER,  // 4: When the mapper fails to match up with a known or implemented one.
+	CANT_OPEN_FILE  // 5: When opening the file fails.
 };
 
 const unsigned int PRG_DATA_CHUNK_SIZE = 0x4000;
@@ -22,9 +25,9 @@ const unsigned int HEADER_SIZE = 0x10;  // The header is 16 bytes long.
 
 const std::set<uint8_t> IMPLEMENTED_MAPPERS = { 0 };
 
-// This struct contains the file's mapperID and program and character data.
+// This struct contains the file's mapperID and program and character data. Supports only iNES 1.0 type files.
 struct NESFileData {
-	uint16_t mapperID;
+	uint8_t mapperID;
 	unsigned int programDataSize = -1;
 	unsigned int characterDataSize = -1;
 
@@ -33,8 +36,13 @@ struct NESFileData {
 
 	std::vector<uint8_t> programData;
 	std::vector<uint8_t> characterData;
+	Memory* CHRDATA;  // NOTE: I am putting the CHRDATA here because NES cartridges store their CHRDATA on the cartridge.
+	// I do not know if doing this code-wise is the best approach, but I am doing it for now to see how it goes.
+	// Alternatively, I coould create a pointer to CHRDATA in NESEmulator.
 
-	NESFileData() {};
+	NESFileData() : CHRDATA(nullptr) {
+		this->CHRDATA = new Memory(0x2000);  // TODO: Implement bank-switching for CHRDATA.
+	};
 	~NESFileData() {};
 
 	// Checks if the size of the program and character data correspond to the program and character size indicated in the header.

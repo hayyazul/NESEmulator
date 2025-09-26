@@ -2,13 +2,17 @@
 #include "../memory/memory.h"
 #include "../6502Chip/CPU.h"
 
-DataBus::DataBus() {
+DataBus::DataBus() : memory(nullptr) {
 }
 
 DataBus::DataBus(Memory* memory) : memory(memory) {
 }
 
 DataBus::~DataBus() {
+}
+
+void DataBus::attach(Memory* memory) {
+	this->memory = memory;
 }
 
 uint8_t DataBus::read(uint16_t address) {
@@ -18,7 +22,7 @@ uint8_t DataBus::read(uint16_t address) {
 uint8_t DataBus::write(uint16_t address, uint8_t value) {
 	return this->memory->setByte(address, value);
 }
-
+/*
 uint8_t DataBus::pullStack(uint8_t& stackPtr) {
 	// The stack pointer currently points to the address above
 	// the last occupied one; so decrement, then access the 
@@ -44,3 +48,4 @@ void DataBus::pushStack(uint8_t value, uint8_t& stackPtr) {
 void DataBus::pushStack(uint8_t value, Registers& registers) {
 	this->pushStack(value, registers.SP);
 }
+*/

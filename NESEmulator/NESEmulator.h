@@ -9,22 +9,47 @@
 #include "memory/memory.h"
 #include "databus/databus.h"
 #include "loadingData/parseNESFiles.h"
+#include "memory/ram.h"
+#include "databus/nesDatabus.h"
+#include "DMA/directMemoryAccess.h"
+#include "input/inputPort.h"
+#include "input/controller.h"
 
+enum NESCycleOutcomes {
+	FAIL_CYCLE,  // Usually caused by an illegal instruction.
+	PPU_CYCLE,  // Only the PPU's cycle was executed.
+	BOTH_CYCLE,  // Both the PPU's and CPU's cycle was executed.
+	INSTRUCTION_AND_PPU_CYCLE,  // A CPU and PPU cycle was executed; the CPU had an instruction executed.
+	OAMDMA_CYCLE  // The NES is currently doing OAM DMA and has suspended the CPU.
+};
 
 class NES {
 public:
 	NES();
+	NES(NESDatabus* databus, _6502_CPU* CPU, RAM* ram, Memory* vram, PPU* ppu);
 	~NES();
 
+	virtual NESCycleOutcomes executeMachineCycle();
+
+	void powerOn();  // Performs all the actions the NES should perform upon a power on.
+	void reset();  // Performs the actions the NES should perform when reset.
+
+	// Sets the pointer to a part to the given pointer. Also attaches any relevant parts to the given pointed object, so this operation may change the input object.
+	virtual void attachCPU(_6502_CPU* CPU);
+	virtual void attachRAM(RAM* ram);
+	virtual void attachCartridgeMemory(Memory* memory);
+	virtual void attachDataBus(NESDatabus* databus);
+	virtual void attachPPU(PPU* ppu);
+	virtual void attachVRAM(Memory* vram);
+	virtual void attachController(StandardController* controller);
+	
 	void loadROM(const char* fileName);
 
-	void run();  // Placeholder until everything is implemented properly.
-
-public:
-	// Temporarily public for debugging purposes.
-	bool executeMachineCycle();  // For now, 1 Machine Cycle = 1 CPU Cycle. This is not how it is in the actual implementation.
-
 protected:
+
+	NESCycleOutcomes performCPUCycle();
+
+	void performPPUCycle();
 	
 	/* void loadData
 	Given an NESFile, loads the data into memory.
@@ -36,11 +61,22 @@ protected:
 	// Cartridge ROM usually though not always starts at this address.
 	const uint16_t CART_ROM_START_ADDR = 0x8000;  // CART = Cartridge, ADDR = Address
 
-	_6502_CPU CPU;
-	Memory memory;
-	DataBus databus;
+	// Initialized by NES; 
+	Memory* memory;  // Contains cartridge data, etc.
+	
+	_6502_CPU* CPU;
+	RAM* ram;  // Initialized by NES; can not be remapped.
+	NESDatabus* databus;
 
-	// Debug variables
-	unsigned long int totalMachineCycles = 0;
-	unsigned long int CYCLE_LIMIT = 100000;  // Referring to the machine cycle.
+	Memory* VRAM;  // Initialized to size 0x800 by NES; TODO: make it attach/deattachable (to support mappers).
+	PPU* ppu;
+
+	OAMDMAUnit DMAUnit;  // NOTE: Might replace w/ a pointer. 
+	bool scheduleHalt;  // Whether to halt the CPU next cycle.  
+	bool haltCPUOAM;  // Whether the CPU is halted for OAMDMA.
+
+	InputPort input_port;  // The port which controllers attach to.
+
+	unsigned long long totalMachineCycles;
+	//uint64_t totalCPUCycles;  // [DEPRECATED] NOTE: Might remove as it redundant.
 };

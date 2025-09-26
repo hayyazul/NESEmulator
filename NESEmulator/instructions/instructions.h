@@ -3,20 +3,20 @@
 
 // NOTE: I mixed up instructions and opcodes; opcode refers to the specific byte in machine code which in turn corresponds to something like STA w/ zero page addressing. 
 // An instruction on the other hand focuses only on the thing being done, which in the above case would just be STA.
-// TODO: Fix terminology. 
-
 #pragma once
 #include <cstdint>
 #include "../databus/databus.h"
 
 enum AddressingModes;
-struct Registers;
+class Registers;
 
 typedef void(*RegOp)(Registers& registers, uint8_t data);  // Operations which work with data and the registers.
 typedef void(*MemOp)(Registers& registers, DataBus& databus, uint16_t address);  // Operations which work with addresses (thus, it also needs the databus) and registers.
+typedef void(*BranchOp)(Registers& registers, uint16_t address, bool& branched);  // Operations which branch.
 union Operation {
 	RegOp regOp;
 	MemOp memOp;
+	BranchOp branchOp;
 
 	void operator()(Registers& registers, uint8_t data) {
 		regOp(registers, data);
@@ -24,10 +24,26 @@ union Operation {
 	void operator()(Registers& registers, DataBus& databus, uint16_t address) {
 		memOp(registers, databus, address);
 	}
+	void operator()(Registers& registers, uint8_t data, bool& branched) {
+		branchOp(registers, data, branched);
+	}
 };
 
-// GIT BRANCH (always-return-address): Here, the address of the byte in question is fetched--- never the data value itself, that is figured out differently.
-typedef uint16_t(*AddressingOperation)(DataBus& databus, Registers& registers);
+typedef uint16_t(*Addresser)(DataBus& databus, Registers& registers);
+typedef uint16_t(*CycleChangingAddresser)(DataBus& databus, Registers& registers, bool& addCycles);
+
+union AddressingOperation {
+	Addresser addresser;
+	CycleChangingAddresser cCAddresser;
+
+	uint16_t operator()(DataBus& databus, Registers& registers) {
+		return addresser(databus, registers);
+	}
+	uint16_t operator()(DataBus& databus, Registers& registers, bool& addCycles) {
+		return cCAddresser(databus, registers, addCycles);
+	}
+};
+
 
 enum AddressingModes {
 	IMPLICIT,
@@ -45,65 +61,161 @@ enum AddressingModes {
 	INDIRECT_Y
 };
 
+enum OpType {
+	MEM,
+	REG,
+	BRANCH
+};
+
 /* struct Instruction
 	An Instruction is made up of an operation and an addressing operation.
-
-	TODO: implement cycle increase when page crosses.
+	Should have made this a class.
 */
 struct Instruction {
 	Operation operation;
 	AddressingOperation addresser;
-	bool isMemOp, modifiesPC;
+	OpType opType;
 
+	bool modifiesPC, pgCrossingDependent;
 	unsigned int numBytes;
-	unsigned int cycleCount;
+	unsigned int cycleCount, baseCycleCount;
+
+	/*
+	Operation operation - Function pointer to the thing which performs an operation on the given data or addresses.
+	AddressingOperation addresser - Thing that gets the address to use or the address to get data from (depending on operation).
+	bool:
+	modifiesPC - Flag for whether this instruction affects the program counter directly; useful for program control instructions
+	where you want to make sure the CPU does not affect the PC itself.
+	pgDependent - Whether this instruction has an extra cycle whenever its AbsX, AbsY, and or (Ind)Y addressers cross
+	a page boundary (each page is 256 bytes long; from 0xnn00 to 0xnnff).
+	
+	unsigned int:
+	numBytes - Size of this instruction including operands.
+	cycleCount - How many cycles this instruction used.
+	*/
 
 	Instruction() {};
 	Instruction(RegOp op,
-		AddressingOperation addrOp,
+		Addresser addrOp,
 		unsigned int size,
 		unsigned int cycleCount,
 		bool modifiesPC = false)
 		:
 		numBytes(size),
+		baseCycleCount(cycleCount),
 		cycleCount(cycleCount),
-		isMemOp(false),
-		modifiesPC(modifiesPC)
+		opType(REG),
+		modifiesPC(modifiesPC),
+		pgCrossingDependent(false)
 	{
 		this->operation.regOp = op;
-		this->addresser = addrOp;
+		this->addresser.addresser = addrOp;
 	};
-	Instruction(MemOp op,
-		AddressingOperation addrOp,
+	Instruction(RegOp op,
+		CycleChangingAddresser addrOp,
 		unsigned int size,
 		unsigned int cycleCount,
 		bool modifiesPC = false)
 		:
 		numBytes(size),
+		baseCycleCount(cycleCount),
 		cycleCount(cycleCount),
-		isMemOp(true),
-		modifiesPC(modifiesPC)
+		opType(REG),
+		modifiesPC(modifiesPC),
+		pgCrossingDependent(true)
+	{
+		this->operation.regOp = op;
+		this->addresser.cCAddresser = addrOp;
+	};
+	Instruction(MemOp op,
+		Addresser addrOp,
+		unsigned int size,
+		unsigned int cycleCount,
+		bool modifiesPC = false)
+		:
+		numBytes(size),
+		baseCycleCount(cycleCount),
+		cycleCount(cycleCount),
+		opType(MEM),
+		modifiesPC(modifiesPC),
+		pgCrossingDependent(false)
 	{
 		this->operation.memOp = op;
-		this->addresser = addrOp;
+		this->addresser.addresser = addrOp;
+	};
+	Instruction(MemOp op,
+		CycleChangingAddresser addrOp,
+		unsigned int size,
+		unsigned int cycleCount,
+		bool modifiesPC = false)
+		:
+		numBytes(size),
+		baseCycleCount(cycleCount),
+		cycleCount(cycleCount),
+		opType(MEM),
+		modifiesPC(modifiesPC),
+		pgCrossingDependent(true)
+	{
+		this->operation.memOp = op;
+		this->addresser.cCAddresser = addrOp;
+	};
+	Instruction(BranchOp op,
+		CycleChangingAddresser addrOp,
+		unsigned int size,
+		unsigned int cycleCount,
+		bool modifiesPC = false)
+		:
+		numBytes(size),
+		baseCycleCount(cycleCount),
+		cycleCount(cycleCount),
+		opType(BRANCH),
+		modifiesPC(modifiesPC),
+		pgCrossingDependent(true)
+	{
+		this->operation.branchOp = op;
+		this->addresser.cCAddresser = addrOp;
 	};
 
 	~Instruction() {};
 
+	// TODO: instead of changing this->cyclesLen..., make this return the # of cycles it took.
 	void performOperation(Registers& registers, DataBus& databus) {	
-		uint16_t address = this->addresser(databus, registers);
+		uint16_t address;
+		this->cycleCount = this->baseCycleCount;
 
-		// If the operation uses the address for more than just getting the data, pass the address.
-		if (this->isMemOp) {
-			this->operation.memOp(registers, databus, address);
+		bool pgCross = false;
+		if (this->pgCrossingDependent) {
+			address = this->addresser(databus, registers, pgCross);
 		} else {
-			uint8_t data = databus.read(address);
-			this->operation.regOp(registers, data);
+			address = this->addresser(databus, registers);
 		}
-	}
+		// If the operation uses the address for more than just getting the data, pass the address.
+		uint8_t data;
+		bool branchSuccessful = false;
+		switch(this->opType) {
+		case(MEM):
+			this->operation.memOp(registers, databus, address);
+			break;
+		case(REG):
+			data = databus.read(address);
+			this->operation.regOp(registers, data);
+
+			this->cycleCount += pgCross;
+			break;
+		case(BRANCH):
+			data = databus.read(address);
+			this->operation.branchOp(registers, data, branchSuccessful);
+			
+			this->cycleCount += pgCross * branchSuccessful;  // Even if a branch instruction crosses a page, if it never branches, do NOT add cycles.
+			this->cycleCount += branchSuccessful;
+			break;
+		default:
+			break;
+		}
+ 	}
 };
 
-namespace flagOps {
+namespace helperByteOps {
 	bool isSignBitIncorrect(uint8_t aBefore, uint8_t sum, uint8_t data);
 	bool isBit7Set(uint8_t byte);
 	bool isBit0Set(uint8_t byte);
@@ -122,16 +234,16 @@ namespace ops {  // ops = operations
 	// All branch instructions use one addressing mode (relative) and all have a fixed length of 2 bytes; thus we add 2 if the branch condition fails.
 	// The relative addressing adds or subtracts the PC; it does NOT account for the length of the opcode, so keep that in mind.
 	// In other words, when branching FORWARDS, add two. Do NOT add two when branching backwards.
-	void BCC(Registers& registers, uint8_t data);
-	void BCS(Registers& registers, uint8_t data);
-	void BEQ(Registers& registers, uint8_t data);
+		void BCC(Registers& registers, uint8_t data, bool& branched);
+		void BCS(Registers& registers, uint8_t data, bool& branched);
+		void BEQ(Registers& registers, uint8_t data, bool& branched);
 	void BIT(Registers& registers, uint8_t data);
-	void BMI(Registers& registers, uint8_t data);
-	void BNE(Registers& registers, uint8_t data);
-	void BPL(Registers& registers, uint8_t data);
+		void BMI(Registers& registers, uint8_t data, bool& branched);
+		void BNE(Registers& registers, uint8_t data, bool& branched);
+		void BPL(Registers& registers, uint8_t data, bool& branched);
 	void BRK(Registers& registers, DataBus& databus, uint16_t data);
-	void BVC(Registers& registers, uint8_t data);
-	void BVS(Registers& registers, uint8_t data);
+		void BVC(Registers& registers, uint8_t data, bool& branched);
+		void BVS(Registers& registers, uint8_t data, bool& branched);
 	void CLC(Registers& registers, uint8_t data);
 	void CLD(Registers& registers, uint8_t data);
 	void CLI(Registers& registers, uint8_t data);
@@ -204,15 +316,15 @@ namespace addrModes {
 	uint16_t zeropage(DataBus& databus, Registers& registers);  // STX $32
 	uint16_t zeropageX(DataBus& databus, Registers& registers);  // STY $32,X
 	uint16_t zeropageY(DataBus& databus, Registers& registers);  // LDX $10,Y
-	uint16_t relative(DataBus& databus, Registers& registers);  // BNE *+4 
+	uint16_t relative(DataBus& databus, Registers& registers, bool& addCycles);  // BNE *+4 
 	uint16_t absolute(DataBus& databus, Registers& registers);  // JMP $1234
-	uint16_t absoluteX(DataBus& databus, Registers& registers);  // STA $3000,X
-	uint16_t absoluteY(DataBus& databus, Registers& registers);  // AND $4000,Y
+	uint16_t absoluteX(DataBus& databus, Registers& registers, bool& addCycles);  // STA $3000,X
+	uint16_t absoluteY(DataBus& databus, Registers& registers, bool& addCycles);  // AND $4000,Y
 
 	// Works similar to pointers. It first goes to the given memory address, looks at the
 	// byte and the byte of the next address, uses those two bytes to make a new address 
 	// which it gets the value of.
 	uint16_t indirect(DataBus& databus, Registers& registers);  // JMP ($4321)
 	uint16_t indirectX(DataBus& databus, Registers& registers);  // STA ($40,X)
-	uint16_t indirectY(DataBus& databus, Registers& registers);  // LDA ($20),Y
+	uint16_t indirectY(DataBus& databus, Registers& registers, bool& addCycles);  // LDA ($20),Y
 }

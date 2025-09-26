@@ -1,7 +1,7 @@
 #include "instructions.h"
 #include "../6502Chip/CPU.h"
 
-namespace flagOps {
+namespace helperByteOps {
     // a = accumulatr; c = carry flag.
     bool isSignBitIncorrect(uint8_t aBefore, uint8_t sum, uint8_t data) {
         // While xor affects all bits, we only care about bit 7 (the signed bit).
@@ -9,7 +9,8 @@ namespace flagOps {
         // The & between the two check if the sign has changed for both the accumulator and the data value.
         // This also has the effect of checking if the accumulator and the data were of the same sign.
         // The final & with 0b10000000 is to filter out all bits but the 7th.
-        return ((aBefore ^ sum) & (data ^ sum));
+
+        return ((aBefore ^ sum) & (data ^ sum) & 0b10000000);
     }
 
     bool isBit7Set(uint8_t byte) {
@@ -18,6 +19,13 @@ namespace flagOps {
 
     bool isBit0Set(uint8_t byte) {
         return 0b1 & byte;
+    }
+
+    // The CPU checks if a number is less than another by subtracting one from the other, then seeing if the negative bit is set.
+    bool isLessThan(uint8_t a, uint8_t d) {
+        uint8_t subResult = a - d;
+        subResult &= 0b10000000;
+        return subResult;
     }
 
     bool isOverflow(uint8_t a, uint8_t data, bool c) {
@@ -36,6 +44,16 @@ namespace flagOps {
         // So we rearrange the inequality.
         // First, check for the edge case where a is less than 1 - c.
         return (a < 1 - c) || (a - 1 + c < data);
+    }
+    
+    bool crossedPgBoundary(uint16_t addr, int8_t addition) {
+        int16_t firstByteOfAddr = addr & 0xff;
+        return (firstByteOfAddr + addition > 0xff || firstByteOfAddr + addition < 0x00);  // Check if we went beyond 256 or 0 bytes in both directions.
+    } 
+    bool crossedPgBoundary(uint16_t addr, uint8_t addition) {
+        uint8_t firstByteOfAddr = addr & 0xff;
+        bool crossed = firstByteOfAddr > 0xff - addition;  // Check if we went beyond 256.
+        return crossed;
     }
 }
 
@@ -62,16 +80,20 @@ namespace addrModes {
     }
     uint16_t zeropageX(DataBus& dataBus, Registers& registers) {
         // Indexes 0x00LL + X; zeropage takes fewer cycles than other addressing modes.
-        uint16_t address = static_cast<uint16_t>(dataBus.read(registers.PC + 1));
-        return address + registers.X;
+        uint8_t address = dataBus.read(registers.PC + 1) + registers.X;
+        return address;
     }
     uint16_t zeropageY(DataBus& dataBus, Registers& registers) {
         // Indexes 0x00LL + Y; zeropage takes fewer cycles than other addressing modes.
-        uint16_t address = static_cast<uint16_t>(dataBus.read(registers.PC + 1));
-        return address + registers.Y;
+        uint8_t address = dataBus.read(registers.PC + 1) + registers.Y;
+        return address;
     }
-    uint16_t relative(DataBus& dataBus, Registers& registers) {
+    uint16_t relative(DataBus& dataBus, Registers& registers, bool& addCycles) {
         // The offset is a signed byte; return the address where the offset is located (the next byte).
+        int8_t offset = dataBus.read(registers.PC + 1);  // Get the offset (this is always an offset as this addressing mode is used only by branch instructions).
+        // Note: Since the CPU has read both the opcode and the sole operand, it is now "ahead" 2 memory
+        // locations.
+        addCycles = helperByteOps::crossedPgBoundary(registers.PC + 2, offset);
         return registers.PC + 1;
     }
     uint16_t absolute(DataBus& dataBus, Registers& registers) {
@@ -83,22 +105,24 @@ namespace addrModes {
         uint16_t ubOfAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 2)) << 8;
         return lbOfAddr + ubOfAddr;
     }
-    uint16_t absoluteX(DataBus& dataBus, Registers& registers) {
+    uint16_t absoluteX(DataBus& dataBus, Registers& registers, bool& addCycles) {
         // The NES is a little-endian machine, meaning the FIRST byte read takes up the LOWER 8 bits.
         // So if in memory we had these values: 8f 30
         // We would return a memory address of 0x308f + X 
         // lb = lower byte; ub = upper byte; addr = address
         uint16_t lbOfAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 1));
         uint16_t ubOfAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 2)) << 8;
+        addCycles = helperByteOps::crossedPgBoundary(lbOfAddr + ubOfAddr, registers.X);
         return lbOfAddr + ubOfAddr + registers.X;
     }
-    uint16_t absoluteY(DataBus& dataBus, Registers& registers) {
+    uint16_t absoluteY(DataBus& dataBus, Registers& registers, bool& addCycles) {
         // The NES is a little-endian machine, meaning the FIRST byte read takes up the LOWER 8 bits.
         // So if in memory we had these values: 8f 30
         // We would return a memory address of 0x308f + Y
         // lb = lower byte; ub = upper byte; addr = address
         uint16_t lbOfAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 1));
         uint16_t ubOfAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 2)) << 8;
+        addCycles = helperByteOps::crossedPgBoundary(lbOfAddr + ubOfAddr, registers.Y);
         return lbOfAddr + ubOfAddr + registers.Y;
     }
 
@@ -110,11 +134,16 @@ namespace addrModes {
         // lb = lower byte; ub = upper byte; addr = address
 
         // First, we get the values of the next 2 bytes (the address contained in the pointer)
-        uint16_t lbOfPtrAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 1));
+        uint8_t lbOfPtrAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 1));
+        // Note: There is a bug in the 6502 that when dealing w/ an indirect JMP.
+        // When the address is of the form xxFF, i.e. when the address is on a page boundary, the upper bit is mistakenly taken from
+        // address xx00 instead of (xx + 1)00 as expected. This is emulated w/ (lbOfPtrAddr + 1); this statement should overflow into 00 when
+        // it is equal to FF.
         uint16_t ubOfPtrAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 2)) << 8;
         // We then find the address of the data located at the address given by the pointer.
         uint16_t lbOfAddr = dataBus.read(lbOfPtrAddr + ubOfPtrAddr);
-        uint16_t ubOfAddr = dataBus.read(lbOfPtrAddr + ubOfPtrAddr + 1) << 8;
+        uint8_t lbOfPtrAddrOffset = (lbOfPtrAddr + 1);
+        uint16_t ubOfAddr = dataBus.read(lbOfPtrAddrOffset + ubOfPtrAddr) << 8;
 
         return lbOfAddr + ubOfAddr;
 
@@ -123,29 +152,32 @@ namespace addrModes {
         // lb = lower byte; ub = upper byte; addr = address
         // This addressing mode is zeropage.
 
-        // First, we get the values of the pointer.
-        uint16_t ptrAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 1));
-        // We then find the address located at the address given by the pointer + the X register.
-        uint16_t addr = dataBus.read(ptrAddr + registers.X);
+        // First, we get the value of the pointer (don't forget to add the X register)
+        uint8_t ptrAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 1)) + registers.X;
+        // We then find the address located at the address given by the pointer.
+        uint16_t addr = dataBus.read(ptrAddr);
+        ptrAddr += 1;
+        addr += dataBus.read(ptrAddr) << 8;
+        // TODO: Fix this; it does not get the full address.
 
         return addr;
     } 
-    uint16_t indirectY(DataBus& dataBus, Registers& registers) {
+    uint16_t indirectY(DataBus& dataBus, Registers& registers, bool& addCycles) {
         // lb = lower byte; ub = upper byte; addr = address
         // This addressing mode is zeropage.
 
         // First, we get the values of the pointer.
-        uint16_t ptrAddr = static_cast<uint16_t>(dataBus.read(registers.PC + 1));
+        uint8_t ptrAddr = dataBus.read(registers.PC + 1);
         // We then find the address located at the address given by the pointer.
         uint16_t addr = dataBus.read(ptrAddr);
-
+        ++ptrAddr;
+        addr += dataBus.read(ptrAddr) << 8;
+        addCycles = helperByteOps::crossedPgBoundary(addr, registers.Y);
         return addr + registers.Y;
     }
 }
 
-// TODO: move comments to header file.
-// TODO: Use the new functions in databus to more easily communicate w/ the stack.
-namespace ops {  // TODO: Fix operations which relied on the old system of fetching data directly.
+namespace ops {  
     /* void ADC
     Adds the given data and the carry to the accumulator.
 
@@ -162,9 +194,9 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
 
         registers.setStatus('N', 0b10000000 & registers.A);
         registers.setStatus('Z', registers.A == 0);
-        registers.setStatus('V', flagOps::isSignBitIncorrect(accumulatorPreOp, registers.A, data));
+        registers.setStatus('V', helperByteOps::isSignBitIncorrect(accumulatorPreOp, registers.A, data));
         // This one checks if we overflowed the accumulator
-        registers.setStatus('C', not flagOps::isOverflow(accumulatorPreOp, data, registers.getStatus('C')));
+        registers.setStatus('C', helperByteOps::isOverflow(accumulatorPreOp, data, registers.getStatus('C')));
     }
     /* void AND
     Performs bitwise AND on accumulator and data.
@@ -175,7 +207,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     */
     void AND(Registers& registers, uint8_t data) {
         registers.A &= data;
-        registers.setStatus('N', flagOps::isBit7Set(registers.A));
+        registers.setStatus('N', helperByteOps::isBit7Set(registers.A));
         registers.setStatus('Z', registers.A == 0);
     }
     /* void ASL
@@ -185,17 +217,17 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
      - C: set to value of old bit 7
      - Z: set if A = 0
      - N: set to value of new bit 7
-     */
+    */
     void ASL(Registers& registers, uint8_t data) {
-        registers.setStatus('C', flagOps::isBit7Set(registers.A));
-        registers.A = data << 1;
-        registers.setStatus('N', flagOps::isBit7Set(registers.A));
+        registers.setStatus('C', helperByteOps::isBit7Set(registers.A));
+        registers.A = registers.A << 1;
+        registers.setStatus('N', helperByteOps::isBit7Set(registers.A));
         registers.setStatus('Z', registers.A == 0);
     }
     void ASL(Registers& registers, DataBus& dataBus, uint16_t address) {
-        registers.setStatus('C', flagOps::isBit7Set(dataBus.read(address)));
+        registers.setStatus('C', helperByteOps::isBit7Set(dataBus.read(address)));
         dataBus.write(address, dataBus.read(address) << 1);
-        registers.setStatus('N', flagOps::isBit7Set(dataBus.read(address)));
+        registers.setStatus('N', helperByteOps::isBit7Set(dataBus.read(address)));
         registers.setStatus('Z', dataBus.read(address) == 0);
     }
     /* void BCC
@@ -205,14 +237,17 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
         None
 
     */
-    void BCC(Registers& registers, uint8_t data) {
+    void BCC(Registers& registers, uint8_t data, bool& branched) {
         int8_t offset = data;  // Treat the data as signed.
         if (!registers.getStatus('C')) {
-            registers.PC += offset;
-        } 
-        if (offset >= 0 || registers.getStatus('C')) {
-            registers.PC += 2;  // In that case, iterate the program counter manually since the 
+            registers.PC += (int8_t)offset;
+            branched = true;
+        } else {
+            branched = false;
         }
+        // if (offset >= 0 || registers.getStatus('C')) {
+        registers.PC += 2;  // In that case, iterate the program counter manually since the 
+        //}
     }
     /* void BCS
     Performs a branch if the carry flag is 1.
@@ -220,31 +255,35 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     Flags Affected:
         None
     */
-    void BCS(Registers& registers, uint8_t data) {
+    void BCS(Registers& registers, uint8_t data, bool& branched) {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('C')) {
-            registers.PC += data;
-        } 
-        if (offset >= 0 || !registers.getStatus('C')) {
-            registers.PC += 2;  // In that case, iterate the program counter manually since the 
+            registers.PC += (int8_t)data;
+            branched = true;
+        } else {
+            branched = false;
         }
+        // if (offset >= 0 || !registers.getStatus('C')) {
+        registers.PC += 2;  // In that case, iterate the program counter manually since the 
+        //}
     }
     /* void BEQ
     Performs a branch if the zero flag is 1.
-    The zero flag should have been set by another opcode [TODO: name it] before.
+    The zero flag should have been set by another opcode like CMP before.
 
     Flags Affected:
         None
 
     */
-    void BEQ(Registers& registers, uint8_t data) {
+    void BEQ(Registers& registers, uint8_t data, bool& branched) {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('Z')) {
-            registers.PC += offset;
-        } 
-        if (offset >= 0 || !registers.getStatus('Z')) {
-            registers.PC += 2;  // In that case, iterate the program counter manually since the 
+            registers.PC += (int8_t)offset;
+            branched = true;
+        } else {
+            branched = false;
         }
+        registers.PC += 2;
     }
     /* void BIT
     Test if some bits are set in a memory location by doing a bitwise AND w/ the accumulator
@@ -281,14 +320,17 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     Flags Affected:
         None
     */
-    void BMI(Registers& registers, uint8_t data) {
+    void BMI(Registers& registers, uint8_t data, bool& branched) {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('N')) {
-            registers.PC += offset;
-        } 
-        if (offset >= 0 || !registers.getStatus('N')) {
-            registers.PC += 2;  // In that case, iterate the program counter manually since the 
+            registers.PC += (int8_t)offset;
+            branched = true;
+        } else {
+            branched = false;
         }
+        // if (offset >= 0 || !registers.getStatus('N')) {
+        registers.PC += 2;  // In that case, iterate the program counter manually since the 
+        //}
     }
     /* void BNE
     Branches if the zero flag is 0.
@@ -296,14 +338,17 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     Flags Affected:
         None
     */
-    void BNE(Registers& registers, uint8_t data) {
+    void BNE(Registers& registers, uint8_t data, bool& branched) {
         int8_t offset = data;  // Treat the data as signed.
         if (!registers.getStatus('Z')) {
-            registers.PC += offset;
-        } 
-        if (offset >= 0 || registers.getStatus('Z')) {
-            registers.PC += 2;  // In that case, iterate the program counter manually since the 
+            registers.PC += (int8_t)offset;
+            branched = true;
+        } else {
+            branched = false;
         }
+        // if (offset >= 0 || registers.getStatus('Z')) {
+        registers.PC += 2;  // In that case, iterate the program counter manually since the 
+        //}
     }
     /* void BPL
     Branches if the negative flag is 0.
@@ -311,41 +356,45 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     Flags Affected:
         None
     */
-    void BPL(Registers& registers, uint8_t data) {
+    void BPL(Registers& registers, uint8_t data, bool& branched) {
         int8_t offset = data;  // Treat the data as signed.
         if (!registers.getStatus('N')) {
-            registers.PC += offset;
-        } 
-        if (offset >= 0 || registers.getStatus('N')) {
-            registers.PC += 2;  // In that case, iterate the program counter manually since the 
+            registers.PC += (int8_t)offset;
+            branched = true;
+        } else {
+            branched = false;
         }
+        // if (offset >= 0 || registers.getStatus('N')) {
+        registers.PC += 2;  // In that case, iterate the program counter manually since the 
+        //}
     }
     /* void BRK
-    Interrupt request.
+    Interrupt request as an instruction. Note that an interrupt can be requested outside the CPU and it will have the same effect as this instruction.
 
     Push the program counter then the status flags onto the stack.
     Then load the address stored in the IRQ interrupt vector (located at 0xfffe and 0xffff).
     Set the break flag in the status to 1.
-    
+
     See NESDev for more details.
 
     Flags Affected:
         - B: set to 1.
     */
     void BRK(Registers& registers, DataBus& dataBus, uint16_t address) {
-        // First, push the current PC and Status Flags in the stack.
-        dataBus.write(registers.SP, registers.PC);
-        dataBus.write(registers.SP - 1, registers.PC);
-        dataBus.write(registers.SP - 2, registers.S);
-        
+        // First, push the PC + 2 and Status Flags in the stack.
+        // NOTE: I don't know if I need to push the current PC, +1, or +2 onto the stack.
+        // NOTE: This code is duplicated in _6502_CPU; maybe I can fix that?
+        dataBus.write(STACK_END_ADDR + registers.SP, registers.PC + 1);
+        dataBus.write(STACK_END_ADDR + registers.SP - 1, (registers.PC + 1) >> 8);
+        dataBus.write(STACK_END_ADDR + registers.SP - 2, registers.S);
+
         // Then, get the IRQ Interrupt Vector
-        // TODO: Get rid of magic numbers.
         // Magic numbers: 0xfffe and 0xffff are the addresses where the IRQ vector is located.
         // lb = lower byte; ub = upper byte.
         uint8_t lb = dataBus.read(0xfffe);
         uint8_t ub = dataBus.read(0xffff);
         uint16_t irqVector = lb + (static_cast<uint16_t>(ub) << 8);
-        
+
         // Finally, update the status flags.
         registers.PC = irqVector;
         registers.SP -= 3;
@@ -356,14 +405,17 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     Flags Affected:
         None
     */
-    void BVC(Registers& registers, uint8_t data) {
+    void BVC(Registers& registers, uint8_t data, bool& branched) {
         int8_t offset = data;  // Treat the data as signed.
         if (!registers.getStatus('V')) {
-            registers.PC += offset;
-        } 
-        if (offset >= 0 || registers.getStatus('V')) {  // Iterate the PC by two if we are going forward OR if we are not branching at all.
-            registers.PC += 2;  
+            registers.PC += (int8_t)offset;
+            branched = true;
+        } else {
+            branched = false;
         }
+        // if (offset >= 0 || registers.getStatus('V')) {  // Iterate the PC by two if we are going forward OR if we are not branching at all.
+        registers.PC += 2;
+        //}
     }
     /* void BVS
     Branches if the overflow flag is 0.
@@ -371,14 +423,17 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     Flags Affected:
         None
     */
-    void BVS(Registers& registers, uint8_t data) {
+    void BVS(Registers& registers, uint8_t data, bool& branched) {
         int8_t offset = data;  // Treat the data as signed.
         if (registers.getStatus('V')) {
-            registers.PC += offset;
-        } 
-        if (offset >= 0 || !registers.getStatus('V')) {
-            registers.PC += 2;  // In that case, iterate the program counter manually since the 
+            registers.PC += (int8_t)offset;
+            branched = true;
+        }  else {
+            branched = false;
         }
+        // if (offset >= 0 || !registers.getStatus('V')) {
+            registers.PC += 2;  // In that case, iterate the program counter manually since the 
+        //}
     }
     /* void CLC
     Sets carry flag to 0.
@@ -421,14 +476,14 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     which is to be used later in the branch instructions.
 
     Flags Affected:
-        - C: set to 1 if A >= M  // TODO: Find if it gets cleared if otherwise.
+        - C: set to 1 if A >= M  
         - Z: set to 1 if A = M
-        - N: set if A < M
+        - N: set if A < M; This is checked by subtracting A by M, then seeing if the 7th bit is set.
     */
     void CMP(Registers& registers, uint8_t data) {
         registers.setStatus('C', registers.A >= data);
         registers.setStatus('Z', registers.A == data);
-        registers.setStatus('N', registers.A < data);
+        registers.setStatus('N', helperByteOps::isLessThan(registers.A, data));
     }
     /* void CPX
     Compares the X register w/ the value in memory. 
@@ -436,14 +491,14 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     which is to be used later in the branch instructions.
 
     Flags Affected:
-        - C: set to 1 if X >= M  // TODO: Find if it gets cleared if otherwise.
+        - C: set to 1 if X >= M  
         - Z: set to 1 if X = M
         - N: set if X < M
     */
     void CPX(Registers& registers, uint8_t data) {
         registers.setStatus('C', registers.X >= data);
         registers.setStatus('Z', registers.X == data);
-        registers.setStatus('N', registers.X < data);
+        registers.setStatus('N', helperByteOps::isLessThan(registers.X, data));
     } 
     /* void CPY
     Compares the Y register w/ the value in memory.
@@ -451,14 +506,14 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     which is to be used later in the branch instructions.
 
     Flags Affected:
-        - C: set to 1 if Y >= M  // TODO: Find if it gets cleared if otherwise.
+        - C: set to 1 if Y >= M 
         - Z: set to 1 if Y = M
         - N: set if Y < M
     */
     void CPY(Registers& registers, uint8_t data) {
         registers.setStatus('C', registers.Y >= data);
         registers.setStatus('Z', registers.Y == data);
-        registers.setStatus('N', registers.Y < data);
+        registers.setStatus('N', helperByteOps::isLessThan(registers.Y, data));
     }
     /* void DEC
     Decrements a given memory value by 1.
@@ -471,7 +526,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
         dataBus.write(address, dataBus.read(address) - 1);
         uint8_t newVal = dataBus.read(address);
         registers.setStatus('Z', newVal == 0);
-        registers.setStatus('N', flagOps::isBit7Set(newVal));
+        registers.setStatus('N', helperByteOps::isBit7Set(newVal));
     }
     /* void DEX
     Decrements the X register by 1.
@@ -483,7 +538,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void DEX(Registers& registers, uint8_t data) {
         --registers.X;
         registers.setStatus('Z', registers.X == 0);
-        registers.setStatus('N', flagOps::isBit7Set(registers.X));
+        registers.setStatus('N', helperByteOps::isBit7Set(registers.X));
     }
     /* void DEY
     Decrements the Y register by 1.
@@ -495,7 +550,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void DEY(Registers& registers, uint8_t data) {
         --registers.Y;
         registers.setStatus('Z', registers.Y == 0);
-        registers.setStatus('N', flagOps::isBit7Set(registers.Y));
+        registers.setStatus('N', helperByteOps::isBit7Set(registers.Y));
     }
     /* void EOR
     Performs bitwise xor on the accumulator using the contents in memory.
@@ -507,7 +562,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void EOR(Registers& registers, uint8_t data) {
         registers.A ^= data;
         registers.setStatus('Z', registers.A == 0);
-        registers.setStatus('N', flagOps::isBit7Set(registers.A));
+        registers.setStatus('N', helperByteOps::isBit7Set(registers.A));
     }
     /* void INC
     Increments memory value by 1.
@@ -519,7 +574,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void INC(Registers& registers, DataBus& dataBus, uint16_t address) {
         uint8_t newVal = dataBus.write(address, dataBus.read(address) + 1);
         registers.setStatus('Z', newVal == 0);
-        registers.setStatus('N', flagOps::isBit7Set(newVal));
+        registers.setStatus('N', helperByteOps::isBit7Set(newVal));
     }
     /* void INX
     Increments X register by 1.
@@ -531,7 +586,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void INX(Registers& registers, uint8_t data) {
         ++registers.X;
         registers.setStatus('Z', registers.X == 0);
-        registers.setStatus('N', flagOps::isBit7Set(registers.X));
+        registers.setStatus('N', helperByteOps::isBit7Set(registers.X));
     }
     /* void INY
     Increments the Y register by 1.
@@ -543,7 +598,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void INY(Registers& registers, uint8_t data) {
         ++registers.Y;
         registers.setStatus('Z', registers.Y == 0);
-        registers.setStatus('N', flagOps::isBit7Set(registers.Y));
+        registers.setStatus('N', helperByteOps::isBit7Set(registers.Y));
     }
     /* void JMP
     Sets program counter to address specified by the operand.
@@ -590,7 +645,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void LDA(Registers& registers, uint8_t data) {
         registers.A = data;
         registers.setStatus('Z', registers.A == 0);
-        registers.setStatus('N', flagOps::isBit7Set(registers.A));
+        registers.setStatus('N', helperByteOps::isBit7Set(registers.A));
     }
     /* void LDX
     Loads the data at a memory location into the X registers.
@@ -601,8 +656,11 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     */
     void LDX(Registers& registers, uint8_t data) {
         registers.X = data;
+        auto a = registers.getStatus('V');
+        auto c = registers.S & 0b00100000;
         registers.setStatus('Z', registers.X == 0);
-        registers.setStatus('N', flagOps::isBit7Set(registers.X));
+        registers.setStatus('N', helperByteOps::isBit7Set(registers.X));
+        auto b = registers.getStatus('V');
     }
     /* void LDY
     Loads the data at a memory location into the Y register.
@@ -614,7 +672,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void LDY(Registers& registers, uint8_t data) {
         registers.Y = data;
         registers.setStatus('Z', registers.Y == 0);
-        registers.setStatus('N', flagOps::isBit7Set(registers.Y));
+        registers.setStatus('N', helperByteOps::isBit7Set(registers.Y));
     }
     /* void LSR
     Performs a shift right.
@@ -625,15 +683,15 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
      - N: set to value of new bit 7
     */
     void LSR(Registers& registers, uint8_t data) {
-        registers.setStatus('C', flagOps::isBit0Set(registers.A));
-        registers.A = data >> 1;
-        registers.setStatus('N', flagOps::isBit7Set(registers.A));  // Won't this always be false?
+        registers.setStatus('C', helperByteOps::isBit0Set(registers.A));
+        registers.A = registers.A >> 1;
+        registers.setStatus('N', helperByteOps::isBit7Set(registers.A));  // Won't this always be false?
         registers.setStatus('Z', registers.A == 0);
     }
     void LSR(Registers& registers, DataBus& dataBus, uint16_t address) {
-        registers.setStatus('C', flagOps::isBit0Set(dataBus.read(address)));
+        registers.setStatus('C', helperByteOps::isBit0Set(dataBus.read(address)));
         dataBus.write(address, dataBus.read(address) >> 1);
-        registers.setStatus('N', flagOps::isBit7Set(dataBus.read(address)));  // Won't this always be false?
+        registers.setStatus('N', helperByteOps::isBit7Set(dataBus.read(address)));  // Won't this always be false?
         registers.setStatus('Z', dataBus.read(address) == 0);
     }
     /* void NOP
@@ -654,7 +712,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void ORA(Registers& registers, uint8_t data) {
         registers.A |= data;
         registers.setStatus('Z', registers.A == 0);
-        registers.setStatus('N', flagOps::isBit7Set(registers.A));
+        registers.setStatus('N', helperByteOps::isBit7Set(registers.A));
     }
     /* void PHA
     Pushes a copy of the accumulator onto the stack.
@@ -663,17 +721,26 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
         None
     */
     void PHA(Registers& registers, DataBus& dataBus, uint16_t address) {
+        if (!(0b00100000 & registers.S)) {  // Just validating the status
+            ++registers.S;
+            --registers.S;
+        }
         dataBus.write(STACK_END_ADDR + registers.SP, registers.A);
         --registers.SP;
     }
-    /* void PHA
-    Pushes a copy of the status flags onto the stack.
+    /* void PHP
+    Pushes a copy of the status flags onto the stack. The B flag, while not set,
+    will be treated as 1 when pushing onto the stack, so we OR it w/ the status byte.
 
     Flags Affected:
         None
     */
     void PHP(Registers& registers, DataBus& dataBus, uint16_t address) {
-        dataBus.write(STACK_END_ADDR + registers.SP, registers.S);
+        if (!(0b00100000 & registers.S)) {  // Just validating the status
+            ++registers.S;
+            --registers.S;
+        }
+        dataBus.write(STACK_END_ADDR + registers.SP, registers.S | 0b00010000); 
         --registers.SP;
     }
     /* void PLA
@@ -686,7 +753,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void PLA(Registers& registers, DataBus& dataBus, uint16_t address) {
         registers.A = dataBus.read(STACK_END_ADDR + registers.SP + 1);
         registers.setStatus('Z', registers.A == 0);
-        registers.setStatus('N', flagOps::isBit7Set(registers.A));
+        registers.setStatus('N', helperByteOps::isBit7Set(registers.A));
         ++registers.SP;
     }
     /* void PLA
@@ -696,7 +763,13 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
         All flags are set to their respective values in the stack.
     */
     void PLP(Registers& registers, DataBus& dataBus, uint16_t address) {
+        if (!(0b00100000 & registers.S)) {  // Just validating the status
+            ++registers.S;
+            --registers.S;
+        }
         registers.S = dataBus.read(STACK_END_ADDR + registers.SP + 1);
+        registers.S &= 0b11101111;  // Make sure the B flag is 0; regardless of its actual value in the stack.
+        registers.S |= 0b00100000;  // Make sure the 1 flag is 0; regardless of its actual value in the stack
         ++registers.SP;
     }
     /* void ROL
@@ -709,21 +782,21 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
      - N: set if bit 7 of the new value is set.
     */
     void ROL(Registers& registers, uint8_t data) {
-        bool oldBit7 = flagOps::isBit7Set(registers.A);
+        bool oldBit7 = helperByteOps::isBit7Set(registers.A);
         registers.A <<= 1;
         registers.A += registers.getStatus('C');
         registers.setStatus('C', oldBit7);
         registers.setStatus('Z', registers.A == 0);
-        registers.setStatus('N', flagOps::isBit7Set(registers.A));
+        registers.setStatus('N', helperByteOps::isBit7Set(registers.A));
     }
     void ROL(Registers& registers, DataBus& dataBus, uint16_t address) {
         uint8_t tempVal = dataBus.read(address);
-        bool oldBit7 = flagOps::isBit7Set(dataBus.read(address));
+        bool oldBit7 = helperByteOps::isBit7Set(dataBus.read(address));
         tempVal <<= 1;
         tempVal += registers.getStatus('C');
         registers.setStatus('C', oldBit7);
         registers.setStatus('Z', tempVal == 0);
-        registers.setStatus('N', flagOps::isBit7Set(tempVal));
+        registers.setStatus('N', helperByteOps::isBit7Set(tempVal));
         dataBus.write(address, tempVal);
     }
     /* void ROR
@@ -736,35 +809,57 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
      - N: set if bit 7 of the new value is set.
     */
     void ROR(Registers& registers, uint8_t data) {
-        bool oldBit0 = flagOps::isBit0Set(registers.A);
+        bool oldBit0 = helperByteOps::isBit0Set(registers.A);
         registers.A >>= 1;
         registers.A += registers.getStatus('C') << 7;
         registers.setStatus('C', oldBit0);
         registers.setStatus('Z', registers.A == 0);
-        registers.setStatus('N', flagOps::isBit7Set(registers.A));
+        registers.setStatus('N', helperByteOps::isBit7Set(registers.A));
     }
     void ROR(Registers& registers, DataBus& dataBus, uint16_t address) {
         uint8_t tempVal = dataBus.read(address);
-        bool oldBit0 = flagOps::isBit0Set(dataBus.read(address));
+        bool oldBit0 = helperByteOps::isBit0Set(dataBus.read(address));
         tempVal >>= 1;
         tempVal += registers.getStatus('C') << 7;
         registers.setStatus('C', oldBit0);
         registers.setStatus('Z', tempVal == 0);
-        registers.setStatus('N', flagOps::isBit7Set(tempVal));
+        registers.setStatus('N', helperByteOps::isBit7Set(tempVal));
         dataBus.write(address, tempVal);
     }
     /* void RTI
     Returns from an interrupt; pulls the program counter, then the status flags.
 
-
     Flags Affected:
         All flags are set from the stack.
+    
+    Bug List:
+     - The constant 1 in the Status is not 1 after this is executed.
+    Instructions executed prior:
+        BNE RELTV | Operands: 0x23, ____ | Old values of A: 0x55, X: 0x99, Y: 0x88, SP: 0x80, PC: 0xcec0 | Flags 0x67 C:1, Z: 1, I: 1, D: 0, V: 1, N: 0
+        Instruction executed (8):
+        LDA IMMED | Operands: 0xce, ____ | Old values of A: 0x55, X: 0x99, Y: 0x88, SP: 0x80, PC: 0xcec2 | Flags 0x67 C:1, Z: 1, I: 1, D: 0, V: 1, N: 0
+        Instruction executed (9):
+        PHA IMPLD | Operands: ____, ____ | Old values of A: 0xce, X: 0x99, Y: 0x88, SP: 0x80, PC: 0xcec4 | Flags 0xe5 C:1, Z: 0, I: 1, D: 0, V: 1, N: 1
+        Instruction executed (10):
+        LDA IMMED | Operands: 0xce, ____ | Old values of A: 0xce, X: 0x99, Y: 0x88, SP: 0x7f, PC: 0xcec5 | Flags 0xe5 C:1, Z: 0, I: 1, D: 0, V: 1, N: 1
+        Instruction executed (11):
+        PHA IMPLD | Operands: ____, ____ | Old values of A: 0xce, X: 0x99, Y: 0x88, SP: 0x7f, PC: 0xcec7 | Flags 0xe5 C:1, Z: 0, I: 1, D: 0, V: 1, N: 1
+        Instruction executed (12):
+        LDA IMMED | Operands: 0x87, ____ | Old values of A: 0xce, X: 0x99, Y: 0x88, SP: 0x7e, PC: 0xcec8 | Flags 0xe5 C:1, Z: 0, I: 1, D: 0, V: 1, N: 1
+        Instruction executed (13):
+        PHA IMPLD | Operands: ____, ____ | Old values of A: 0x87, X: 0x99, Y: 0x88, SP: 0x7e, PC: 0xceca | Flags 0xe5 C:1, Z: 0, I: 1, D: 0, V: 1, N: 1
+        Instruction executed (14):
+        LDA IMMED | Operands: 0x55, ____ | Old values of A: 0x87, X: 0x99, Y: 0x88, SP: 0x7d, PC: 0xcecb | Flags 0xe5 C:1, Z: 0, I: 1, D: 0, V: 1, N: 1
     */
     void RTI(Registers& registers, DataBus& dataBus, uint16_t address) {
-        registers.S = dataBus.pullStack(registers);
-        registers.PC = dataBus.pullStack(registers);
-        registers.PC += static_cast<uint16_t>(dataBus.pullStack(registers)) << 8;
-        registers.SP += 3;
+        registers.S = dataBus.read(registers.SP + STACK_END_ADDR + 1);
+        ++registers.SP;
+        registers.PC = dataBus.read(registers.SP + STACK_END_ADDR + 1);
+        ++registers.SP;
+        registers.PC += static_cast<uint16_t>(dataBus.read(registers.SP + STACK_END_ADDR + 1)) << 8;
+        ++registers.SP;
+        --registers.PC;  // Account for the fact the CPU will advance the PC by 1 for this instruction.
+        // If you don't decrement the PC, it will be erroneously 1 byte ahead
     }
     /* void RTS
     Returns from the subroutine by going to the address stored in the stack.
@@ -786,14 +881,19 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
 
     Flags Affected:
      - C: 0 if overflow in bit 7.
-    */
+    BUGS:
+     Expected log:
+        DB52  A9 81     LDA #$81                        A:7F X:05 Y:00 P:65 SP:FB PPU: 83,194 CYC:9499
+        DB54  F1 33     SBC ($33),Y = 0400 @ 0400 = 7F  A:81 X:05 Y:00 P:E5 SP:FB PPU: 83,200 CYC:9501
+        DB56  50 06     BVC $DB5E                       A:02 X:05 Y:00 P:65 SP:FB PPU: 83,215 CYC:9506
+     Actual:
+        (1209): LDA IMMED | Operands: 0x81, ____ | Old values of A: 0x7f, X: 0x05, Y: 0x00, SP: 0xfb, PC: 0xdb52 | Flags 0x65 C:1, Z: 0, I: 1, D: 0, V: 1, N: 0 | (3170)
+        (1210): SBC INDXY | Operands: 0x33, ____ | Old values of A: 0x81, X: 0x05, Y: 0x00, SP: 0xfb, PC: 0xdb54 | Flags 0xe5 C:1, Z: 0, I: 1, D: 0, V: 1, N: 1 | (3171)
+        (1211): BVC RELTV | Operands: 0x06, ____ | Old values of A: 0x7b, X: 0x05, Y: 0x00, SP: 0xfb, PC: 0xdb56 | Flags 0x64 C:0, Z: 0, I: 1, D: 0, V: 1, N: 0 | (3172)
+
+     */
     void SBC(Registers& registers, uint8_t data) {
-        uint8_t accumulatorBefore = registers.A;
-        registers.A -= 1 + data + registers.getStatus('C');
-        registers.setStatus('C', flagOps::isUnderflow(registers.A, data, registers.getStatus('C')));
-        registers.setStatus('V', flagOps::isSignBitIncorrect(accumulatorBefore, registers.A, data));
-        registers.setStatus('Z', registers.A == 0);
-        registers.setStatus('N', flagOps::isBit7Set(registers.A));
+        ops::ADC(registers, ~data);
     }
     /* void SEC
     Sets the carry flag to 1.
@@ -810,8 +910,8 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     Flags Affected:
      - D: set to 1.
     */
-    void SED(Registers& registers, uint8_t data)
-    {
+    void SED(Registers& registers, uint8_t data) {
+        registers.setStatus('D', 1);
     }
     /* void SEI
     Sets interrupt disable flag to 1.
@@ -859,7 +959,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void TAX(Registers& registers, uint8_t data) {
         registers.X = registers.A;
         registers.setStatus('Z', registers.X == 0);
-        registers.setStatus('N', flagOps::isBit7Set(registers.X));
+        registers.setStatus('N', helperByteOps::isBit7Set(registers.X));
     }
     /* void TAY
     Copies the accumulator into the Y register.
@@ -871,7 +971,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void TAY(Registers& registers, uint8_t data) {
         registers.Y = registers.A;
         registers.setStatus('Z', registers.Y == 0);
-        registers.setStatus('N', flagOps::isBit7Set(registers.Y));
+        registers.setStatus('N', helperByteOps::isBit7Set(registers.Y));
     }
     /* void TSR
     Copies the stack pointer into the X register.
@@ -883,7 +983,7 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void TSX(Registers& registers, uint8_t data) {
         registers.X = registers.SP;
         registers.setStatus('Z', registers.X == 0);
-        registers.setStatus('N', flagOps::isBit7Set(registers.X));
+        registers.setStatus('N', helperByteOps::isBit7Set(registers.X));
     }
     /* void TXA
     Copies the X register into the accumulator.
@@ -893,9 +993,9 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
      - N: set if bit 7 of A is set.
     */
     void TXA(Registers& registers, uint8_t data) {
-        registers.A == registers.X;
+        registers.A = registers.X;
         registers.setStatus('Z', registers.A == 0);
-        registers.setStatus('N', flagOps::isBit7Set(registers.A));
+        registers.setStatus('N', helperByteOps::isBit7Set(registers.A));
     }
     /* void TXS
     Copies the X register into the accumulator.
@@ -916,6 +1016,6 @@ namespace ops {  // TODO: Fix operations which relied on the old system of fetch
     void TYA(Registers& registers, uint8_t data) {
         registers.A = registers.Y;
         registers.setStatus('Z', registers.A == 0);
-        registers.setStatus('N', flagOps::isBit7Set(registers.A));
+        registers.setStatus('N', helperByteOps::isBit7Set(registers.A));
     }
 }

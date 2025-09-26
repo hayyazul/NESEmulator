@@ -1,69 +1,182 @@
-// main.cpp : Defines the entry point for the application.
-//
-
 #include "NESEmulator.h"
-#include "debuggingTools/testOpcodes.h"
 
-// TODO: 
-// - Debug instructions
-// - Create debugging tools (breakpoints, loggers, deassemblers, etc.)
+// MAIN TODO: 
+// - Fix issues w/ PPU Registers.
 
-int main() {
-	NESDebug nes;
-	nes.CPU_ptr->powerOn();
-	nes.setStdValue(0xcb);  // We set all values to 0xea as to avoid any issues w/ attempting to execute illegal opcodes.
-	nes.loadROM("testROMS/nestest.nes");
-	//nes.CPU_ptr->reset();
+#include "debuggingTools/frameCounter.h"
+#include "debuggingTools/NESDebug.h"
+#include "debuggingTools/PPUDebug.h"
+#include "debuggingTools/debugDisplays/tableDisplayer.h"
+#include "debuggingTools/debugDisplays/paletteDisplayer.h"
+#include "input/cmdInput.h"
+#include "ppu/ppu.h"
 
-	uint16_t addr;
-	bool found = nes.memFind(0x04, addr);
-	if (found) {
-		std::cout << "0x04 found at address 0x" << std::hex << std::setfill('0') << std::setw(4) << addr << std::endl;
-;	} else {
-		std::cout << "Failed to find 0x04 in memory." << std::endl;
-	
-	}
+#include "graphics/graphics.h"
+#include "graphics/textRenderer.hpp"
 
-	// Set the PC to 0xc000 because we have not implemented the PPU yet.
-	Registers registers = nes.registersPeek();
-	nes.memPoke(0x1f0, 0x801);  // Putting an address between 0x0800 and 0x8000 on the stack.
-	registers.PC = 0xc000;
-	nes.registersPoke(registers);
 
-	std::cout << "Initial execution address: 0x" << std::hex << (int)nes.CPU_ptr->registersPeek().PC << std::endl;
+#include <SDL.h>
+#include <bitset>
 
-	for (int i = 0; i < 10000; ++i) {
-		if (!nes.executeMachineCycle()) {
-			std::cout << "Failure: Invalid opcode: 0x" << std::hex << std::setfill('0') << std::setw(2) << (int)nes.databus_ptr->read(nes.CPU_ptr->registersPeek().PC) << " at 0x" << std::setfill('0') << std::setw(4) << (int)nes.CPU_ptr->registersPeek().PC << ", or in the .nes file: 0x" << std::setfill('0') << std::setw(4) << (int)(memAddrToiNESAddr(nes.CPU_ptr->registersPeek().PC)) << std::endl;
-			break;
-		}
-	}
+#include "debuggingTools/suites/generalDebugSuite.h"
+#include "debuggingTools/debugInput.h"
 
-	std::cout << std::hex << "Value of byte 0x2 (Anything but 0x00 is failure): 0x" << std::setfill('0') << std::setw(2) << (int)nes.memPeek(0x2) << std::endl;
-	std::cout << std::hex << "Value of byte 0x3 (Anything but 0x00 is failure): 0x" << std::setfill('0') << std::setw(2) << (int)nes.memPeek(0x3) << std::endl;
-	
-	std::cout << "Fin" << std::endl;
+#include "input/controller.h"
 
+#undef main  // Deals w/ the definition of main in SDL.
+int main() { 
 	/*
-	Memory memory;
-	DataBus databus{&memory};
-	_6502_CPU cpu{&databus};
-	std::cout << (int)cpu.registersPeek().A << std::endl;
-	std::cout << (int)cpu.memPeek(0x0000) << std::endl;
-	std::cout << (int)cpu.memPeek(0x0001) << std::endl;
+	GeneralDebugSuite g;
+	g.run();
 
-	cpu.memPoke(0x0001, 0x10);
-	cpu.executeOpcode(0xA9);
-	cpu.memPoke(0x00F0, 0xab);
-	cpu.memPoke(0x0001, 0xF0);
-	cpu.executeOpcode(0x81);
-	auto a = cpu.registersPeek().A;
-	std::cout << "Accumulator (expected: 16):" << (int)a << std::endl;
-	auto b = cpu.memPeek(0x00ab);
-	std::cout << "0x00F0 (expected: 16):" << (int)b << std::endl;
+	
+	SDL_Init(SDL_INIT_EVERYTHING);
 
-	//cpu.executeOpcode(0x00);
+	SDL_Window* window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1024, 480, SDL_WINDOW_RESIZABLE);
+	SDL_Renderer* renderer = SDL_CreateRenderer(window, 0, 0);
+	SDL_Surface* windowSurface = SDL_GetWindowSurface(window);
+
+	Input input;
+	StandardController controller{};
+	bool quit = false;
+	unsigned long long frameCounter = 0;
+
+	Memory VRAM{ 0x800 };
+	PPUDebug ppu;
+	NESDatabus databus;
+	RAM ram;
+	Memory cartridgeMemory{ 0x10000 };
+	_6502_CPU CPU;
+
+	NES nes;
+	nes.attachCPU(&CPU);
+	nes.attachPPU(&ppu);
+	nes.attachVRAM(&VRAM);
+	nes.attachRAM(&ram);
+	nes.attachCartridgeMemory(&cartridgeMemory);
+	nes.attachDataBus(&databus);
+	nes.attachController(&controller);
+	nes.loadROM("testROMS/donkey kong.nes");
+	nes.powerOn();
+
+
+	while (!quit) {
+		for (int i = 0; i < 357954; ++++i) {
+			nes.executeMachineCycle();
+		}
+
+		input.updateInput();
+		controller.readInput(input);  // Update the controller every frame.
+		quit = input.getQuit();
+
+		controller.setLatch(true);
+		controller.readInput(input);
+		controller.setLatch(false);
+
+		if (frameCounter % 60 == 0) {
+			std::cout << "Button states on frame " << frameCounter << ": \n";
+			for (int i = 0; i < 8; ++i) {
+				std::cout << controller.getData();
+				controller.clock();
+			}
+			std::cout << std::endl;
+		}
+
+		++frameCounter;
+		SDL_Delay(1000.0 / 60.0);
+	};
+
+	SDL_Quit();
 	
 	*/
+	
+	Memory VRAM{ 0x800 };
+	PPUDebug ppu;
+	NESDatabus databus;
+	RAM ram;
+	Memory cartridgeMemory{ 0x10000 };
+	_6502_CPU CPU;
+
+	DebugInput input;
+	StandardController controller{};
+
+	NES nes;
+	nes.attachCPU(&CPU);
+	nes.attachPPU(&ppu);
+	nes.attachVRAM(&VRAM);
+	nes.attachRAM(&ram);
+	nes.attachCartridgeMemory(&cartridgeMemory);
+	nes.attachDataBus(&databus);
+	nes.attachController(&controller);
+	nes.loadROM("testROMS/smb.nes");
+	nes.powerOn();
+	
+	PatternTableDisplayer PTDisplayer;
+	NametableDisplayer NTDisplayer;
+	CommandlineInput CLI;
+	
+	SDL_Init(SDL_INIT_EVERYTHING);
+	Graphics graphics{514, 256};
+	ppu.attachGraphics(&graphics);
+
+	SDL_Window* window = SDL_CreateWindow("My Window", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1024, 480, SDL_WINDOW_RESIZABLE);
+	SDL_Renderer* renderer = SDL_CreateRenderer(window, 0, 0);
+	SDL_Surface* windowSurface = SDL_GetWindowSurface(window);
+
+	//graphics.lockDisplay();
+	bool patternTable = false;
+	unsigned int nameTable = 0;
+	unsigned int x = 0, y = 0;
+
+	//graphics.unlockDisplay();
+
+	bool quit = false;
+
+	int numFrames = 1;
+	int numElapsed = 0;
+	unsigned long long total_frames = 0;
+	FrameCounter frame_counter;
+	while (!quit) {
+		++total_frames;
+		for (int i = 0; i < 357954; ++++i) {
+			controller.update4021();  // Transfers inputs to 4021 every clock cycle.
+			nes.executeMachineCycle();
+		}
+
+		input.updateInput();
+		/*
+		if (total_frames < 1000000) {
+			if (numElapsed % 13 == 0) {
+				KeyState next_state = input.getKeyState(SDL_SCANCODE_Q) == HELD ? NEUTRAL : HELD;
+				input.setKeyState(SDL_SCANCODE_Q, next_state);
+			}
+		}
+		else {
+			input.setKeyState(SDL_SCANCODE_RIGHT, HELD);
+		}
+		*/
+
+		quit = input.getQuit();
+		controller.readInput(input);  // Reads an input every frame
+		
+		graphics.blitDisplay(windowSurface);
+		SDL_UpdateWindowSurface(window);
+		
+		if (numElapsed >= numFrames) {
+			numFrames = CLI.getUserInt("Elapse how many more frames? ");
+		}
+		if (numElapsed % 60 == 0) {
+			std::cout << "\n --- Frame Rate: " << frame_counter.getFrameRate() << " --- \n";
+			std::cout << "Frame " << numElapsed << " after pause,\n";
+			input.printKeyStates();
+		}
+		++numElapsed;	
+		SDL_Delay(1000.0 / 60.0);
+		frame_counter.countFrame();
+	}
+
+	SDL_Quit();
+	
+	
 	return 0;
 }

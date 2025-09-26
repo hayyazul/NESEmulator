@@ -1,0 +1,40 @@
+#include "loadPalette.h"
+
+#include <fstream>
+#include <iostream>
+#include <algorithm>
+
+std::map<uint16_t, uint32_t> loadPalette(std::string filename) {
+	const size_t FILENAME_SIZE = filename.size();
+	const bool FILENAME_TOO_SMALL = filename.size() < 5;  // If there are 4 characters or less in the filename, it can not have a .pal extension.
+
+	std::string lastChars = filename.substr(FILENAME_SIZE - 4, 4);
+	std::transform(lastChars.begin(), lastChars.end(), lastChars.begin(), ::toupper);  // Account for file extensions w/ any capitalization.
+
+	const bool WRONG_FILE_EXTENSION = lastChars != ".PAL";
+
+	if (FILENAME_TOO_SMALL || WRONG_FILE_EXTENSION) {
+		std::cout << "Failed to load palette file; not a .pal file: " << filename << std::endl;
+		return std::map<uint16_t, uint32_t>{};
+	}
+
+	std::ifstream file{ filename, std::ios::binary };
+
+	if (!file) {
+		std::cout << "Failed to load palette file." << std::endl;
+		return std::map<uint16_t, uint32_t>{};
+	}
+
+	std::map<uint16_t, uint32_t> paletteMap;
+	uint8_t r, g, b;
+	uint32_t color = 0x000000ff;  // RGBA color; the alpha channel is always 0xff, we are only taking the RGB values from the file.
+	uint16_t idx = 0;  // Index of the current color (as used by the NES).
+
+	while (file >> std::noskipws >> r >> g >> b) {
+		color = (r << (8 * 3)) + (g << (8 * 2)) + (b << 8) + 0x000000ff;
+		paletteMap[idx] = color;
+		++idx;
+	}
+
+	return paletteMap;
+};

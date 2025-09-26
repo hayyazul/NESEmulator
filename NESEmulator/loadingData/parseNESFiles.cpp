@@ -3,6 +3,10 @@
 Result parseiNESFile(const char* filename, NESFileData& gameData) {
 	std::ifstream file{filename, std::ios_base::binary};
 	
+	if (!file) {
+		return CANT_OPEN_FILE;
+	}
+
 	unsigned int i = 0;
 	
 	const uint8_t properHeader[4]{'N', 'E', 'S', 0x1a};
@@ -42,6 +46,8 @@ Result parseiNESFile(const char* filename, NESFileData& gameData) {
 			break;
 		}
 
+		const int CHRDATA_START_ADDR = gameData.programDataSize + HEADER_SIZE;
+
 		if (i > 0xf) {
 			// In the standard case, we check if the current byte index is within bounds as given by the program and character data.
 			if (i < gameData.programDataSize + HEADER_SIZE) {  // Program data comes before character data, so if this is true, i being less than the address at where character data is stored is guaranteed.
@@ -49,6 +55,8 @@ Result parseiNESFile(const char* filename, NESFileData& gameData) {
 			}
 			else if (i < gameData.programDataSize + gameData.characterDataSize + HEADER_SIZE) {
 				gameData.characterData.push_back(data);
+				// NOTE: This only works for the NROM mapper; mappers with bigger CHR ROM or CHR RAM will go out of bounds; they will need to be handled by the mapper.
+				gameData.CHRDATA->setByte(i - CHRDATA_START_ADDR, data);
 			}
 		}
 
