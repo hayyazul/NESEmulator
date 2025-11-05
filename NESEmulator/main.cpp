@@ -108,7 +108,7 @@ int main() {
 	nes.attachCartridgeMemory(&cartridgeMemory);
 	nes.attachDataBus(&databus);
 	nes.attachController(&controller);
-	nes.loadROM("testROMS/smb.nes");
+	nes.loadROM("testROMS/donkey kong.nes");
 	nes.powerOn();
 	
 	PatternTableDisplayer PTDisplayer;
