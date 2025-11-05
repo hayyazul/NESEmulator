@@ -136,6 +136,8 @@ int main() {
 	int numElapsed = 0;
 	unsigned long long total_frames = 0;
 	FrameCounter frame_counter;
+	std::cout << "Standard NES controller used; arrow keys correspond to the directions on the D-pad. Other controls:\n" <<
+				 "W - Start\nQ - Select\nS - B Button\nA - A Button" << std::endl;
 	while (!quit) {
 		++total_frames;
 		for (int i = 0; i < 357954; ++++i) {
@@ -161,7 +163,7 @@ int main() {
 		
 		graphics.blitDisplay(windowSurface);
 		SDL_UpdateWindowSurface(window);
-		
+		/*
 		if (numElapsed >= numFrames) {
 			numFrames = CLI.getUserInt("Elapse how many more frames? ");
 		}
@@ -169,7 +171,7 @@ int main() {
 			std::cout << "\n --- Frame Rate: " << frame_counter.getFrameRate() << " --- \n";
 			std::cout << "Frame " << numElapsed << " after pause,\n";
 			input.printKeyStates();
-		}
+		}*/
 		++numElapsed;	
 		SDL_Delay(1000.0 / 60.0);
 		frame_counter.countFrame();
